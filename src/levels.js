@@ -7,11 +7,6 @@ export const POWERS = {
   hammer: { label: 'Hammer', clears: ['glass', 'brick', 'stone'] },
 };
 
-// Every level spawns every core material. Fire and water are the most common because
-// they cancel the most; the theme only nudges its main material up a little.
-const BASE_POOL = { fire: 22, water: 22, wood: 16, sand: 16, ice: 12, glass: 6, stone: 4, brick: 2 };
-const THEME_BONUS = 10;
-
 const THEMES = [
   { main: 'wood', power: 'blaze' },
   { main: 'water', power: 'freeze' },
@@ -19,15 +14,28 @@ const THEMES = [
   { main: 'glass', power: 'hammer' },
 ];
 
+// Pieces come from a shuffled bag, like a deck of cards: every bag has a fixed mix, so there
+// are no long streaks of one material.
+//
+// The logic behind the mix: fire is a tool (it never runs out on its own and keeps burning
+// wood and melting ice), water is ammo (fire, wood and mud all use it up). So each bag has
+// fewer cancellers than troublemakers, and the gap widens as levels go on.
+export function buildBag(level, main, help = false) {
+  const bag = { fire: 2, water: level <= 10 ? 3 : 2, wood: 1, sand: 1, ice: 1, glass: 1 };
+  bag[main] += 1; // a little extra of the level's theme
+  if (level > 40) bag.stone = 1;
+  if (level > 70) bag.brick = 1;
+  // Helping hand: one more of each canceller, and the player is told.
+  if (help) {
+    bag.fire += 1;
+    bag.water += 1;
+  }
+  return Object.entries(bag).flatMap(([m, n]) => Array(n).fill(m));
+}
+
 export function levelConfig(level, { help = false } = {}) {
   const theme = THEMES[(level - 1) % THEMES.length];
-  const pool = { ...BASE_POOL };
-  pool[theme.main] += THEME_BONUS;
-  // Helping hand: after repeated losses, more fire and water (the cancellers), and the player is told.
-  if (help) {
-    pool.fire *= 1.5;
-    pool.water *= 1.5;
-  }
+  const bag = buildBag(level, theme.main, help);
 
   // Drain this many four-cell pieces' worth of material to clear the level.
   const goal = { pieces: 15 + Math.floor((level - 1) / 5) };
@@ -38,5 +46,5 @@ export function levelConfig(level, { help = false } = {}) {
 
   const quest = level % 2 ? { type: 'chain', n: 3 } : { type: 'douse', n: 2 };
 
-  return { main: theme.main, power: theme.power, pool, goal, mode, quest, help };
+  return { main: theme.main, power: theme.power, bag, goal, mode, quest, help };
 }

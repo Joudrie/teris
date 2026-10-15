@@ -82,7 +82,7 @@ function startLevel(l) {
   $('over').hidden = true;
 
   const notes = [];
-  if (cfg.help) notes.push(`Helping hand: more ${NAME[cfg.main].toLowerCase()} this round.`);
+  if (cfg.help) notes.push('Helping hand: an extra fire and water in every bag this round.');
   if (cfg.mode === 'flood') notes.push('Flood: water keeps rising. Freeze it, soak it up, or mud it.');
   if (cfg.mode === 'prefill') notes.push('Burn through the wall.');
   $('banner').textContent = notes.join(' ');

@@ -68,6 +68,7 @@ export function createGame({ level = 1, rand = Math.random, config = levelConfig
     tickAcc: 0,
     riseAcc: 0,
     nextId: 0,
+    bag: [], // pieces left in the current shuffled bag
     falls: new Map(), // rigid block id -> rows fallen without stopping
     mask: new Set(), // particles covered by the falling piece
     events: [], // drained by the renderer for effects
@@ -86,20 +87,23 @@ export function part(g, m, id = ++g.nextId) {
   return { m, id, heat: 0, frz: 0, shade: g.rand() };
 }
 
-// Weighted pick. Weights are relative.
-export function pickMaterial(pool, rand) {
-  const entries = Object.entries(pool);
-  const total = entries.reduce((a, [, w]) => a + w, 0);
-  let r = rand() * total;
-  for (const [m, w] of entries) {
-    r -= w;
-    if (r < 0) return m;
+export function shuffle(list, rand) {
+  const a = [...list];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
   }
-  return entries[entries.length - 1][0];
+  return a;
+}
+
+// Draws the next material from the shuffled bag, refilling it when empty.
+export function drawMaterial(g) {
+  if (!g.bag.length) g.bag = shuffle(g.cfg.bag, g.rand);
+  return g.bag.pop();
 }
 
 function makeNext(g) {
-  return { m: pickMaterial(g.cfg.pool, g.rand), shape: SHAPES[Math.floor(g.rand() * SHAPES.length)] };
+  return { m: drawMaterial(g), shape: SHAPES[Math.floor(g.rand() * SHAPES.length)] };
 }
 
 // Bottom two rows of the main material with one gap column, one block per column.

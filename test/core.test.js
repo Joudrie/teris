@@ -1,17 +1,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  createGame, tick, hardDrop, softDrop, activatePower, revive, progress, piecesDrained, emptyGrid, pickMaterial,
+  createGame, tick, hardDrop, softDrop, activatePower, revive, progress, piecesDrained, emptyGrid, drawMaterial,
   altitude, fallSpeed, GW, GH, S, PIECE,
 } from '../src/core.js';
-import { levelConfig } from '../src/levels.js';
+import { levelConfig, buildBag } from '../src/levels.js';
 
 // Deterministic random source. 0.9 makes sideways moves try the left side first.
 const fixed = () => 0.9;
 const DT = 1 / 30;
 
 const baseConfig = (over = {}) => ({
-  main: 'wood', power: 'blaze', pool: { stone: 1 }, mode: 'normal',
+  main: 'wood', power: 'blaze', bag: ['stone'], mode: 'normal',
   goal: { pieces: 1000 }, quest: { type: 'chain', n: 3 }, ...over,
 });
 
@@ -51,28 +51,47 @@ test('levels rotate themes and every pool has fire and water to cancel', () => {
   assert.equal(levelConfig(1).goal.pieces, 15);
   assert.ok(levelConfig(100).goal.pieces > 15);
   for (let l = 1; l <= 4; l++) {
-    assert.ok(levelConfig(l).pool.fire > 0 && levelConfig(l).pool.water > 0, `level ${l}`);
+    const bag = levelConfig(l).bag;
+    assert.ok(bag.includes('fire') && bag.includes('water'), `level ${l}`);
   }
-  const pools = [1, 2, 3, 4].map((l) => Object.keys(levelConfig(l).pool)).flat();
-  for (const m of ['glass', 'brick', 'fire', 'wood', 'water', 'ice', 'sand', 'stone']) assert.ok(pools.includes(m), m);
+  const late = [...levelConfig(97).bag, ...levelConfig(98).bag, ...levelConfig(99).bag, ...levelConfig(100).bag];
+  for (const m of ['glass', 'brick', 'fire', 'wood', 'water', 'ice', 'sand', 'stone']) assert.ok(late.includes(m), m);
 });
 
-test('helping hand adds fire and water, not more of the main material', () => {
-  const help = levelConfig(1, { help: true }).pool;
-  const base = levelConfig(1).pool;
-  assert.ok(help.fire > base.fire && help.water > base.water);
+const tally = (bag) => bag.reduce((t, m) => ({ ...t, [m]: (t[m] || 0) + 1 }), {});
+
+test('bags have fewer cancellers than troublemakers, and get harder', () => {
+  const cancellers = (bag) => bag.filter((m) => m === 'fire' || m === 'water').length;
+  const early = buildBag(1, 'wood');
+  assert.deepEqual(tally(early), { fire: 2, water: 3, wood: 2, sand: 1, ice: 1, glass: 1 });
+  assert.ok(cancellers(early) <= early.length - cancellers(early)); // even split while learning
+  const mid = buildBag(20, 'wood');
+  assert.ok(cancellers(mid) < mid.length - cancellers(mid)); // fewer cancellers from level 11
+  assert.equal(tally(buildBag(20, 'wood')).water, 2);
+  assert.equal(tally(buildBag(50, 'wood')).stone, 1);
+  assert.equal(tally(buildBag(80, 'wood')).brick, 1);
+  assert.ok(cancellers(buildBag(80, 'wood')) / buildBag(80, 'wood').length < cancellers(early) / early.length);
+});
+
+test('helping hand adds one fire and one water to the bag', () => {
+  const base = tally(buildBag(1, 'wood'));
+  const help = tally(buildBag(1, 'wood', true));
+  assert.equal(help.fire, base.fire + 1);
+  assert.equal(help.water, base.water + 1);
   assert.equal(help.wood, base.wood);
 });
 
-test('every level spawns ice and glass, and no material dominates', () => {
-  for (let l = 1; l <= 4; l++) {
-    const pool = levelConfig(l).pool;
-    const total = Object.values(pool).reduce((a, b) => a + b, 0);
-    assert.ok(pool.ice > 0 && pool.glass > 0, `level ${l}`);
-    for (const [m, w] of Object.entries(pool)) assert.ok(w / total < 0.3, `${m} on level ${l}`);
+test('pieces come out of the bag with the exact mix every time', () => {
+  let r = 0.37;
+  const rand = () => (r = ((r * 9301 + 49297) % 233280) / 233280);
+  const g = createGame({ level: 1, rand, config: { ...levelConfig(1), mode: 'normal' } });
+  g.bag = [];
+  const want = tally(g.cfg.bag);
+  for (let round = 0; round < 3; round++) {
+    const drawn = g.cfg.bag.map(() => drawMaterial(g));
+    assert.deepEqual(tally(drawn), want);
   }
 });
-
 test('soaking wet wood again dissolves it', () => {
   const g = setup();
   put(g, 4, GH - 1, 'wetwood');
@@ -94,11 +113,6 @@ test('water washes mud away', () => {
   run(g, 0.4);
   assert.equal(g.grid[GH - 1][4], null);
   assert.equal(g.drained, 2);
-});
-
-test('pickMaterial respects weights', () => {
-  assert.equal(pickMaterial({ a: 1, b: 1 }, () => 0.1), 'a');
-  assert.equal(pickMaterial({ a: 1, b: 1 }, () => 0.9), 'b');
 });
 
 test('sand landing on water turns into mud', () => {
