@@ -20,7 +20,7 @@ Phase 5 (mechanics, progression, instant hook) and Phase 6 (bug overhaul) are do
 <!-- gen:winrates -->
 <!-- /gen:winrates -->
 
-**Bugs fixed: 9** (see the [bug log](#bug-log)). **Final fuzz: see [Fuzzing](#fuzzing): 0 crashes, 0 invariant breaks.**
+**Bugs fixed: 10** (see the [bug log](#bug-log)). **Final fuzz: see [Fuzzing](#fuzzing): 0 crashes, 0 invariant breaks.**
 
 **Top 5 next steps**
 
@@ -304,8 +304,9 @@ Notes:
 | 5 | A system clock set backwards (saved `mb_last_ad` in the future) locked interstitials out forever | Found while fixing #3 | `mb_last_ad` = now + 1 year | 32af264 | `regression: a clock set backwards does not lock ads out forever` |
 | 6 | Wood floating was dead code: water dissolved the wood before it could float | Test card `float` failed | any wood under water | 32eed00 | removed; card `soak` covers what does happen |
 | 7 | Stone and brick erosion was too slow to see (12 of 64 particles after 9 s) | Test card `erode` | card scene | 32eed00 | `water wears stone down to sand, and the wear spreads through the piece`, card `erode` |
-| 8 | The background cloud layer was drawn as opaque grey blobs that looked like smoke or rubble and hid materials | Card screenshots | levels 1–45, any board | (this pass) | visual: `docs/shots/card-*.jpg` |
-| 9 | The canvas "LEVEL CLEARED" text bled through the win-screen overlay behind the next-level preview | Hook screenshot | win any level | (this pass) | visual: `docs/shots/hook-06-win-screen.jpg` |
+| 8 | The background cloud layer was drawn as opaque grey blobs that looked like smoke or rubble and hid materials | Card screenshots | levels 1–45, any board | b1f694b | visual: `docs/shots/card-*.jpg` |
+| 9 | The canvas "LEVEL CLEARED" text bled through the win-screen overlay behind the next-level preview | Hook screenshot | win any level | b1f694b | visual: `docs/shots/hook-06-win-screen.jpg` |
+| 10 | The daily challenge said "same level for everyone today" but dealt pieces from `Math.random`, so every player got a different game | Code review | Start the daily on two devices on the same day | DAILYFIX | `regression: the daily challenge deals the same pieces to everyone that day` |
 
 Not bugs, but found and fixed on the way:
 - Level 2's first piece reacted with nothing, so a newbie's first drain came at 17 s; it's now 5 s.

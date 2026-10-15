@@ -357,6 +357,24 @@ test('regression: a clock set backwards does not lock ads out forever', () => {
   assert.ok(s.ad);
 });
 
+// BUG LOG #10 (code review): the daily challenge said "same level for everyone today"
+// but dealt pieces from Math.random, so every player got a different game.
+test('regression: the daily challenge deals the same pieces to everyone that day', () => {
+  const deal = (seed, day) => {
+    const s = mk({ rand: mulberry32(seed), now: () => Date.UTC(2026, 9, day, 12) });
+    startDaily(s);
+    const out = [];
+    for (let i = 0; i < 12; i++) {
+      out.push(s.game.piece.mats.join() + s.game.piece.cells.join());
+      s.game.grid.forEach((row) => row.fill(null));
+      input(s, 'slam');
+    }
+    return out.join('|');
+  };
+  assert.equal(deal(1, 15), deal(99, 15));
+  assert.notEqual(deal(1, 15), deal(1, 16));
+});
+
 test('safeStore never throws', () => {
   const st = safeStore(blocked);
   st.set('a', 1);

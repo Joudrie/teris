@@ -83,6 +83,17 @@ export function createSession({ storage = null, rand = Math.random, now = () => 
   return s;
 }
 
+// Small seeded generator (mulberry32).
+function seeded(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 const clampLevel = (l) => Math.min(TOTAL_LEVELS, Math.max(1, Math.floor(Number(l)) || 1));
 
 export function start(s, level, { daily = false } = {}) {
@@ -97,7 +108,8 @@ export function start(s, level, { daily = false } = {}) {
     cfg = levelConfig(s.level, { help: losses >= 3 });
   }
   s.cfg = cfg;
-  s.game = createGame({ level: daily ? cfg.level : s.level, rand: s.rand, config: cfg });
+  // The daily challenge deals the same pieces to everyone that day.
+  s.game = createGame({ level: daily ? cfg.level : s.level, rand: daily ? seeded(cfg.seed) : s.rand, config: cfg });
   s.phase = 'play';
   s.ad = null;
   s.celebrateT = 0;
