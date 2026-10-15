@@ -59,3 +59,19 @@ test('the game ends when the sand reaches the top', () => {
   }
   assert.ok(s.over);
 });
+
+test('a one-grain diagonal staircase counts as a bridge', () => {
+  const s = createSand({ rand: mulberry32(13) });
+  s.piece = null;
+  // Fill the floor with red, then cut a blue staircase through it that only touches at corners.
+  for (let x = 0; x < GW; x++) for (let y = GH - 20; y < GH; y++) s.cell[y * GW + x] = 4;
+  for (let x = 0; x < GW; x++) s.cell[(GH - 2 - Math.floor(x / 4)) * GW + x] = 1;
+  // Break the red so it can't bridge on its own.
+  for (let y = GH - 20; y < GH; y++) if (s.cell[y * GW + 30] === 4) s.cell[y * GW + 30] = 3;
+  for (let x = 0; x < GW; x++) { const y = GH - 2 - Math.floor(x / 4); if (x % 4 === 3 && x < GW - 1) { assert.equal(s.cell[(y - 1) * GW + x + 1], 1); assert.notEqual(s.cell[y * GW + x + 1], 1, 'only a corner touches'); } }
+  const ev = run(s, 0.05);
+  const clear = ev.find((e) => e.type === 'clear');
+  assert.ok(clear, 'the staircase clears');
+  assert.equal(clear.color, 0);
+  assert.equal(clear.grains, GW);
+});

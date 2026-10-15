@@ -47,7 +47,7 @@ A second way to play, from the **Sand** button on the map (src/modes/sandcore.js
 
 - Each piece is one color of terracotta-style clay sand: blue, green, yellow and red to start, with orange joining at level 4 and purple at level 7.
 - A piece falls as a solid block. When it lands it breaks into grains (6×6 per cell) that pour and slide.
-- Any connected patch of one color that reaches from the left wall to the right wall flashes and clears. Clears made within 2.5 seconds of each other chain for bonus points.
+- Any connected patch of one color that reaches from the left wall to the right wall flashes and clears. Grains that touch only at a corner count as connected, so a thin diagonal staircase of one color is a fair bridge. Clears made within 2.5 seconds of each other chain for bonus points.
 - Every 1,200 points is a new level, and pieces fall faster. The game ends when the sand reaches the top. Your best score is saved on this device.
 - Controls are the same as the campaign: swipe to move, tap to rotate, flick down to drop, hold a drag down to pour faster. On a keyboard use the arrows, space and Escape.
 - The room is fired clay with a brick-framed well. The side walls are striped in the sand colors to show where a color has to reach.

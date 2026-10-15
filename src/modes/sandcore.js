@@ -1,6 +1,6 @@
 // Sand mode rules (no drawing). Pieces are one color of sand. A piece falls as a solid block;
 // the moment it lands it breaks into grains that pour and slide. Any connected patch of one
-// color that reaches from the left wall to the right wall clears. Clear patches to score; the
+// color that reaches from the left wall to the right wall clears (corners count as touching). Clear patches to score; the
 // game ends when the sand reaches the top.
 //
 // The board is CW x CH cells of G x G grains. Everything is in grain units except piece
@@ -174,7 +174,8 @@ function pour(s, flip) {
   return moved;
 }
 
-// A color patch connected (4-way) from the left wall to the right wall clears.
+// A color patch connected from the left wall to the right wall clears. Grains touching only at
+// a corner count as connected, so a diagonal staircase of one color is a fair bridge.
 const seen = new Int32Array(GW * GH);
 let stamp = 0;
 const queue = new Int32Array(GW * GH);
@@ -195,7 +196,8 @@ function findBridges(s) {
       const i = queue[head++];
       const x = i % GW;
       if (x === GW - 1) right = true;
-      const nb = [x > 0 ? i - 1 : -1, x < GW - 1 ? i + 1 : -1, i - GW, i + GW];
+      const l = x > 0, r = x < GW - 1;
+      const nb = [l ? i - 1 : -1, r ? i + 1 : -1, i - GW, i + GW, l ? i - GW - 1 : -1, r ? i - GW + 1 : -1, l ? i + GW - 1 : -1, r ? i + GW + 1 : -1];
       for (const n of nb) {
         if (n < 0 || n >= GW * GH || seen[n] === stamp || c[n] !== v || s.flash[n] > 0) continue;
         seen[n] = stamp;
