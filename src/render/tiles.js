@@ -86,12 +86,12 @@ const FACES = {
   brick(p, r, n) {
     return fromPattern(p, r, n, r() < 0.5 ? BRICK_A : BRICK_B, mix(p.mortar, p.dark, 0.18), 0.28);
   },
-  ice(p, r, n) {
+  ice(p, r, n, frame = 0, body = false) {
     const g = grid(n, p.base);
     for (let y = 0; y < n; y++) {
       for (let x = 0; x < n; x++) {
         let c = p.base;
-        if (x === 1 || y === 1 || x === n - 2 || y === n - 2) c = mix(p.base, p.light, 0.35); // inner rim
+        if (!body && (x === 1 || y === 1 || x === n - 2 || y === n - 2)) c = mix(p.base, p.light, 0.35); // inner rim
         if (r() < 0.08) c = p.light; // frost specks
         g[y][x] = [...c, 255];
       }
@@ -103,14 +103,14 @@ const FACES = {
       x = Math.max(1, Math.min(n - 2, x + (r() < 0.5 ? -1 : 1)));
     }
     // Frosted corner.
-    g[1][1] = [...p.light, 255]; g[1][2] = [...p.light, 255]; g[2][1] = [...p.light, 255];
+    if (!body) { g[1][1] = [...p.light, 255]; g[1][2] = [...p.light, 255]; g[2][1] = [...p.light, 255]; }
     return g;
   },
-  glass(p, r, n) {
+  glass(p, r, n, frame = 0, body = false) {
     const g = grid(n, p.base);
     for (let y = 0; y < n; y++) {
       for (let x = 0; x < n; x++) {
-        const edge = x === 0 || y === 0 || x === n - 1 || y === n - 1;
+        const edge = !body && (x === 0 || y === 0 || x === n - 1 || y === n - 1);
         g[y][x] = edge ? [...mix(p.edge, p.light, 0.6), 245] : [...mix(p.base, p.light, 0.35 - y / n * 0.25), 110 + Math.round((1 - y / n) * 50)];
       }
     }
@@ -258,6 +258,26 @@ function paintPixel(ctx, T, skin, m, p, variant, frame) {
   }
 }
 
+// The same face with no per-cell edge at all: no outline, bevel, volume or gloss. Landed blocks
+// are drawn from these so a pile of the same material reads as one continuous shape; the board
+// renderer adds the bevel and edge only around the outside of each region.
+function paintPixelBody(ctx, T, skin, m, p, variant, frame) {
+  const n = skin.texels;
+  const r = rng(m.length * 1000 + variant * 31 + 7);
+  const face = FACES[m](p, r, n, frame, true);
+  for (let ty = 0; ty < n; ty++) {
+    const y0 = Math.round((ty * T) / n);
+    const y1 = Math.round(((ty + 1) * T) / n);
+    for (let tx = 0; tx < n; tx++) {
+      const x0 = Math.round((tx * T) / n);
+      const x1 = Math.round(((tx + 1) * T) / n);
+      const [cr, cg, cb, ca] = face[ty][tx];
+      ctx.fillStyle = css([cr, cg, cb], ca / 255);
+      ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+    }
+  }
+}
+
 // Soft matte toy block: gradient face, big radius, ambient occlusion. The Clay look.
 function paintClay(ctx, T, skin, m, p, variant) {
   const rad = T * skin.radius;
@@ -383,6 +403,28 @@ export function bakeTiles(skin, T) {
       row.push(c);
     }
     tiles.fireFrames.push(row);
+  }
+  // Seamless bodies for landed blocks (pixel skins only; the others keep whole tiles).
+  if (skin.mode === 'pixel') {
+    tiles.body = {};
+    for (const m of MATERIALS) {
+      tiles.body[m] = [];
+      for (let v = 0; v < VARIANTS; v++) {
+        const c = canvas(T, T);
+        paintPixelBody(c.getContext('2d'), T, skin, m, skin.mats[m], v, 0);
+        tiles.body[m].push(c);
+      }
+    }
+    tiles.bodyFire = [];
+    for (let f = 0; f < FIRE_FRAMES; f++) {
+      const row = [];
+      for (let v = 0; v < VARIANTS; v++) {
+        const c = canvas(T, T);
+        paintPixelBody(c.getContext('2d'), T, skin, 'fire', skin.mats.fire, v, f);
+        row.push(c);
+      }
+      tiles.bodyFire.push(row);
+    }
   }
   return tiles;
 }

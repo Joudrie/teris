@@ -212,9 +212,14 @@ body { background-size: cover; background-position: center; background-repeat: n
 /* Falls into place and lands with a small squash. */
 @keyframes callin { 0% { transform: translate(-50%, -60px); opacity: 0; } 55% { transform: translate(-50%, 0); opacity: 1; } 70% { transform: translate(-50%, 0) scale(1.04, .94); } 85% { transform: translate(-50%, -2px) scale(.99, 1.02); } 100% { transform: translate(-50%, 0); } }
 
-.next { width: 98px; height: 84px; flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
-.next span { font-family: var(--lab); font-size: 11px; color: var(--gold); letter-spacing: 1px; text-transform: uppercase; }
-.next canvas { width: 72px; height: 48px; }
+.next { position: relative; width: 98px; height: 84px; flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding-top: 4px; }
+.next > span { font-family: var(--lab); font-size: 10px; color: var(--gold); letter-spacing: 1px; text-transform: uppercase; }
+.next canvas { width: 64px; height: 34px; }
+.next .nx-name { font-family: var(--ui); font-weight: 700; font-size: 12px; line-height: 1; color: var(--cream); white-space: nowrap; max-width: 92px; overflow: hidden; text-overflow: ellipsis; }
+/* The falling piece's material, on a tag across the top of the next tray. */
+.now { position: absolute; top: -13px; left: 50%; transform: translateX(-50%); display: flex; align-items: baseline; gap: 4px; white-space: nowrap; padding: 2px 7px 1px; background: #f3e2b8; color: #2b1d08; box-shadow: inset -2px -2px 0 #c9a76a; z-index: 2; }
+.now span { font-family: var(--lab); font-size: 8px; text-transform: uppercase; color: #6b4a14; }
+.now b { font-family: var(--ui); font-weight: 700; font-size: 12px; line-height: 1; }
 .next canvas.pop { animation: hit 220ms var(--settle); }
 
 .quest { flex: 1; min-width: 0; height: 62px; display: flex; align-items: center; gap: 8px; padding: 0 10px; }
@@ -271,7 +276,11 @@ body { background-size: cover; background-position: center; background-repeat: n
 .map-scroll { position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; touch-action: pan-y; overscroll-behavior: contain; scrollbar-width: none; }
 .map-scroll::-webkit-scrollbar { display: none; }
 .map-track { position: relative; width: 100%; }
-.map-sky { position: absolute; inset: 0; }
+.map-sky { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: fill; }
+#sky { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
+.map-cloud { animation: drift 38s ease-in-out infinite alternate; }
+.map-cloud:nth-child(odd) { animation-duration: 52s; animation-direction: alternate-reverse; }
+@keyframes drift { from { transform: translateX(-24px); } to { transform: translateX(24px); } }
 .map-cloud { position: absolute; pointer-events: none; }
 .map-logo { position: absolute; left: 0; right: 0; top: 74px; z-index: 1; text-align: center; pointer-events: none; }
 .map-logo b { display: block; font-family: var(--px); font-weight: 400; font-size: 72px; line-height: .8; letter-spacing: 3px; color: var(--cream); text-shadow: 0 5px 0 #6b3a10, 0 10px 0 rgba(0, 0, 0, .25); }
@@ -476,3 +485,83 @@ body.ov-lose .wellwrap { opacity: 0; }
   *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; }
 }
 body.calm *, body.calm *::before, body.calm *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; }
+
+/* =====================================================================================
+   Legibility pass. Texture lives on the frames, never behind words: every surface is a solid
+   face inside a textured border (stone, wood, fire, ice), so text always sits on a flat color
+   that meets WCAG contrast (body text 4.5:1 or better, large display text 3:1 or better).
+   ===================================================================================== */
+:root {
+  --face: linear-gradient(#2c2f38, #23252d);
+  --face-deep: linear-gradient(#1f2128, #191a20);
+  --frame-stone: var(--tex-stone) 0 0 / 24px 24px;
+  --frame-wood: var(--tex-wood) 0 0 / 24px 24px;
+  --frame-fire: var(--tex-fire) 0 0 / 24px 24px;
+  --frame-ice: var(--tex-ice) 0 0 / 24px 24px;
+  --frame-brick: var(--tex-brick) 0 0 / 24px 24px;
+  --face-bevel: inset 2px 2px 0 rgba(255, 255, 255, .1), inset -2px -2px 0 rgba(0, 0, 0, .35);
+}
+.panel, .btn-navy, .btn-ic, .sidebtn, .boost, .card, .sheet .x, .pill {
+  border: 5px solid transparent;
+  background: var(--face) padding-box, var(--frame-stone) border-box;
+  image-rendering: pixelated;
+  box-shadow: var(--face-bevel), 0 3px 0 rgba(0, 0, 0, .3);
+}
+.pill, .sheet .x { border-width: 3px; }
+.goal { padding: 0 10px 0 4px; }
+.quest { padding: 0 8px; }
+/* Fire: solid ember face in a fire-tile frame, white label. */
+.btn-green { border: 5px solid transparent; background: linear-gradient(#ff8a2e, #d9550f) padding-box, var(--frame-fire) border-box; box-shadow: inset 3px 3px 0 rgba(255, 220, 160, .45), inset -3px -3px 0 rgba(120, 30, 0, .45); }
+.btn-green > .t, .btn-green > span, .btn-green > small { background: none; padding: 0; }
+.btn-green .t { color: #fff; text-shadow: 0 3px 0 rgba(110, 30, 0, .8); }
+.btn-green small { color: #fff3e0; }
+/* Ice: pale solid face, dark ink label. */
+.btn-blue { border: 5px solid transparent; background: linear-gradient(#e4f8ff, #b6e8fb) padding-box, var(--frame-ice) border-box; box-shadow: inset 3px 3px 0 rgba(255, 255, 255, .8), inset -3px -3px 0 rgba(60, 130, 170, .35); color: var(--ice-ink); }
+.btn-gold { border: 5px solid transparent; background: linear-gradient(#ffe27a, #ffc21a) padding-box, linear-gradient(#c98a00, #8a5a00) border-box; }
+.btn-red { border: 5px solid transparent; background: linear-gradient(#d65a42, #a8382a) padding-box, var(--frame-brick) border-box; color: #fff; }
+.btn-navy, .btn-ic, .sidebtn, .boost { color: var(--cream); }
+/* Wood planks (titles, plaque): solid wood face, plank texture only on the edge. */
+.sheet h2, .plaque, .ribbon { background: linear-gradient(#d39a5c, #b9773c) padding-box, var(--frame-wood) border-box; border: 4px solid transparent; border-left: 0; border-right: 0; color: #2e1803; text-shadow: 0 2px 0 rgba(255, 236, 205, .5); }
+.plaque, .ribbon { border: 4px solid transparent; }
+.over.lose .ribbon { background: var(--face) padding-box, var(--frame-stone) border-box; color: var(--cream); text-shadow: 0 3px 0 rgba(0, 0, 0, .6); }
+.over.daily .ribbon { background: linear-gradient(#ffe27a, #ffc21a) padding-box, linear-gradient(#c98a00, #8a5a00) border-box; color: var(--gold-ink); }
+/* Menus: the page behind is blurred and darkened so the slab is the only thing to read. */
+.sheet-wrap { background: rgba(12, 13, 18, .62); -webkit-backdrop-filter: blur(7px) saturate(.7); backdrop-filter: blur(7px) saturate(.7); }
+.sheet { background: var(--face-deep) padding-box, var(--frame-stone) border-box; border: 6px solid transparent; padding: 0 14px 16px; }
+.sheet h2 { margin: 0 -14px 4px; }
+.sheet .note { color: #b9b3a3; }
+/* Toggles: dark solid when off, solid ice when on. */
+.toggle { background: #18191f; color: #cfc8b6; box-shadow: inset 2px 2px 0 rgba(0, 0, 0, .5), inset -2px -2px 0 rgba(255, 255, 255, .06); }
+.toggle.on { background: linear-gradient(#e4f8ff, #b6e8fb); box-shadow: inset 2px 2px 0 rgba(255, 255, 255, .8), inset -2px -2px 0 rgba(60, 130, 170, .4); color: var(--ice-ink); }
+.toggle i { background: #3a3c46; }
+.toggle.on i { background: #2f7d14; }
+/* Niches (shop items, gift days, codex rows) sit flat and dark. */
+.item, .day, .mat { background: #1a1b21; }
+.day.today { color: #2e1803; }
+.mat p { color: #d6cfbd; }
+.nextup { background: #1a1b21; color: #d6cfbd; }
+.card { color: var(--cream); }
+.card .row.reward { background: #3a3218; }
+.callout { background: #f6ead0; box-shadow: inset 4px 4px 0 rgba(255, 255, 255, .7), inset -4px -4px 0 rgba(150, 110, 50, .45), 0 12px 24px rgba(10, 12, 20, .35); border: 5px solid transparent; background: #f6ead0 padding-box, var(--tex-sand) 0 0 / 24px 24px border-box; }
+.callout small { color: #5a4a2c; }
+.banner { background: #16171c; }
+.goal-num small, .moves small { color: #e9e2cf; }
+.quest .q-n { color: #e2dbc8; }
+.power { border: 5px solid transparent; background: var(--face-deep) padding-box, var(--frame-stone) border-box; }
+.well { border: 8px solid transparent; padding: 4px; background: #1f2128 padding-box, var(--frame-stone) border-box; box-shadow: inset 2px 2px 0 rgba(255, 255, 255, .08), 0 10px 26px rgba(10, 12, 20, .35); }
+.moves { border: 5px solid transparent; background: linear-gradient(#c9533c, #9c3524) padding-box, var(--frame-brick) border-box; }
+.moves.low { background: linear-gradient(#ff5a3c, #c22a14) padding-box, var(--frame-brick) border-box; }
+.moves small { background: none; padding: 0; }
+/* Contrast fixes from the audit (tools: scratch contrast.js). White text needs the deeper fire. */
+.callout { background: linear-gradient(#f6ead0, #f6ead0) padding-box, var(--tex-sand) 0 0 / 24px 24px border-box; }
+.well { background: linear-gradient(#1f2128, #1f2128) padding-box, var(--frame-stone) border-box; }
+.btn-green { background: linear-gradient(#f2701f, #c2410c) padding-box, var(--frame-fire) border-box; }
+.btn-green small { background: #7a2604; color: #fff; padding: 1px 6px 0; }
+.badge { background: #c4210f; }
+.boost b { background: #b93c0a; }
+.item .ribbon-tag, .nu-tile i { background: #b93c0a; box-shadow: inset -2px -2px 0 #7a2604; }
+.day.today { background: linear-gradient(#e7b277, #cf9455) padding-box, var(--frame-wood) border-box; border: 4px solid transparent; }
+.day.today, .day.today b, .day.today span { color: #2e1803; }
+.power.ready .tag { background: #b93c0a; }
+.sidebtn em { background: #3f8a1c; color: #fff; }
+.sidebtn em { background: #2f6e12; }

@@ -32,3 +32,11 @@ Tokens live at the top of [`style.css`](../../style.css). The block textures (`-
 ## Sound
 
 Interface sounds match the materials (`src/sound.js`): `tap` is a stone block clicking into its socket, `open` is rushing air as a slab falls, `slab` is the landing thud with grit, `crumble` is stone breaking up, `ember` is the Play block bursting, and `crate` is wood cracking open.
+
+## Round 2 (owner feedback)
+
+- **Landed blocks merge.** A falling piece shows its cells so its shape reads; once it lands, every block of the same material becomes one continuous shape. The board draws landed particles from seamless body tiles and puts the bevel and edge only around the outside of each material region (`drawMerged` in `board.js`, `paintPixelBody` in `tiles.js`).
+- **Legibility.** Texture lives on frames, never behind words: every panel and button is a solid face inside a textured border. Menus blur and darken the page behind them. A contrast audit (WCAG: 4.5:1 for body text, 3:1 for large display text) over ten screens finds no failures.
+- **Everything is named.** The next tray names the next piece's material; a "Now" tag on top of it names the falling piece (for example "Ice + Glass").
+- **The descent.** The backdrop changes with every floor: stars at the top of the tower, the sun over a sea of clouds, inside the clouds, skyscraper rooftops, the skyline, trees up close, then the ground (`quarry` in `world.js`). The tower map paints the same journey down its whole height (`paintTower`).
+- **A living sky.** Clouds drift, stars twinkle, the sun breathes and a bird flaps past every 20–40 seconds (`src/render/sky.js`). It's off at the lowest quality step and while menus are open.

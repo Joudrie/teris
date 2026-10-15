@@ -176,8 +176,68 @@ export function createBoardRenderer(cv, skin) {
     return n && n.id === id && n.m === m;
   };
 
+  // Landed blocks as merged shapes: every particle takes its slice of the seamless body texture,
+  // and the bevel and edge are drawn only where the neighbour is not the same material. Three
+  // fire blocks side by side read as one fire, not three squares.
+  function drawMerged(target, grid, onlyFire, ts, assist) {
+    const { P, tiles } = st;
+    const T = P * S;
+    const sk = st.skin;
+    const fireFrame = Math.floor(ts / 110);
+    const e = Math.max(1, Math.round(P * 0.32));
+    const rim = Math.max(1, Math.round(P * 0.16));
+    const paths = {};
+    const path = (m) => paths[m] || (paths[m] = { light: new Path2D(), dark: new Path2D(), edge: new Path2D() });
+    const same = (x, y, m) => {
+      if (x < 0 || x >= GW || y < 0 || y >= GH) return false;
+      const n = grid[y][x];
+      return !!n && n.m === m;
+    };
+    target.imageSmoothingEnabled = false;
+    for (let y = 0; y < GH; y++) {
+      const row = grid[y];
+      for (let x = 0; x < GW; x++) {
+        const c = row[x];
+        if (!c || !RIGID.has(c.m) || (c.m === 'fire') !== onlyFire) continue;
+        const u = x & 3;
+        const pv = vmap.get(c) || 0;
+        const v = pv & 3;
+        const variant = variantOf(x, pv >> 2);
+        const tile = onlyFire ? tiles.bodyFire[(fireFrame + (c.id % FIRE_FRAMES)) % FIRE_FRAMES][variant] : tiles.body[c.m][variant];
+        target.drawImage(tile, u * P, v * P, P, P, x * P, y * P, P, P);
+        if (assist && u === 1 && v === 1) { const em = st.emblems[c.m]; target.drawImage(em, (x - 1) * P + (T - em.width) / 2, (y - 1) * P + (T - em.height) / 2); }
+        const up = same(x, y - 1, c.m);
+        const left = same(x - 1, y, c.m);
+        const down = same(x, y + 1, c.m);
+        const right = same(x + 1, y, c.m);
+        if (up && left && down && right) continue;
+        const p = path(c.m);
+        if (!up) { p.light.rect(x * P, y * P, P, e); p.edge.rect(x * P, y * P, P, rim); }
+        if (!left) { p.light.rect(x * P, y * P, e, P); p.edge.rect(x * P, y * P, rim, P); }
+        if (!down) { p.dark.rect(x * P, y * P + P - e, P, e); p.edge.rect(x * P, y * P + P - rim, P, rim); }
+        if (!right) { p.dark.rect(x * P + P - e, y * P, e, P); p.edge.rect(x * P + P - rim, y * P, rim, P); }
+      }
+    }
+    for (const m in paths) {
+      const mat = sk.mats[m];
+      const p = paths[m];
+      if (m === 'glass') {
+        target.fillStyle = css(mat.light, 0.85);
+        target.fill(p.edge);
+        continue;
+      }
+      target.fillStyle = css(mat.light, 0.45);
+      target.fill(p.light);
+      target.fillStyle = 'rgba(0,0,0,0.3)';
+      target.fill(p.dark);
+      target.fillStyle = css(mat.edge, 0.9);
+      target.fill(p.edge);
+    }
+  }
+
   // Rigid tiles into `target`: the solid ones (cached between frames) or only fire (animated).
   function drawRigid(target, grid, onlyFire, ts, assist) {
+    if (st.tiles.body) return drawMerged(target, grid, onlyFire, ts, assist);
     const { P, tiles } = st;
     const T = P * S;
     st.frame++;

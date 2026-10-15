@@ -17,6 +17,7 @@ import { createBoardRenderer } from './render/board.js';
 import { SKINS } from './render/skins.js';
 import { previewTile } from './render/tiles.js';
 import { paintWorld } from './render/world.js';
+import { createSky } from './render/sky.js';
 import { createFx } from './render/fx.js';
 import { css } from './render/color.js';
 import { icon, POWER_ICON, QUEST_ICON } from './ui/icons.js';
@@ -64,6 +65,7 @@ const fx = createFx($('fxc'));
 fx.motion = settings.motion;
 const worldCv = $('world');
 const wctx = worldCv.getContext('2d');
+const sky = createSky($('sky'));
 
 const POWER_STYLE = {
   rain: { pc: '#8fd0ff', pc2: '#3f9cff', pc3: '#1c5fc8', word: 'aqua' },
@@ -147,8 +149,8 @@ function fit() {
   paintWorldNow();
   const nx = $('nx');
   const d = Math.min(2, window.devicePixelRatio || 1);
-  nx.width = Math.round(72 * d);
-  nx.height = Math.round(48 * d);
+  nx.width = Math.round(64 * d);
+  nx.height = Math.round(34 * d);
   lastNext = '';
   const wr = $('well').getBoundingClientRect();
   document.documentElement.style.setProperty('--well-top', `${Math.max(12, Math.round(wr.top))}px`);
@@ -165,7 +167,9 @@ function paintWorldNow(force = false) {
   const d = Math.min(quality ? 1.5 : 1, window.devicePixelRatio || 1);
   worldCv.width = Math.round(innerWidth * d);
   worldCv.height = Math.round(innerHeight * d);
-  paintWorld(wctx, worldCv.width, worldCv.height, alt, 'toybox');
+  paintWorld(wctx, worldCv.width, worldCv.height, alt, 'quarry');
+  sky.resize(innerWidth, innerHeight);
+  sky.setAlt(alt);
   // The backdrop never animates, so it becomes the page background rather than a canvas
   // layer the compositor has to blend every frame.
   document.body.style.backgroundImage = `url(${worldCv.toDataURL('image/jpeg', 0.9)})`;
@@ -545,7 +549,22 @@ $('playtestClear').onclick = () => { clearPlayLog(sess); showPlaytest(); };
 
 // ---------- HUD ----------
 
+// Every piece is named somewhere on screen, so ice and glass (or sand and wood) never have to be
+// told apart by color alone: the falling piece in the "Now" tag, the next one under its preview.
+const MAT_NAME = { fire: 'Fire', water: 'Water', wood: 'Wood', wetwood: 'Wet wood', ice: 'Ice', sand: 'Sand', glass: 'Glass', stone: 'Stone', brick: 'Brick', mud: 'Mud' };
+const pieceName = (mats) => [...new Set(mats)].map((m) => MAT_NAME[m] || m).join(' + ');
+let lastNow = '';
+function drawNow() {
+  const p = game().piece;
+  const name = p ? pieceName(pieceMats(p)) : '';
+  if (name === lastNow) return;
+  lastNow = name;
+  $('nowName').textContent = name;
+  $('nowTag').hidden = !name;
+}
+
 function drawNext() {
+  drawNow();
   const g = game();
   if (!g.next) return;
   const key = `${g.next.mats.join()}|${g.next.shape.flat().join()}|${skin.id}`;
@@ -562,6 +581,7 @@ function drawNext() {
   const ox = (nx.width - w * s) / 2;
   const oy = (nx.height - h * s) / 2;
   shape.forEach(([a, b], i) => c.drawImage(previewTile(skin, mats[i], s, (a + b) % 3), ox + a * s, oy + b * s));
+  $('nxName').textContent = pieceName(mats);
   if (changed) { nx.classList.remove('pop'); void nx.offsetWidth; nx.classList.add('pop'); }
 }
 
@@ -1007,6 +1027,8 @@ function frame(ts) {
   const td = performance.now();
   drawBoard(ts, dt);
   fx.draw();
+  sky.setOn(quality > 0 && !sess.home && !view.paused);
+  sky.frame(ts);
   const dd = performance.now() - td;
   if (DEBUG) drawMs += dd;
   // Drop a quality step when frames run long (frame interval or our own draw time).

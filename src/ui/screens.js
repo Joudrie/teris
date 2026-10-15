@@ -8,6 +8,7 @@ import { icon, POWER_ICON } from './icons.js';
 import { previewTile } from '../render/tiles.js';
 import { SKINS } from '../render/skins.js';
 import { canvas } from '../render/color.js';
+import { paintTower } from '../render/world.js';
 import { BOOSTERS, SKIN_ITEMS, DAILY_REWARDS } from '../meta.js';
 
 const $ = (id) => document.getElementById(id);
@@ -99,7 +100,7 @@ export function buildMap(app) {
   }).join(' ');
   scroll.innerHTML = `
     <div class="map-track" style="height:${H}px">
-      <div class="map-sky" style="background:linear-gradient(180deg,#1f6fd8 0,#3f9cf5 ${H * 0.2}px,#7ccaff ${H * 0.5}px,#bfe9ff ${H * 0.82}px,#dff6ff ${H - 260}px,#5cbf43 ${H - 150}px,#4aa936 100%)"></div>
+      <img class="map-sky" alt="" src="${towerScenery(scroll.clientWidth || innerWidth, H)}">
       ${clouds}
       <div class="map-logo" role="img" aria-label="Tumbledown"><b>TUMBLEDOWN</b><small>Sky tower · 100 floors</small></div>
       <div class="map-tower" style="background-image:url(${pat});background-size:224px auto"></div>
@@ -141,6 +142,22 @@ export function buildMap(app) {
       }, 650);
     }, 450);
   });
+}
+
+// The whole descent painted down the map, top to bottom: stars, sun, clouds, skyscrapers,
+// trees and the ground, each at the height of the floors it belongs to. Painted at 45% scale
+// and cached per width.
+let sceneKey = '';
+let sceneUrl = '';
+function towerScenery(w, H) {
+  const key = `${w}x${H}`;
+  if (key === sceneKey) return sceneUrl;
+  const k = 0.45;
+  const c = canvas(Math.round(w * k), Math.round(H * k));
+  paintTower(c.getContext('2d'), c.width, c.height, (alt) => nodeY(101 - alt) * k);
+  sceneKey = key;
+  sceneUrl = c.toDataURL('image/jpeg', 0.85);
+  return sceneUrl;
 }
 
 // The floor the player was on when the map was last shown (seeded at startup).

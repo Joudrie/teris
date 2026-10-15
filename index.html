@@ -12,7 +12,7 @@
   <link rel="preload" href="assets/fonts/Nunito.woff2" as="font" type="font/woff2" crossorigin>
   <!-- stamp:start (written by tools/stamp.mjs, do not edit by hand) -->
   <script>(function () {
-    var B = 'fde4c91596';
+    var B = '0a4612d9a3';
     window.BUILD = B;
     if (!window.fetch) return;
     var last = 0;
@@ -36,29 +36,31 @@
       "./src/budgets.js": "./src/budgets.js?v=459751d3a7",
       "./src/core.js": "./src/core.js?v=f6ac796183",
       "./src/levels.js": "./src/levels.js?v=519ea7cbed",
-      "./src/main.js": "./src/main.js?v=5c2ca58616",
+      "./src/main.js": "./src/main.js?v=81dec1fb3b",
       "./src/meta.js": "./src/meta.js?v=bae22e5742",
-      "./src/render/board.js": "./src/render/board.js?v=34bbf241cc",
+      "./src/render/board.js": "./src/render/board.js?v=bd68a2160f",
       "./src/render/color.js": "./src/render/color.js?v=bea27bd861",
       "./src/render/fx.js": "./src/render/fx.js?v=8ae6ff2d16",
       "./src/render/skins.js": "./src/render/skins.js?v=9c87e992fc",
-      "./src/render/tiles.js": "./src/render/tiles.js?v=0cd35d53a1",
-      "./src/render/world.js": "./src/render/world.js?v=258b4edeb0",
+      "./src/render/sky.js": "./src/render/sky.js?v=058b807f7e",
+      "./src/render/tiles.js": "./src/render/tiles.js?v=be96c38536",
+      "./src/render/world.js": "./src/render/world.js?v=8b94480245",
       "./src/scenery.js": "./src/scenery.js?v=d1411242fa",
       "./src/scenes.js": "./src/scenes.js?v=ea1e97026d",
       "./src/session.js": "./src/session.js?v=788370cb8b",
       "./src/showcase.js": "./src/showcase.js?v=e182e36139",
       "./src/sound.js": "./src/sound.js?v=bf04e4b62f",
       "./src/ui/icons.js": "./src/ui/icons.js?v=c04144a605",
-      "./src/ui/screens.js": "./src/ui/screens.js?v=88e6c1e96e",
+      "./src/ui/screens.js": "./src/ui/screens.js?v=6318a51c46",
       "./src/validate.js": "./src/validate.js?v=e55b524ae2"
     }
   }</script>
   <!-- stamp:end -->
-  <link rel="stylesheet" href="style.css?v=b2be6f1d9f">
+  <link rel="stylesheet" href="style.css?v=e0723ed5cd">
 </head>
 <body>
   <canvas id="world" aria-hidden="true"></canvas>
+  <canvas id="sky" aria-hidden="true"></canvas>
 
   <main id="game" class="game">
     <header class="hud-top">
@@ -83,7 +85,7 @@
     </div>
 
     <footer class="hud-bottom">
-      <div class="next panel" aria-label="Next piece"><span>Next</span><canvas id="nx"></canvas></div>
+      <div class="next panel" aria-label="Next piece"><div class="now" id="nowTag" aria-live="polite"><span>Now</span><b id="nowName"></b></div><span>Next</span><canvas id="nx"></canvas><b class="nx-name" id="nxName"></b></div>
       <div class="quest panel" id="quest" aria-label="Side quest"></div>
       <div class="powerwrap">
         <button class="power" id="powerBtn" aria-label="Use power">
@@ -156,6 +158,6 @@
   <div class="intro" id="intro" hidden></div>
   <div class="toast" id="toast" aria-live="polite"></div>
 
-  <script type="module" src="src/main.js?v=5c2ca58616"></script>
+  <script type="module" src="src/main.js?v=81dec1fb3b"></script>
 </body>
 </html>
