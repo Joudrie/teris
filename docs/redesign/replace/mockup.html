@@ -1,0 +1,437 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Replacement prototypes</title>
+<!-- Prototype only: four replacement directions for the UI fingerprint (docs/fingerprint/REPORT.md).
+     Open with ?dir=quarry|trim|dusk|paper. The board, sky and block tiles are the real game renderer. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Jersey+10&family=Silkscreen:wght@400;700&family=Space+Grotesk:wght@500;600;700&family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Manrope:wght@600;700;800&family=Grandstander:wght@700;900&family=Gaegu:wght@700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; }
+body { background: #15151a; display: flex; gap: 24px; padding: 24px; flex-wrap: wrap; font-family: system-ui; }
+.phone { position: relative; width: 390px; height: 844px; overflow: hidden; flex: none; }
+.phone > .world { position: absolute; inset: 0; width: 100%; height: 100%; }
+.layer { position: absolute; inset: 0; }
+.ic { width: 1em; height: 1em; fill: currentColor; flex: none; overflow: visible; }
+.ic .i-in { fill: rgba(0,0,0,.18); stroke: none; } .ic .i-hi { fill: rgba(255,255,255,.5); stroke: none; }
+canvas.board { display: block; }
+button { font: inherit; color: inherit; border: 0; background: none; padding: 0; }
+
+/* ---------- shared layout (positions only; every look lives in the direction blocks) ---------- */
+.hud { position: absolute; left: 14px; right: 14px; top: 46px; display: flex; gap: 10px; align-items: stretch; }
+.hud .pause { width: 50px; height: 50px; display: grid; place-items: center; font-size: 24px; }
+.hud .goal { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 6px; padding: 8px 12px; }
+.goal .row { display: flex; align-items: baseline; gap: 6px; }
+.goal .bar { height: 12px; position: relative; overflow: hidden; }
+.goal .bar i { position: absolute; inset: 0 66% 0 0; }
+.hud .moves { width: 70px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.wellwrap { position: absolute; left: 14px; right: 14px; top: 118px; bottom: 132px; display: flex; justify-content: center; }
+.well { position: relative; height: 100%; display: flex; align-items: center; justify-content: center; }
+.plaque { position: absolute; top: -14px; left: 50%; transform: translateX(-50%); white-space: nowrap; z-index: 2; }
+.banner { position: absolute; top: 22px; left: 50%; transform: translateX(-50%); white-space: nowrap; z-index: 2; display: flex; gap: 6px; align-items: center; }
+.dock { position: absolute; left: 14px; right: 14px; bottom: 26px; height: 92px; display: flex; gap: 10px; align-items: flex-end; }
+.dock .next { width: 96px; height: 88px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+.dock .quest { flex: 1; height: 66px; display: flex; align-items: center; gap: 10px; padding: 0 12px; }
+.quest .qb { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.quest .qbar { height: 8px; position: relative; overflow: hidden; } .quest .qbar i { position: absolute; inset: 0 100% 0 0; }
+.dock .power { width: 86px; height: 86px; position: relative; display: grid; place-items: center; font-size: 34px; }
+.power .tag { position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); white-space: nowrap; }
+
+.top { position: absolute; left: 14px; right: 14px; top: 46px; display: flex; gap: 8px; align-items: center; }
+.cur { display: flex; align-items: center; gap: 6px; height: 40px; padding: 0 12px 0 6px; font-size: 18px; }
+.cur .ic { font-size: 24px; }
+.top .gear { margin-left: auto; width: 46px; height: 46px; display: grid; place-items: center; font-size: 22px; }
+.tower { position: absolute; left: 50%; transform: translateX(-50%); top: 0; width: 220px; height: 100%; }
+.wordmark { position: absolute; top: 108px; left: 0; right: 0; text-align: center; z-index: 3; }
+.wordmark small { display: block; }
+.nodes { position: absolute; inset: 0; z-index: 2; }
+.node { position: absolute; transform: translate(-50%, -50%); display: grid; place-items: center; }
+.side { position: absolute; left: 14px; top: 300px; display: flex; flex-direction: column; gap: 14px; z-index: 3; }
+.side .sb { width: 60px; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.side .sb i { width: 54px; height: 54px; display: grid; place-items: center; font-size: 26px; font-style: normal; }
+.cta { position: absolute; left: 22px; right: 22px; bottom: 30px; height: 78px; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 4; }
+
+.sheetwrap { position: absolute; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; padding: 18px; }
+.sheet { width: 100%; max-height: 100%; position: relative; display: flex; flex-direction: column; gap: 12px; padding: 18px 16px; }
+.sheet h2 { text-align: center; }
+.close { position: absolute; top: 12px; right: 12px; width: 38px; height: 38px; display: grid; place-items: center; font-size: 16px; }
+.sec { margin-top: 2px; }
+.items { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.item { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 6px 8px; text-align: center; }
+.item .art { height: 44px; display: grid; place-items: center; font-size: 30px; }
+.item .art canvas { width: 40px; height: 40px; }
+.item.wide { grid-column: 1 / -1; flex-direction: row; text-align: left; gap: 10px; padding: 10px 12px; }
+.item .price { margin-top: auto; padding: 3px 10px; }
+.item .tagx { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); white-space: nowrap; padding: 1px 8px; }
+
+.win { position: absolute; inset: 0; z-index: 5; display: flex; flex-direction: column; align-items: center; padding: 96px 22px 0; gap: 12px; }
+.win .stars { display: flex; align-items: flex-end; gap: 4px; margin: 6px 0; }
+.win .stars .s { width: 64px; height: 64px; } .win .stars .s.big { width: 86px; height: 86px; margin-bottom: 14px; }
+.card { width: 100%; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+.card .r { display: flex; align-items: center; gap: 8px; } .card .r b { margin-left: auto; }
+.card .nextup { display: flex; gap: 10px; align-items: center; padding: 8px 10px; margin-top: 4px; }
+.card .nextup canvas { width: 34px; height: 34px; }
+.btns { width: 100%; display: flex; gap: 10px; }
+.btns .replay { width: 64px; height: 64px; display: grid; place-items: center; font-size: 26px; }
+.btns .go { flex: 1; height: 64px; display: grid; place-items: center; }
+
+/* =====================================================================================
+   A. QUARRY: the UI is built from the game's own blocks. Pixel type, tile-textured slabs,
+   1-texel bevels like the blocks, chamfered corners, material colors.
+   ===================================================================================== */
+.quarry { --cream: #fff3d6; --stone-d: #2f3038; --stone-e: #1e1f26; --fire: #ff7b1c; --fire-d: #b8460c; --ice: #8fe2ff; --gold: #ffcf3a; }
+.quarry, .quarry button { font-family: 'Space Grotesk', sans-serif; font-weight: 700; color: var(--cream); }
+.quarry .px { font-family: 'Jersey 10', monospace; font-weight: 400; letter-spacing: .5px; line-height: .9; }
+.quarry .lab { font-family: 'Silkscreen', monospace; font-size: 11px; letter-spacing: .5px; text-transform: uppercase; }
+.quarry .chamfer { clip-path: polygon(6px 0, calc(100% - 6px) 0, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 0 calc(100% - 6px), 0 6px); }
+.quarry .slab { background: var(--tex-stone) 0 0 / 48px 48px; image-rendering: pixelated; position: relative;
+  box-shadow: inset 4px 4px 0 rgba(255,255,255,.28), inset -4px -4px 0 rgba(0,0,0,.42); }
+.quarry .slab::before { content: ''; position: absolute; inset: 0; background: rgba(22,24,32,.55); pointer-events: none; clip-path: inherit; }
+.quarry .slab > :not(.plaque):not(.banner):not(.close) { position: relative; }
+.quarry .goldb, .quarry .goldb * { color: #4a2a00; }
+.quarry .node.cur { background: var(--tex-fire) 0 0 / 48px 48px; color: #fff; text-shadow: 0 3px 0 rgba(90,20,0,.7); }
+.quarry .moves .lab { color: #fff; }
+.quarry .well.chamfer, .quarry .item.chamfer { clip-path: none; }
+.quarry .fireb > .px, .quarry .fireb > .lab { background: rgba(80,22,0,.62); padding: 2px 12px 0; }
+.quarry .fireb { background: var(--tex-fire) 0 0 / 48px 48px; image-rendering: pixelated; box-shadow: inset 4px 4px 0 rgba(255,240,180,.45), inset -4px -6px 0 rgba(120,30,0,.55); color: #fff; text-shadow: 0 3px 0 rgba(90,20,0,.7); }
+.quarry .iceb { background: var(--tex-ice) 0 0 / 48px 48px; image-rendering: pixelated; box-shadow: inset 4px 4px 0 rgba(255,255,255,.6), inset -4px -4px 0 rgba(30,90,140,.5); color: #0f3550; }
+.quarry .brickb { background: var(--tex-brick) 0 0 / 48px 48px; image-rendering: pixelated; box-shadow: inset 4px 4px 0 rgba(255,220,200,.4), inset -4px -4px 0 rgba(70,10,0,.5); }
+.quarry .woodb { background: var(--tex-wood) 0 0 / 48px 48px; image-rendering: pixelated; box-shadow: inset 4px 4px 0 rgba(255,230,190,.45), inset -4px -4px 0 rgba(70,35,10,.55); color: #3b1f08; }
+.quarry .goldb { background: linear-gradient(#ffe27a 0 50%, #ffc21a 50%); box-shadow: inset 3px 3px 0 #fff4c0, inset -3px -3px 0 #b87600; color: #4a2a00; }
+.quarry .ic { stroke: rgba(0,0,0,.55); stroke-width: 2px; paint-order: stroke; }
+.quarry .hud .pause { } .quarry .goal .bar { background: #10141f; box-shadow: inset 0 3px 0 rgba(0,0,0,.6); }
+.quarry .goal .bar i { background: repeating-linear-gradient(90deg, #6fe6ff 0 10px, #2fb6f0 10px 12px); }
+.quarry .goal .num { font-size: 34px; } .quarry .goal .of { font-size: 22px; opacity: .7; }
+.quarry .moves .num { font-size: 40px; color: #fff; text-shadow: 0 3px 0 rgba(70,10,0,.7); }
+.quarry .well { padding: 12px; } .quarry .plaque { padding: 4px 14px 2px; font-size: 24px; }
+.quarry .banner { padding: 3px 10px; font-size: 13px; background: rgba(16,18,26,.82); box-shadow: inset 2px 2px 0 rgba(255,255,255,.15); }
+.quarry .next .lab, .quarry .power .tag { color: var(--gold); }
+.quarry .quest .qbar { background: #10141f; } .quarry .quest .qbar i { background: #6fe6ff; }
+.quarry .quest .qt { font-size: 15px; } .quarry .quest .qn { font-size: 18px; }
+.quarry .power { background: radial-gradient(circle, #dff8ff 0 30%, #5fc8ff 31% 62%, transparent 63%), var(--tex-stone) 0 0 / 48px 48px; image-rendering: pixelated; box-shadow: inset 4px 4px 0 rgba(255,255,255,.3), inset -4px -4px 0 rgba(0,0,0,.45), 0 0 0 4px #8fe2ff, 0 0 24px #5fd0ff; color: #0f3550; }
+.quarry .power .tag { background: var(--stone-e); padding: 1px 8px; font-size: 12px; color: #8fe2ff; }
+.quarry .cur { background: rgba(16,18,26,.8); box-shadow: inset 2px 2px 0 rgba(255,255,255,.18), inset -2px -2px 0 rgba(0,0,0,.5); }
+.quarry .cur .px { font-size: 26px; }
+.quarry .wordmark .px { font-size: 64px; color: #fff3d6; text-shadow: 0 5px 0 #6b3a10, 0 9px 0 rgba(0,0,0,.25); letter-spacing: 2px; }
+.quarry .wordmark small { font-family: 'Silkscreen'; font-size: 12px; color: #ffe9b0; text-shadow: 0 2px 0 rgba(0,0,0,.5); }
+.quarry .node { width: 54px; height: 54px; font-size: 30px; }
+.quarry .node.cur { width: 70px; height: 70px; font-size: 40px; box-shadow: inset 4px 4px 0 rgba(255,240,180,.5), inset -4px -6px 0 rgba(120,30,0,.55), 0 0 0 4px #fff3d6, 0 0 26px 8px rgba(255,170,60,.7); }
+.quarry .node.lock { filter: saturate(.3) brightness(.8); }
+.quarry .side .sb i { } .quarry .side .lab { color: #fff3d6; text-shadow: 0 2px 0 rgba(0,0,0,.6); }
+.quarry .cta .px { font-size: 46px; } .quarry .cta .lab { color: #ffe4c4; }
+.quarry .sheetwrap { background: rgba(10,12,20,.55); }
+.quarry .sheet h2 { font-family: 'Jersey 10'; font-weight: 400; font-size: 44px; color: #2a2420; text-shadow: 0 2px 0 rgba(255,255,255,.35); }
+.quarry .sheet .hdr { margin: -18px -16px 0; padding: 10px 0 4px; }
+.quarry .sec { font-family: 'Silkscreen'; font-size: 12px; color: #ffd26a; text-transform: uppercase; }
+.quarry .items { gap: 6px 8px; }
+.quarry .item { padding-bottom: 22px; }
+.quarry .item::after { content: ''; position: absolute; left: -4px; right: -4px; bottom: 0; height: 12px; background: var(--tex-wood) 0 0 / 24px 24px; image-rendering: pixelated; box-shadow: inset 0 3px 0 rgba(255,230,190,.5), 0 4px 0 rgba(0,0,0,.35); }
+.quarry .item .nm { font-size: 13px; }
+.quarry .item .price { position: absolute; bottom: -16px; font-family: 'Jersey 10'; font-size: 20px; padding: 0 8px; background: #f3e2b8; color: #3b2a12; box-shadow: inset -2px -2px 0 #c9a76a; z-index: 2; }
+.quarry .item .price::before { content: ''; position: absolute; left: 50%; top: -6px; width: 2px; height: 6px; background: #3b2a12; }
+.quarry .item.wide::after { left: 0; right: 0; }
+.quarry .item.wide .price { position: static; margin-left: auto; align-self: center; }
+.quarry .item .tagx { font-family: 'Silkscreen'; font-size: 10px; background: var(--fire); color: #fff; box-shadow: inset -2px -2px 0 var(--fire-d); top: -8px; }
+.quarry .close { background: var(--tex-stone) 0 0 / 24px 24px; image-rendering: pixelated; box-shadow: inset 3px 3px 0 rgba(255,255,255,.35), inset -3px -3px 0 rgba(0,0,0,.5); color: #2a2420; font-family: 'Jersey 10'; font-size: 30px; }
+.quarry .win .title { font-family: 'Jersey 10'; font-size: 58px; color: #2a2420; text-shadow: 0 2px 0 rgba(255,255,255,.35); padding: 6px 26px 0; }
+.quarry .win .sub { font-family: 'Silkscreen'; font-size: 13px; color: #fff3d6; text-shadow: 0 2px 0 rgba(0,0,0,.6); }
+.quarry .card { color: #fff3d6; } .quarry .card .r b { font-family: 'Jersey 10'; font-size: 26px; font-weight: 400; }
+.quarry .card .reward { background: rgba(255,207,58,.18); box-shadow: inset 2px 2px 0 rgba(255,240,180,.25); padding: 4px 8px; }
+.quarry .nextup { background: rgba(0,0,0,.25); }
+.quarry .btns .go .px { font-size: 40px; }
+.quarry .winbg { position: absolute; inset: 0; background: radial-gradient(circle at 50% 30%, rgba(255,200,80,.35), rgba(20,22,32,.7) 70%); z-index: 4; }
+
+/* =====================================================================================
+   A2. PIXEL TRIM: smooth slate panels with pixel-stepped corners and pixel accents only.
+   ===================================================================================== */
+.trim { --slate: #1d2230; --slate-2: #283044; --edge: #3b4560; --cream: #f6f1e7; --fire: #ff6a2b; --ice: #7fdcff; --gold: #ffc94a; }
+.trim, .trim button { font-family: 'Space Grotesk', sans-serif; font-weight: 700; color: var(--cream); }
+.trim .px { font-family: 'Space Grotesk'; font-weight: 700; letter-spacing: -.5px; line-height: 1; }
+.trim .lab { font-family: 'Silkscreen'; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: #9aa8c8; }
+.trim .chamfer { clip-path: polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px)); }
+.trim .slab { background: var(--slate); box-shadow: inset 0 2px 0 var(--edge); }
+.trim .fireb { background: var(--fire); color: #fff; box-shadow: inset 0 -6px 0 rgba(0,0,0,.22), inset 0 6px 0 var(--tex-fire-strip, rgba(255,210,120,.6)); }
+.trim .iceb { background: #3a4a6a; color: var(--ice); box-shadow: inset 0 -4px 0 rgba(0,0,0,.25); }
+.trim .brickb { background: #e8553a; color: #fff; box-shadow: inset 0 -5px 0 rgba(0,0,0,.25); }
+.trim .woodb { background: #3a4460; }
+.trim .goldb { background: var(--gold); color: #3a2400; box-shadow: inset 0 -4px 0 rgba(0,0,0,.2); }
+.trim .ic { stroke: none; }
+.trim .goal .bar { background: #0f131c; } .trim .goal .bar i { background: linear-gradient(90deg, #38c8ff, #8ff0ff); }
+.trim .goal .bar::after { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(90deg, transparent 0 8px, #0f131c 8px 10px); }
+.trim .goal .num { font-size: 30px; } .trim .goal .of { font-size: 18px; opacity: .55; }
+.trim .moves .num { font-size: 34px; }
+.trim .well { padding: 8px; background: #2b3348; box-shadow: inset 0 0 0 2px #4a5678; }
+.trim .plaque { padding: 4px 12px; font-family: 'Silkscreen'; font-size: 12px; background: var(--slate); color: var(--gold); box-shadow: inset 0 0 0 2px var(--edge); }
+.trim .banner { padding: 4px 10px; font-size: 12px; background: rgba(15,19,28,.85); }
+.trim .quest .qbar { background: #0f131c; } .trim .quest .qbar i { background: var(--ice); }
+.trim .quest .qt { font-size: 15px; } .trim .quest .qn { font-size: 15px; color: #9aa8c8; }
+.trim .power { background: var(--slate); color: var(--ice); box-shadow: inset 0 0 0 3px var(--ice), 0 0 22px rgba(127,220,255,.55); border-radius: 50%; }
+.trim .power .tag { background: var(--ice); color: #0f2333; padding: 2px 8px; font-family: 'Silkscreen'; font-size: 10px; }
+.trim .cur { background: rgba(15,19,28,.8); }
+.trim .cur .px { font-size: 20px; }
+.trim .wordmark .px { font-size: 52px; letter-spacing: -2px; color: #fff; text-shadow: 0 4px 0 rgba(15,19,28,.5); }
+.trim .wordmark .px b { color: var(--fire); }
+.trim .wordmark small { font-family: 'Silkscreen'; font-size: 11px; letter-spacing: 2px; color: #e8f2ff; }
+.trim .node { width: 52px; height: 52px; font-size: 22px; font-family: 'Space Grotesk'; background: var(--slate); box-shadow: inset 0 0 0 3px var(--gold); color: var(--gold); }
+.trim .node.cur { width: 68px; height: 68px; font-size: 30px; background: var(--fire); color: #fff; box-shadow: 0 0 0 4px #fff, 0 0 28px rgba(255,140,60,.8); }
+.trim .node.lock { box-shadow: inset 0 0 0 3px #4a5678; color: #6b7898; }
+.trim .side .sb i { background: var(--slate); box-shadow: inset 0 2px 0 var(--edge); }
+.trim .side .lab { color: #e8f2ff; }
+.trim .cta .px { font-size: 34px; } .trim .cta .lab { color: rgba(255,255,255,.8); }
+.trim .sheetwrap { background: rgba(10,13,20,.6); }
+.trim .sheet h2 { font-family: 'Space Grotesk'; font-size: 28px; letter-spacing: -.5px; }
+.trim .sec { font-family: 'Silkscreen'; font-size: 11px; color: var(--gold); letter-spacing: 1px; text-transform: uppercase; }
+.trim .item { background: var(--slate-2); }
+.trim .item .nm { font-size: 13px; }
+.trim .item .price { background: var(--fire); color: #fff; font-size: 14px; }
+.trim .item .tagx { font-family: 'Silkscreen'; font-size: 9px; background: var(--gold); color: #3a2400; }
+.trim .close { background: var(--slate-2); color: var(--cream); font-size: 18px; }
+.trim .win .title { font-family: 'Space Grotesk'; font-size: 40px; letter-spacing: -1px; color: #fff; }
+.trim .win .sub { font-family: 'Silkscreen'; font-size: 12px; letter-spacing: 2px; color: var(--gold); }
+.trim .card .r b { font-size: 20px; } .trim .card .reward { color: var(--gold); }
+.trim .nextup { background: #283044; }
+.trim .btns .go .px { font-size: 26px; }
+.trim .winbg { position: absolute; inset: 0; background: rgba(12,15,24,.72); z-index: 4; }
+
+/* =====================================================================================
+   B. DUSK OBSERVATORY: frosted glass over a dusk sky, serif display, gold hairlines.
+   ===================================================================================== */
+.dusk { --ink: #f6ead6; --gold: #e8c27a; --glass: rgba(26, 18, 48, .46); --line: rgba(232, 194, 122, .55); --amber: #ffb35c; }
+.dusk, .dusk button { font-family: 'Manrope', sans-serif; font-weight: 700; color: var(--ink); }
+.dusk .px { font-family: 'Fraunces', serif; font-weight: 800; letter-spacing: -.5px; line-height: 1; }
+.dusk .lab { font-family: 'Manrope'; font-size: 10px; font-weight: 800; letter-spacing: 2.5px; text-transform: uppercase; color: var(--gold); }
+.dusk .chamfer { border-radius: 4px; }
+.dusk .slab { background: var(--glass); backdrop-filter: blur(14px) saturate(1.3); -webkit-backdrop-filter: blur(14px) saturate(1.3); box-shadow: inset 0 0 0 1px var(--line), inset 0 1px 0 rgba(255,255,255,.18), 0 18px 40px rgba(10,5,30,.35); }
+.dusk .fireb { background: linear-gradient(180deg, #ffcf86, #ff9a3c); color: #3a1600; box-shadow: 0 0 0 1px rgba(255,230,180,.8), 0 10px 30px rgba(255,140,60,.45); border-radius: 999px; }
+.dusk .iceb, .dusk .woodb, .dusk .brickb { background: var(--glass); backdrop-filter: blur(12px); box-shadow: inset 0 0 0 1px var(--line); }
+.dusk .goldb { background: transparent; box-shadow: inset 0 0 0 1px var(--gold); color: var(--gold); }
+.dusk .ic { stroke: none; }
+.dusk .goal .bar { height: 4px; background: rgba(255,255,255,.18); } .dusk .goal .bar i { background: linear-gradient(90deg, var(--gold), #fff3d0); box-shadow: 0 0 12px var(--gold); }
+.dusk .goal .num { font-size: 32px; } .dusk .goal .of { font-size: 18px; opacity: .6; }
+.dusk .moves .num { font-size: 36px; color: var(--gold); }
+.dusk .well { padding: 6px; background: rgba(20,12,40,.35); box-shadow: inset 0 0 0 1px var(--line), 0 0 0 6px rgba(232,194,122,.08); border-radius: 6px; }
+.dusk .plaque { font-family: 'Manrope'; font-size: 10px; letter-spacing: 3px; padding: 5px 14px; background: rgba(26,18,48,.85); box-shadow: inset 0 0 0 1px var(--line); color: var(--gold); border-radius: 999px; }
+.dusk .banner { font-size: 12px; padding: 5px 12px; background: rgba(26,18,48,.7); border-radius: 999px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.15); }
+.dusk .quest .qbar { height: 3px; background: rgba(255,255,255,.2); } .dusk .quest .qbar i { background: var(--gold); }
+.dusk .quest .qt { font-family: 'Fraunces'; font-size: 16px; } .dusk .quest .qn { font-size: 12px; color: var(--gold); }
+.dusk .power { border-radius: 50%; background: radial-gradient(circle, rgba(170,220,255,.5), rgba(26,18,48,.5) 70%); backdrop-filter: blur(10px); box-shadow: inset 0 0 0 1px rgba(200,235,255,.8), 0 0 30px rgba(140,200,255,.6); color: #e8f6ff; }
+.dusk .power .tag { font-size: 9px; letter-spacing: 2px; padding: 3px 9px; background: #e8f6ff; color: #1a1230; border-radius: 999px; }
+.dusk .cur { background: rgba(26,18,48,.55); backdrop-filter: blur(10px); border-radius: 999px; box-shadow: inset 0 0 0 1px var(--line); }
+.dusk .cur .px { font-size: 20px; }
+.dusk .wordmark .px { font-size: 50px; font-weight: 600; letter-spacing: 1px; color: #fff4dc; text-shadow: 0 0 30px rgba(255,200,120,.5); font-style: italic; }
+.dusk .wordmark small { font-family: 'Manrope'; font-size: 10px; letter-spacing: 4px; color: var(--gold); margin-top: 6px; }
+.dusk .node { width: 44px; height: 44px; font-family: 'Fraunces'; font-size: 20px; border-radius: 50%; background: rgba(26,18,48,.6); box-shadow: inset 0 0 0 1px var(--line); color: var(--gold); }
+.dusk .node.cur { width: 64px; height: 64px; font-size: 28px; background: radial-gradient(circle, #fff6dc, #ffcc7a 60%, #e89a3a); color: #3a1600; box-shadow: 0 0 0 6px rgba(255,220,150,.25), 0 0 40px rgba(255,190,100,.9); }
+.dusk .node.lock { opacity: .55; }
+.dusk .side .sb i { border-radius: 50%; } .dusk .side .lab { color: var(--ink); }
+.dusk .cta .px { font-size: 30px; font-style: italic; } .dusk .cta .lab { color: rgba(58,22,0,.7); }
+.dusk .sheetwrap { background: rgba(15,8,30,.35); }
+.dusk .sheet h2 { font-family: 'Fraunces'; font-size: 34px; font-weight: 600; font-style: italic; }
+.dusk .sheet .hdr::after { content: ''; display: block; height: 1px; margin: 10px 30px 0; background: linear-gradient(90deg, transparent, var(--gold), transparent); }
+.dusk .sec { font-size: 10px; letter-spacing: 3px; color: var(--gold); text-transform: uppercase; font-weight: 800; }
+.dusk .items { grid-template-columns: 1fr; gap: 0; }
+.dusk .item { flex-direction: row; text-align: left; gap: 12px; padding: 10px 4px; border-bottom: 1px solid rgba(232,194,122,.22); }
+.dusk .item .art { height: 34px; width: 34px; font-size: 22px; }
+.dusk .item .art canvas { width: 30px; height: 30px; }
+.dusk .item .price { margin: 0 0 0 auto; align-self: center; color: var(--gold); font-family: 'Fraunces'; font-size: 16px; box-shadow: inset 0 0 0 1px var(--line); border-radius: 999px; }
+.dusk .item .nm { font-size: 14px; }
+.dusk .item .tagx { position: static; transform: none; font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; color: #1a1230; background: var(--gold); border-radius: 999px; padding: 2px 7px; margin-left: 6px; }
+.dusk .close { background: none; color: var(--gold); font-size: 22px; box-shadow: none; }
+.dusk .win .title { font-family: 'Fraunces'; font-size: 46px; font-weight: 600; font-style: italic; color: #fff4dc; text-shadow: 0 0 30px rgba(255,200,120,.6); }
+.dusk .win .sub { font-size: 10px; letter-spacing: 4px; color: var(--gold); text-transform: uppercase; }
+.dusk .card .r b { font-family: 'Fraunces'; font-size: 20px; } .dusk .card .reward { color: var(--gold); }
+.dusk .nextup { border-top: 1px solid rgba(232,194,122,.25); }
+.dusk .btns .go .px { font-size: 24px; font-style: italic; }
+.dusk .btns .replay { border-radius: 50%; }
+.dusk .winbg { position: absolute; inset: 0; background: radial-gradient(circle at 50% 28%, rgba(255,200,120,.35), rgba(20,10,40,.55) 60%); z-index: 4; }
+
+/* =====================================================================================
+   C. STORYBOOK PAPER: cut-paper cards, rough edges, ink lines, hand-drawn type.
+   ===================================================================================== */
+.paper { --paper: #fbf2e1; --paper-2: #f3e3c6; --ink: #2b2420; --tomato: #e8573f; --teal: #2f8f8a; --sun: #f2b53a; }
+.paper, .paper button { font-family: 'Gaegu', cursive; font-weight: 700; color: var(--ink); font-size: 17px; }
+.paper .px { font-family: 'Grandstander', cursive; font-weight: 900; line-height: 1; }
+.paper .lab { font-family: 'Grandstander'; font-weight: 700; font-size: 12px; letter-spacing: .5px; }
+.paper .chamfer { border-radius: 3px; }
+.paper .slab, .paper .woodb, .paper .iceb, .paper .brickb { background: var(--paper); filter: url(#rough) drop-shadow(0 3px 0 rgba(43,36,32,.18)) drop-shadow(0 8px 10px rgba(80,50,20,.18)); box-shadow: inset 0 0 0 2px var(--ink); }
+.paper .fireb { background: var(--tomato); color: #fff8ec; filter: url(#rough) drop-shadow(0 4px 0 #9a3020); box-shadow: inset 0 0 0 2px var(--ink); }
+.paper .goldb { background: var(--sun); filter: url(#rough); box-shadow: inset 0 0 0 2px var(--ink); }
+.paper .ic { stroke: var(--ink); stroke-width: 2px; paint-order: stroke; }
+.paper .goal .bar { background: var(--paper-2); box-shadow: inset 0 0 0 2px var(--ink); border-radius: 6px; } .paper .goal .bar i { background: repeating-linear-gradient(-45deg, var(--teal) 0 6px, #3aa59f 6px 12px); border-right: 2px solid var(--ink); }
+.paper .goal .num { font-size: 30px; } .paper .goal .of { font-size: 18px; opacity: .6; }
+.paper .moves { background: var(--sun); } .paper .moves .num { font-size: 36px; }
+.paper .well { padding: 12px; background: var(--paper); filter: url(#rough) drop-shadow(0 8px 12px rgba(80,50,20,.25)); box-shadow: inset 0 0 0 2px var(--ink); }
+.paper .well canvas { filter: none; }
+.paper .plaque { font-family: 'Grandstander'; font-weight: 900; font-size: 16px; padding: 2px 14px; background: var(--tomato); color: #fff8ec; box-shadow: inset 0 0 0 2px var(--ink); transform: translateX(-50%) rotate(-3deg); }
+.paper .banner { background: rgba(251,242,225,.92); padding: 2px 10px; font-size: 15px; box-shadow: inset 0 0 0 2px var(--ink); transform: translateX(-50%) rotate(1deg); }
+.paper .quest .qbar { background: var(--paper-2); box-shadow: inset 0 0 0 2px var(--ink); height: 10px; border-radius: 6px; } .paper .quest .qbar i { background: var(--teal); }
+.paper .quest .qt { font-size: 19px; } .paper .quest .qn { font-size: 16px; }
+.paper .power { border-radius: 50%; background: #bfe9f5; filter: url(#rough) drop-shadow(0 4px 0 rgba(43,36,32,.25)); box-shadow: inset 0 0 0 2px var(--ink), inset 0 0 0 8px #e8f8fd; color: var(--ink); }
+.paper .power .tag { background: var(--tomato); color: #fff8ec; padding: 0 8px; box-shadow: inset 0 0 0 2px var(--ink); font-family: 'Grandstander'; font-size: 12px; transform: translateX(-50%) rotate(-4deg); }
+.paper .cur { background: var(--paper); box-shadow: inset 0 0 0 2px var(--ink); filter: url(#rough); border-radius: 999px; }
+.paper .cur .px { font-size: 20px; }
+.paper .wordmark .px { font-size: 52px; color: var(--paper); -webkit-text-stroke: 2px var(--ink); paint-order: stroke fill; text-shadow: 3px 4px 0 var(--tomato); transform: rotate(-3deg); display: inline-block; }
+.paper .wordmark small { font-family: 'Gaegu'; font-size: 18px; color: var(--ink); }
+.paper .node { width: 50px; height: 50px; font-family: 'Grandstander'; font-weight: 900; font-size: 22px; border-radius: 50%; background: var(--paper); box-shadow: inset 0 0 0 2px var(--ink); filter: url(#rough) drop-shadow(0 3px 0 rgba(43,36,32,.3)); }
+.paper .node.cur { width: 66px; height: 66px; font-size: 30px; background: var(--tomato); color: #fff8ec; }
+.paper .node.lock { background: var(--paper-2); color: #9a8a74; }
+.paper .side .sb i { border-radius: 14px; } .paper .side .lab { font-size: 13px; background: var(--paper); padding: 0 6px; box-shadow: inset 0 0 0 1.5px var(--ink); }
+.paper .cta .px { font-size: 40px; } .paper .cta .lab { color: #ffe6d8; }
+.paper .sheetwrap { background: rgba(60,40,20,.35); }
+.paper .sheet { background: var(--paper); box-shadow: inset 0 0 0 2px var(--ink); filter: url(#rough) drop-shadow(0 10px 20px rgba(60,30,10,.35)); transform: rotate(-.6deg); }
+.paper .sheet h2 { font-family: 'Grandstander'; font-weight: 900; font-size: 34px; }
+.paper .sheet h2 span { background: linear-gradient(transparent 60%, rgba(242,181,58,.7) 60%); padding: 0 6px; }
+.paper .sec { font-family: 'Grandstander'; font-size: 15px; color: var(--tomato); }
+.paper .item { background: #fffaf0; box-shadow: inset 0 0 0 2px var(--ink); filter: url(#rough); }
+.paper .item:nth-child(odd) { transform: rotate(-1.5deg); } .paper .item:nth-child(even) { transform: rotate(1.2deg); }
+.paper .item .nm { font-size: 17px; line-height: 1; }
+.paper .item .price { font-family: 'Grandstander'; font-size: 14px; background: var(--teal); color: #fff; box-shadow: inset 0 0 0 2px var(--ink); border-radius: 999px; }
+.paper .item .tagx { background: var(--sun); box-shadow: inset 0 0 0 2px var(--ink); font-family: 'Grandstander'; font-size: 11px; transform: translateX(-50%) rotate(-6deg); }
+.paper .item::before { content: ''; position: absolute; top: -7px; left: 50%; width: 30px; height: 12px; transform: translateX(-50%) rotate(-4deg); background: rgba(242,214,150,.85); }
+.paper .item.wide::before, .paper .item:has(.tagx)::before { display: none; }
+.paper .close { background: var(--tomato); color: #fff; border-radius: 50%; box-shadow: inset 0 0 0 2px var(--ink); filter: url(#rough); font-family: 'Grandstander'; }
+.paper .win .title { font-family: 'Grandstander'; font-weight: 900; font-size: 50px; color: var(--paper); -webkit-text-stroke: 2px var(--ink); paint-order: stroke fill; text-shadow: 3px 4px 0 var(--tomato); transform: rotate(-3deg); }
+.paper .win .sub { font-size: 20px; color: var(--paper); text-shadow: 0 2px 0 rgba(43,36,32,.6); }
+.paper .card { background: var(--paper); box-shadow: inset 0 0 0 2px var(--ink); filter: url(#rough) drop-shadow(0 8px 12px rgba(60,30,10,.3)); transform: rotate(.8deg); }
+.paper .card .r b { font-family: 'Grandstander'; font-size: 20px; } .paper .card .reward { background: linear-gradient(transparent 55%, rgba(242,181,58,.6) 55%); }
+.paper .nextup { border-top: 2px dashed rgba(43,36,32,.35); }
+.paper .btns .go .px { font-size: 32px; }
+.paper .btns .replay { border-radius: 50%; }
+.paper .winbg { position: absolute; inset: 0; background: rgba(80,50,25,.35); z-index: 4; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute"><filter id="rough"><feTurbulence type="fractalNoise" baseFrequency=".035" numOctaves="2" seed="4"/><feDisplacementMap in="SourceGraphic" scale="3.2"/></filter></svg>
+<script type="module">
+import { createSession } from '../../../src/session.js';
+import { SHOWCASE } from '../../../src/showcase.js';
+import { landingY } from '../../../src/core.js';
+import { createBoardRenderer } from '../../../src/render/board.js';
+import { SKINS } from '../../../src/render/skins.js';
+import { previewTile } from '../../../src/render/tiles.js';
+import { paintWorld } from '../../../src/render/world.js';
+import { icon } from '../../../src/ui/icons.js';
+
+const dir = new URLSearchParams(location.search).get('dir') || 'quarry';
+const skin = SKINS.toybox;
+const tex = (m, n = 48) => previewTile(skin, m, n).toDataURL();
+for (const m of ['stone', 'fire', 'ice', 'brick', 'wood']) document.documentElement.style.setProperty(`--tex-${m}`, `url(${tex(m)})`);
+const WORLD = { quarry: 'toybox', trim: 'toybox', dusk: 'arcana', paper: 'clay' }[dir];
+const C = {
+  quarry: { goal: 'GOAL', pieces: 'PIECES', level: 'FLOOR 18', next: 'NEXT', quest: 'Put out 5 fires', power: 'READY', play: 'PLAY', playSub: 'FLOOR 1', title: 'CLEARED', sub: 'FLOOR 4 · 13 PIECES TO SPARE', cont: 'CONTINUE', shop: 'SHOP', tag: 'SKY TOWER · 100 FLOORS', close: '×' },
+  trim: { goal: 'GOAL', pieces: 'PIECES', level: 'FLOOR 18', next: 'NEXT', quest: 'Put out 5 fires', power: 'READY', play: 'Play', playSub: 'FLOOR 1', title: 'Cleared!', sub: 'FLOOR 4', cont: 'Continue', shop: 'Shop', tag: '100 FLOORS TO THE GROUND', close: '✕' },
+  dusk: { goal: 'Goal', pieces: 'Pieces', level: 'FLOOR XVIII', next: 'Next', quest: 'Put out 5 fires', power: 'Ready', play: 'Descend', playSub: 'FLOOR I', title: 'Floor cleared', sub: 'Floor IV', cont: 'Continue', shop: 'The Shop', tag: 'A tower above the clouds', close: '✕' },
+  paper: { goal: 'goal', pieces: 'pieces', level: 'Floor 18', next: 'next', quest: 'Put out 5 fires', power: 'ready!', play: 'Play!', playSub: 'floor 1', title: 'Cleared!', sub: 'floor 4, 13 pieces to spare', cont: 'Keep going', shop: 'Shop', tag: 'a tower in the sky', close: '✕' },
+}[dir];
+
+function phone(id) {
+  const p = document.createElement('div');
+  p.className = `phone ${dir}`;
+  p.id = id;
+  const w = document.createElement('canvas');
+  w.className = 'world';
+  w.width = 780; w.height = 1688;
+  paintWorld(w.getContext('2d'), 780, 1688, id === 'map' ? 100 : 83, WORLD);
+  p.appendChild(w);
+  document.body.appendChild(p);
+  return p;
+}
+const tilesOf = (m, n) => { const c = document.createElement('canvas'); c.width = c.height = n * 2; const t = previewTile(skin, m, n); const g = c.getContext('2d'); for (const [a, b] of [[0, 0], [1, 0], [0, 1], [1, 1]]) g.drawImage(t, a * n, b * n); return c; };
+const starSvg = (cls) => dir === 'quarry'
+  ? `<svg class="s ${cls}" viewBox="0 0 11 11" shape-rendering="crispEdges"><path fill="#7a4a00" d="M5 0h1v2h1v2h4v1h-1v1h-1v1h1v3h-1v1h-1v-1h-1v-1h-3v1h-1v1h-1v-1h-1v-3h1v-1h-1v-1h-1v-1h4v-2h1z"/><path fill="#ffcf3a" d="M5 1h1v2h1v2h3v1h-2v2h1v1h-1v-1h-1v-1h-3v1h-1v1h-1v-1h1v-2h-2v-1h3v-2h1z"/><path fill="#fff3b0" d="M5 2h1v2h-1zM3 5h1v1h-1z"/></svg>`
+  : `<svg class="s ${cls}" viewBox="0 0 24 24"><path d="M12 2.5l2.9 6.1 6.6.8-4.9 4.5 1.3 6.6L12 17.2l-5.9 3.3 1.3-6.6L2.5 9.4l6.6-.8z" fill="${dir === 'dusk' ? 'none' : '#f2b53a'}" stroke="${dir === 'dusk' ? '#e8c27a' : '#2b2420'}" stroke-width="${dir === 'dusk' ? 1.2 : 1.8}" stroke-linejoin="round"/>${dir === 'dusk' ? '<path d="M12 6l1.9 4 4.3.5-3.2 3 .8 4.3L12 15.6l-3.8 2.2.8-4.3-3.2-3 4.3-.5z" fill="#e8c27a" opacity=".9"/>' : ''}</svg>`;
+
+// ---------- gameplay ----------
+{
+  const p = phone('play');
+  p.insertAdjacentHTML('beforeend', `<div class="layer">
+    <div class="hud">
+      <button class="pause slab chamfer">${icon('pause')}</button>
+      <div class="goal slab chamfer"><div class="row"><span class="px num">19</span><span class="px of">/56</span><span class="lab" style="margin-left:auto">${C.goal}</span></div><div class="bar chamfer"><i></i></div></div>
+      <div class="moves brickb chamfer"><span class="px num">9</span><span class="lab">${C.pieces}</span></div>
+    </div>
+    <div class="wellwrap"><div class="well slab chamfer"><div class="plaque px chamfer">${C.level}</div><div class="banner chamfer">${icon('drop')}<span>Flood: water keeps rising</span></div><canvas class="board"></canvas></div></div>
+    <div class="dock">
+      <div class="next slab chamfer"><span class="lab">${C.next}</span><canvas class="nx" width="160" height="80" style="width:80px;height:40px"></canvas></div>
+      <div class="quest slab chamfer"><span style="font-size:24px;color:#5fc8ff">${icon('drop')}</span><div class="qb"><span class="qt">${C.quest}</span><div style="display:flex;gap:8px;align-items:center"><div class="qbar chamfer" style="flex:1"><i></i></div><span class="qn">0/5</span></div></div></div>
+      <div class="power">${icon('snow')}<span class="tag chamfer">${C.power}</span></div>
+    </div></div>`);
+  const s = createSession({ rand: () => 0.5 });
+  SHOWCASE.busy(s);
+  const g = s.game;
+  const cv = p.querySelector('.board');
+  const r = createBoardRenderer(cv, skin);
+  const well = p.querySelector('.wellwrap').getBoundingClientRect();
+  const { w, h } = r.resize(well.width - 30, well.height - 30, 2);
+  cv.style.width = `${w}px`; cv.style.height = `${h}px`;
+  r.draw(g, { ts: 400, piece: g.piece, ghostY: landingY(g) });
+  const nx = p.querySelector('.nx').getContext('2d');
+  const t = previewTile(skin, 'sand', 36);
+  for (const [a, b] of [[0, 0], [1, 0], [0, 1], [1, 1]]) nx.drawImage(t, 44 + a * 36, 4 + b * 36);
+}
+
+// ---------- map ----------
+{
+  const p = phone('map');
+  const tower = document.createElement('canvas');
+  tower.className = 'tower'; tower.width = 440; tower.height = 1688;
+  const tg = tower.getContext('2d');
+  const n = 55;
+  for (let y = 0; y < 1688; y += n) for (let x = 0; x < 440; x += n) tg.drawImage(previewTile(skin, (Math.floor(y / n) % 5 === 2) ? 'brick' : 'stone', n, (x + y) % 3), x, y);
+  if (dir === 'dusk') { tg.fillStyle = 'rgba(20,10,45,.72)'; tg.fillRect(0, 0, 440, 1688); }
+  if (dir === 'paper') { tg.fillStyle = 'rgba(251,242,225,.82)'; tg.fillRect(0, 0, 440, 1688); tg.strokeStyle = '#2b2420'; tg.lineWidth = 4; tg.strokeRect(2, -10, 436, 1720); }
+  if (dir === 'trim') { tg.fillStyle = 'rgba(29,34,48,.55)'; tg.fillRect(0, 0, 440, 1688); }
+  p.appendChild(tower);
+  const pts = [[50, 520, 1, 'cur'], [62, 640, 2, 'lock'], [40, 740, 3, 'lock'], [58, 830, 4, 'lock']];
+  const nodeCls = dir === 'quarry' ? 'fireb chamfer' : '';
+  p.insertAdjacentHTML('beforeend', `<div class="layer">
+    <div class="top"><div class="cur slab chamfer"><span style="color:#ffcf3a">${icon('coin')}</span><span class="px">150</span></div><div class="cur slab chamfer"><span style="color:#ffcf3a">${icon('star')}</span><span class="px">0</span></div><button class="gear slab chamfer">${icon('gear')}</button></div>
+    <div class="wordmark"><span class="px">${dir === 'trim' ? 'TUMBLE<b>DOWN</b>' : dir === 'dusk' ? 'Tumbledown' : dir === 'paper' ? 'Tumbledown' : 'TUMBLEDOWN'}</span><small>${C.tag}</small></div>
+    <div class="nodes">${pts.map(([x, y, k, c]) => `<div class="node ${c} ${c === 'cur' || dir !== 'quarry' ? nodeCls : 'slab chamfer'} px" style="left:${x}%;top:${y}px">${c === 'lock' ? `<span style="font-size:.6em">${icon('lock')}</span>` : k}</div>`).join('')}</div>
+    <div class="side">${[['calendar', 'Daily'], ['gift', 'Gifts'], ['shop', 'Shop'], ['book', 'Blocks']].map(([ic, l]) => `<div class="sb"><i class="slab chamfer">${icon(ic)}</i><span class="lab">${l}</span></div>`).join('')}</div>
+    <button class="cta fireb chamfer"><span class="px">${C.play}</span><span class="lab">${C.playSub}</span></button></div>`);
+}
+
+// ---------- shop ----------
+{
+  const p = phone('shop');
+  const tileArt = (m) => `<canvas data-tile="${m}" width="80" height="80"></canvas>`;
+  p.insertAdjacentHTML('beforeend', `<div class="sheetwrap"><div class="sheet slab chamfer">
+    <div class="hdr ${dir === 'quarry' ? 'woodb' : ''}"><h2 class="px"><span>${C.shop}</span></h2></div>
+    <button class="close ${dir === 'trim' ? 'chamfer' : ''}">${C.close}</button>
+    <div style="display:flex;justify-content:center"><div class="cur ${dir === 'quarry' ? 'goldb' : 'slab'} chamfer"><span style="color:#ffcf3a">${icon('coin')}</span><span class="px">150</span></div></div>
+    <div class="sec">Coins</div>
+    <div class="items">${[['500', '$0.99'], ['1,200', '$1.99'], ['3,000', '$4.99', 'Best value']].map(([a, b, t]) => `<div class="item ${dir === 'quarry' ? '' : 'iceb'} chamfer">${t ? `<span class="tagx chamfer">${t}</span>` : ''}<div class="art" style="color:#ffcf3a">${icon('coin')}</div><span class="nm px">${a}</span><span class="price chamfer">${b}</span></div>`).join('')}
+      <div class="item wide ${dir === 'quarry' ? '' : 'iceb'} chamfer"><div class="art" style="color:#e8573f">${icon('gift')}</div><div><span class="nm px">Starter pack</span><div style="font-size:12px;opacity:.75">2,000 coins + 5 of each booster</div></div><span class="price chamfer">$2.99</span></div></div>
+    <div class="sec">Block skins</div>
+    <div class="items">${[['wood', 'Toybox', 'In use'], ['sand', 'Clay', '1,500'], ['stone', 'Runes', '2,500']].map(([m, a, b]) => `<div class="item ${dir === 'quarry' ? '' : 'iceb'} chamfer"><div class="art">${tileArt(m)}</div><span class="nm px">${a}</span><span class="price chamfer">${b}</span></div>`).join('')}</div>
+  </div></div>`);
+  for (const c of p.querySelectorAll('canvas[data-tile]')) c.getContext('2d').drawImage(previewTile(skin, c.dataset.tile, 80), 0, 0);
+  if (dir === 'quarry') p.querySelector('.sheet').classList.add('slab');
+}
+
+// ---------- win ----------
+{
+  const p = phone('win');
+  const s = createSession({ rand: () => 0.5 });
+  SHOWCASE.busy(s);
+  p.insertAdjacentHTML('beforeend', `<div class="winbg"></div><div class="win">
+    <div class="title ${dir === 'quarry' ? 'woodb chamfer' : ''}">${C.title}</div>
+    <div class="sub">${C.sub}</div>
+    <div class="stars">${starSvg('')}${starSvg('big')}${starSvg('')}</div>
+    <div class="card ${dir === 'paper' ? '' : 'slab'} chamfer">
+      <div class="r"><span>Drained</span><b class="px">28/28</b></div>
+      <div class="r"><span>Pieces left</span><b class="px">13</b></div>
+      <div class="r reward chamfer"><span style="color:#ffcf3a">${icon('coin')}</span><span>Reward</span><b class="px">+50</b></div>
+      <div class="nextup chamfer"><canvas class="nu" width="68" height="68"></canvas><div><div class="lab">Next up · floor 5</div><div style="font-size:13px">Flick down to smash glass.</div></div></div>
+    </div>
+    <div class="btns"><button class="replay ${dir === 'quarry' ? 'iceb' : 'slab'} chamfer">${icon('retry')}</button><button class="go fireb chamfer"><span class="px">${C.cont}</span></button></div>
+  </div>`);
+  p.querySelector('.nu').getContext('2d').drawImage(previewTile(skin, 'glass', 68), 0, 0);
+}
+document.fonts.ready.then(() => { window.ready = true; });
+</script>
+</body>
+</html>

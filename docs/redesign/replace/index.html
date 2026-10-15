@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tumbledown: new look prototypes</title>
+<style>
+  :root { --bg: #141418; --fg: #f2efe8; --mute: #a9a6a0; --line: #2a2a31; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.5 system-ui, -apple-system, sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 60px; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  p { color: var(--mute); margin: 0 0 18px; }
+  section { border-top: 1px solid var(--line); padding: 22px 0; }
+  h2 { font-size: 20px; margin: 0 0 4px; }
+  .row { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; scroll-snap-type: x mandatory; }
+  .row img { width: min(78vw, 260px); flex: none; border-radius: 10px; scroll-snap-align: start; }
+  .label { font-size: 13px; color: var(--mute); }
+</style>
+</head>
+<body>
+<main>
+  <h1>New look: four prototypes</h1>
+  <p>Each one replaces the shared "default" style found in the Cartopia comparison. The game board and blocks are the real game; only the interface around it changes. Swipe each row.</p>
+  <section><h2>1. Quarry: built from the blocks</h2><p>Menus and buttons are made of the game's own stone, brick, wood and fire tiles, with pixel lettering.</p>
+    <div class="row"><img src="quarry-play.jpg" alt="Quarry game screen"><img src="quarry-map.jpg" alt="Quarry map"><img src="quarry-shop.jpg" alt="Quarry shop"><img src="quarry-win.jpg" alt="Quarry win screen"></div></section>
+  <section><h2>2. Pixel trim</h2><p>Smooth dark slate with pixel corners and pixel labels. Cleaner and easier to read.</p>
+    <div class="row"><img src="trim-play.jpg" alt="Pixel trim game screen"><img src="trim-map.jpg" alt="Pixel trim map"><img src="trim-shop.jpg" alt="Pixel trim shop"><img src="trim-win.jpg" alt="Pixel trim win screen"></div></section>
+  <section><h2>3. Dusk observatory</h2><p>Frosted glass over a dusk sky, an elegant serif and gold lines. Calm and grown-up.</p>
+    <div class="row"><img src="dusk-play.jpg" alt="Dusk game screen"><img src="dusk-map.jpg" alt="Dusk map"><img src="dusk-shop.jpg" alt="Dusk shop"><img src="dusk-win.jpg" alt="Dusk win screen"></div></section>
+  <section><h2>4. Storybook paper</h2><p>Cut-paper cards, hand-inked edges and handwritten lettering. Warm and playful.</p>
+    <div class="row"><img src="paper-play.jpg" alt="Paper game screen"><img src="paper-map.jpg" alt="Paper map"><img src="paper-shop.jpg" alt="Paper shop"><img src="paper-win.jpg" alt="Paper win screen"></div></section>
+  <p class="label">Prototypes are static screenshots. Live version: mockup.html?dir=quarry, trim, dusk or paper.</p>
+</main>
+</body>
+</html>
