@@ -1,0 +1,28 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Render test</title>
+<style>body{margin:0;background:#222;display:flex;gap:12px;padding:12px;flex-wrap:wrap}canvas{display:block}</style></head>
+<body>
+<script type="module">
+import { createSession } from '../../../src/session.js';
+import { SHOWCASE } from '../../../src/showcase.js';
+import { landingY } from '../../../src/core.js';
+import { createBoardRenderer } from '../../../src/render/board.js';
+import { SKINS } from '../../../src/render/skins.js';
+const q = new URLSearchParams(location.search);
+const board = q.get('board') || 'lineup';
+const skins = (q.get('skins') || 'toybox,arcana,clay').split(',');
+const rs = [];
+for (const id of skins) {
+  const s = createSession({ rand: () => 0.5 });
+  SHOWCASE[board](s);
+  const cv = document.createElement('canvas');
+  document.body.appendChild(cv);
+  const r = createBoardRenderer(cv, SKINS[id]);
+  const { w, h } = r.resize(+(q.get('w') || 360), 2000, devicePixelRatio);
+  cv.style.width = w + 'px'; cv.style.height = h + 'px';
+  rs.push({ r, g: s.game });
+}
+const f = (ts) => { for (const { r, g } of rs) r.draw(g, { ts, piece: g.piece, ghostY: g.piece ? landingY(g) : null }); requestAnimationFrame(f); };
+requestAnimationFrame(f);
+window.ready = true;
+</script></body></html>

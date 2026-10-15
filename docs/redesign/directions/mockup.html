@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Direction mockups</title>
+<style>
+@font-face { font-family: 'Lilita One'; src: url(../../../assets/fonts/LilitaOne.woff2) format('woff2'); }
+@font-face { font-family: 'Nunito'; src: url(../../../assets/fonts/Nunito.woff2) format('woff2'); font-weight: 500 900; }
+@font-face { font-family: 'Cinzel'; src: url(../../../assets/fonts/Cinzel.woff2) format('woff2'); font-weight: 600 900; }
+@font-face { font-family: 'Rubik'; src: url(../../../assets/fonts/Rubik.woff2) format('woff2'); font-weight: 500 800; }
+@font-face { font-family: 'Fredoka'; src: url(../../../assets/fonts/Fredoka.woff2) format('woff2'); font-weight: 400 700; }
+
+* { box-sizing: border-box; }
+body { margin: 0; background: #15161c; display: flex; gap: 24px; padding: 24px; font-family: Nunito, sans-serif; }
+.phone { width: 390px; height: 844px; position: relative; overflow: hidden; flex: none; border-radius: 4px; }
+.world { position: absolute; inset: 0; width: 100%; height: 100%; }
+.ic { width: 1em; height: 1em; fill: currentColor; stroke: var(--ink); stroke-width: 2.6px; paint-order: stroke; stroke-linejoin: round; overflow: visible; }
+.ic .i-in { fill: var(--ic-in, rgba(0,0,0,.18)); stroke: none; }
+.ic .i-hi { fill: rgba(255,255,255,.55); stroke: none; }
+
+/* ---------------- shared layout ---------------- */
+.game { position: absolute; inset: 0; display: flex; flex-direction: column; padding: 12px 10px 14px; gap: 8px; }
+.topbar { height: 62px; display: flex; align-items: center; gap: 8px; flex: none; }
+.wellwrap { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+.well { position: relative; }
+.well canvas { display: block; }
+.bottombar { height: 92px; display: flex; align-items: center; gap: 8px; flex: none; }
+.goal { flex: 1; height: 56px; display: flex; align-items: center; gap: 8px; padding: 0 12px 0 6px; position: relative; }
+.goal .gi { width: 44px; height: 44px; display: grid; place-items: center; font-size: 26px; flex: none; }
+.goal .gb { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.goal .bar { height: 16px; position: relative; overflow: hidden; }
+.goal .bar i { position: absolute; inset: 0 auto 0 0; width: 34%; }
+.goal .num { display: flex; justify-content: space-between; align-items: baseline; }
+.moves { width: 70px; height: 62px; display: flex; flex-direction: column; align-items: center; justify-content: center; flex: none; }
+.next { width: 100px; height: 84px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; flex: none; }
+.quest { flex: 1; height: 60px; display: flex; align-items: center; gap: 8px; padding: 0 12px; }
+.quest .ic { font-size: 28px; flex: none; }
+.quest .qt { display: flex; flex-direction: column; flex: 1; gap: 4px; }
+.quest .qbar { height: 8px; position: relative; overflow: hidden; }
+.quest .qbar i { position: absolute; inset: 0 auto 0 0; width: 60%; }
+.power { width: 86px; height: 86px; flex: none; position: relative; display: grid; place-items: center; border: 0; padding: 0; }
+.power .ic { font-size: 40px; position: relative; z-index: 1; }
+.power .tag { position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); z-index: 2; white-space: nowrap; }
+.plaque { position: absolute; top: -14px; left: 50%; transform: translateX(-50%); z-index: 3; white-space: nowrap; }
+
+/* map */
+.map { position: absolute; inset: 0; }
+.map canvas.tower { position: absolute; left: 50%; transform: translateX(-50%); top: 0; }
+.maphud { position: absolute; top: 12px; left: 10px; right: 10px; display: flex; gap: 8px; align-items: center; }
+.pill { height: 40px; display: flex; align-items: center; gap: 6px; padding: 0 12px 0 4px; }
+.pill .ic { font-size: 30px; }
+.side { position: absolute; left: 12px; top: 300px; display: flex; flex-direction: column; gap: 14px; }
+.sidebtn { width: 64px; height: 64px; display: grid; place-items: center; position: relative; }
+.sidebtn .ic { font-size: 34px; }
+.sidebtn small { position: absolute; bottom: -10px; left: 50%; transform: translateX(-50%); white-space: nowrap; }
+.badge { position: absolute; top: -6px; right: -6px; min-width: 22px; height: 22px; border-radius: 11px; display: grid; place-items: center; font-size: 13px; padding: 0 5px; }
+.node { position: absolute; width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center; transform: translate(-50%, -50%); }
+.node .stars { position: absolute; top: -14px; display: flex; gap: 0; font-size: 15px; }
+.node.cur { width: 74px; height: 74px; }
+.alt { position: absolute; right: 10px; transform: translateY(-50%); }
+.playbar { position: absolute; left: 24px; right: 24px; bottom: 26px; height: 78px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+
+/* win */
+.win { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 22px 30px; }
+.rays { position: absolute; left: 50%; top: 290px; width: 900px; height: 900px; transform: translate(-50%, -50%); border-radius: 50%; }
+.ribbon { position: relative; z-index: 2; }
+.starsrow { display: flex; align-items: flex-end; gap: 4px; margin: 18px 0 8px; position: relative; z-index: 2; }
+.starsrow .ic { font-size: 84px; }
+.starsrow .ic.big { font-size: 112px; margin-bottom: 18px; }
+.card { width: 100%; padding: 18px; position: relative; z-index: 2; display: flex; flex-direction: column; gap: 12px; }
+.row { display: flex; align-items: center; gap: 10px; }
+.row .ic { font-size: 26px; }
+.row b { margin-left: auto; }
+.nextup { display: flex; align-items: center; gap: 10px; padding: 10px; }
+.nextup canvas { flex: none; }
+.btnrow { display: flex; gap: 10px; width: 100%; margin-top: 18px; position: relative; z-index: 2; }
+button { color: inherit; font: inherit; }
+.btn { border: 0; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.btn.big { flex: 1; height: 72px; }
+.btn.sq { width: 72px; height: 72px; flex: none; }
+.btn.sq .ic { font-size: 34px; }
+
+/* =================== TOYBOX =================== */
+.toybox { --ink: #0d1640; --navy: #23377f; --navy2: #33509f; --gold: #ffc83a; --gold2: #e8960c; font-family: Nunito, sans-serif; color: #fff; }
+.toybox .t { font-family: 'Lilita One', sans-serif; letter-spacing: .5px; text-shadow: 0 2px 0 var(--ink), 2px 0 0 var(--ink), -2px 0 0 var(--ink), 0 -2px 0 var(--ink), 1.5px 1.5px 0 var(--ink), -1.5px 1.5px 0 var(--ink), 1.5px -1.5px 0 var(--ink), -1.5px -1.5px 0 var(--ink), 0 4px 0 rgba(13,22,64,.45); }
+.toybox .panel { background: linear-gradient(180deg, var(--navy2), var(--navy)); border: 3px solid var(--ink); border-radius: 18px; box-shadow: inset 0 3px 0 rgba(255,255,255,.22), inset 0 -5px 0 rgba(0,0,0,.25), 0 4px 0 rgba(13,22,64,.35); }
+.toybox .btn-ic { width: 52px; height: 52px; border-radius: 16px; display: grid; place-items: center; font-size: 26px; flex: none; color: #fff; background: linear-gradient(180deg, #4a8bff, #2b62d9); border: 3px solid var(--ink); box-shadow: inset 0 3px 0 rgba(255,255,255,.4), inset 0 -6px 0 #1a3f99, 0 4px 0 rgba(13,22,64,.35); }
+.toybox .goal .gi { background: radial-gradient(circle at 35% 30%, #fff3b0, var(--gold) 45%, var(--gold2)); border: 3px solid var(--ink); border-radius: 50%; color: #fff; box-shadow: inset 0 -4px 0 rgba(0,0,0,.18); --ic-in: #4fd1ff; }
+.toybox .goal .bar { background: #0f1a4a; border: 2px solid var(--ink); border-radius: 10px; box-shadow: inset 0 3px 0 rgba(0,0,0,.35); }
+.toybox .goal .bar i { background: linear-gradient(180deg, #8ff0ff, #27c4ff 55%, #1690e0); border-radius: 8px; box-shadow: inset 0 -3px 0 rgba(0,0,0,.18), inset 0 3px 0 rgba(255,255,255,.55); }
+.toybox .goal .bar i::after { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(115deg, rgba(255,255,255,.22) 0 8px, transparent 8px 16px); border-radius: 8px; }
+.toybox .goal .num .t { font-size: 22px; }
+.toybox .goal .num small { font-family: 'Lilita One'; font-size: 13px; color: #9fb8ff; letter-spacing: .5px; }
+.toybox .moves { background: radial-gradient(circle at 40% 30%, #fff1a8, var(--gold) 50%, var(--gold2)); border: 3px solid var(--ink); border-radius: 20px; box-shadow: inset 0 3px 0 rgba(255,255,255,.5), inset 0 -6px 0 #b86e00, 0 4px 0 rgba(13,22,64,.35); }
+.toybox .moves .t { font-size: 34px; line-height: 1; }
+.toybox .moves small { font-family: 'Lilita One'; font-size: 11px; color: #6b3d00; letter-spacing: .8px; }
+.toybox .well { padding: 8px; border-radius: 20px; background: linear-gradient(180deg, #ffd85c, #f2a516); border: 3px solid var(--ink); box-shadow: inset 0 3px 0 rgba(255,255,255,.55), inset 0 -5px 0 #b86e00, 0 8px 0 rgba(13,22,64,.35), 0 18px 30px rgba(13,22,64,.35); }
+.toybox .well canvas { border-radius: 12px; border: 3px solid var(--ink); }
+.toybox .plaque { padding: 5px 16px; background: linear-gradient(180deg, var(--navy2), var(--navy)); border: 3px solid var(--ink); border-radius: 12px; font-size: 16px; box-shadow: inset 0 2px 0 rgba(255,255,255,.25), 0 3px 0 rgba(13,22,64,.35); }
+.toybox .next span { font-family: 'Lilita One'; font-size: 14px; color: #ffd85c; letter-spacing: 1px; }
+.toybox .quest .t { font-size: 16px; }
+.toybox .quest .qbar { background: #0f1a4a; border: 2px solid var(--ink); border-radius: 6px; }
+.toybox .quest .qbar i { background: linear-gradient(180deg, #b6ff7a, #4fd12a); }
+.toybox .quest .ic { color: #6fd0ff; }
+.toybox .power { border-radius: 50%; background: conic-gradient(#8ff0ff 0 100%, #0f1a4a 0); border: 3px solid var(--ink); box-shadow: 0 0 0 4px #fff, 0 0 26px 8px rgba(143,240,255,.85), 0 5px 0 4px rgba(13,22,64,.35); }
+.toybox .power::before { content: ''; position: absolute; inset: 7px; border-radius: 50%; background: radial-gradient(circle at 40% 30%, #b8f6ff, #2bb8f2 55%, #1677c8); border: 3px solid var(--ink); box-shadow: inset 0 -5px 0 rgba(0,0,0,.2), inset 0 4px 0 rgba(255,255,255,.4); }
+.toybox .power .ic { color: #fff; }
+.toybox .power .tag { padding: 2px 10px; border-radius: 10px; background: #ff5a4e; border: 3px solid var(--ink); font-size: 13px; }
+.toybox .pill { background: rgba(13,22,64,.55); border: 3px solid var(--ink); border-radius: 22px; }
+.toybox .pill .t { font-size: 20px; }
+.toybox .ic-coin { color: var(--gold); --ic-in: #ffe27a; }
+.toybox .ic-star { color: var(--gold); }
+.toybox .sidebtn { border-radius: 20px; }
+.toybox .sidebtn small { font-size: 13px; }
+.toybox .badge { background: #ff4a3d; border: 2px solid var(--ink); font-family: 'Lilita One'; }
+.toybox .node { background: radial-gradient(circle at 40% 30%, #fff1a8, var(--gold) 50%, var(--gold2)); border: 3px solid var(--ink); box-shadow: inset 0 -5px 0 #b86e00, 0 4px 0 rgba(13,22,64,.4); font-size: 22px; }
+.toybox .node.cur { background: radial-gradient(circle at 40% 30%, #9fd0ff, #3f8cff 50%, #2357c9); box-shadow: inset 0 -6px 0 #183f99, 0 0 0 6px rgba(255,255,255,.85), 0 0 30px 10px rgba(255,255,255,.6); font-size: 30px; }
+.toybox .node.lock { background: linear-gradient(180deg, #9aa3c4, #6c7499); box-shadow: inset 0 -5px 0 #4f5677, 0 4px 0 rgba(13,22,64,.4); color: #dfe4f5; font-size: 22px; }
+.toybox .alt { font-family: 'Lilita One'; font-size: 13px; padding: 3px 8px; border-radius: 8px; background: rgba(13,22,64,.5); color: #dfe8ff; }
+.toybox .btn-green, .toybox .playbar { background: linear-gradient(180deg, #8ff060, #45c41e); border: 3px solid var(--ink); border-radius: 22px; box-shadow: inset 0 4px 0 rgba(255,255,255,.5), inset 0 -8px 0 #2a8a12, 0 6px 0 rgba(13,22,64,.4); }
+.toybox .playbar .t { font-size: 36px; line-height: 1; }
+.toybox .playbar small { font-family: 'Lilita One'; font-size: 15px; color: #1d5c0b; letter-spacing: 1px; }
+.toybox .btn-blue { background: linear-gradient(180deg, #6fb0ff, #2f74e8); border: 3px solid var(--ink); border-radius: 22px; box-shadow: inset 0 4px 0 rgba(255,255,255,.45), inset 0 -8px 0 #1d4fae, 0 6px 0 rgba(13,22,64,.4); color: #fff; }
+.toybox .btn.big .t { font-size: 32px; }
+.toybox .rays { background: repeating-conic-gradient(rgba(255,240,170,.22) 0 9deg, transparent 9deg 18deg); -webkit-mask: radial-gradient(circle, #000 15%, transparent 60%); mask: radial-gradient(circle, #000 15%, transparent 60%); }
+.toybox .ribbon { padding: 10px 34px 14px; background: linear-gradient(180deg, #ff6b5a, #e2362a); border: 3px solid var(--ink); border-radius: 14px; box-shadow: inset 0 3px 0 rgba(255,255,255,.4), inset 0 -6px 0 #a3201a, 0 5px 0 rgba(13,22,64,.4); font-size: 40px; }
+.toybox .ribbon small { display: block; text-align: center; font-size: 16px; margin-top: -2px; }
+.toybox .starsrow .ic { color: var(--gold); stroke-width: 2px; filter: drop-shadow(0 5px 0 rgba(13,22,64,.45)); }
+.toybox .starsrow .ic.off { color: #2a3a78; }
+.toybox .card { background: #f4f8ff; color: var(--ink); border: 3px solid var(--ink); border-radius: 22px; box-shadow: inset 0 -6px 0 #c5d3f0, 0 6px 0 rgba(13,22,64,.4); font-weight: 800; font-size: 17px; }
+.toybox .card .row b { font-family: 'Lilita One'; font-size: 24px; font-weight: 400; }
+.toybox .card .reward { background: linear-gradient(180deg, #fff3c2, #ffe08a); border: 2px solid #e8b44a; border-radius: 14px; padding: 8px 12px; }
+.toybox .nextup { background: #e6eeff; border-radius: 14px; border: 2px solid #c5d3f0; font-size: 15px; }
+.toybox .nextup b { color: #2b62d9; font-family: 'Lilita One'; font-weight: 400; font-size: 16px; display: block; }
+
+/* =================== ARCANA =================== */
+.arcana { --ink: #12081f; --gold: #f2c46a; color: #f5e9d4; font-family: Rubik, sans-serif; }
+.arcana .t { font-family: Cinzel, serif; font-weight: 800; letter-spacing: 1px; background: linear-gradient(180deg, #fff3cf, #f2c46a 55%, #b9822f); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 2px 0 #12081f) drop-shadow(0 0 8px rgba(242,196,106,.35)); }
+.arcana .panel, .arcana .moves, .arcana .next, .arcana .quest, .arcana .goal, .arcana .pill, .arcana .sidebtn { background: linear-gradient(180deg, rgba(58,30,88,.88), rgba(28,14,46,.92)); border: 1.5px solid #f2c46a; border-radius: 6px; box-shadow: 0 0 0 3px rgba(18,8,31,.8), inset 0 0 18px rgba(242,196,106,.15); }
+.arcana .btn-ic { width: 50px; height: 50px; display: grid; place-items: center; font-size: 24px; color: var(--gold); background: rgba(28,14,46,.9); border: 1.5px solid var(--gold); border-radius: 50%; box-shadow: 0 0 0 3px rgba(18,8,31,.8), 0 0 14px rgba(242,196,106,.35); }
+.arcana .goal .gi { color: #9fd0ff; font-size: 28px; }
+.arcana .goal .bar { background: rgba(0,0,0,.5); border: 1px solid rgba(242,196,106,.6); border-radius: 2px; }
+.arcana .goal .bar i { background: linear-gradient(90deg, #6f3bff, #c76bff, #ffb3f0); box-shadow: 0 0 12px rgba(199,107,255,.8); }
+.arcana .goal .num .t { font-size: 20px; }
+.arcana .goal .num small, .arcana .moves small, .arcana .next span { font-family: Cinzel; font-size: 11px; color: #c9a8e8; letter-spacing: 2px; }
+.arcana .moves .t { font-size: 30px; line-height: 1; }
+.arcana .well { padding: 10px; background: linear-gradient(135deg, #6a5a7a, #3a2c48 50%, #5a4a6a); border-radius: 8px; box-shadow: 0 0 0 2px #f2c46a, 0 0 0 5px #12081f, 0 0 40px rgba(199,107,255,.35); }
+.arcana .well::before, .arcana .well::after { content: ''; position: absolute; width: 22px; height: 22px; background: #f2c46a; transform: rotate(45deg); top: -11px; left: -11px; box-shadow: 0 0 0 3px #12081f; z-index: 2; }
+.arcana .well::after { left: auto; right: -11px; }
+.arcana .plaque { padding: 4px 18px; background: #1c0e2e; border: 1.5px solid #f2c46a; font-size: 14px; top: -16px; }
+.arcana .plaque.t, .arcana .t span { -webkit-background-clip: border-box; background-clip: border-box; color: #f2c46a; filter: none; }
+.arcana .t span { background: none; }
+.arcana .quest .ic { color: #ff9a5a; }
+.arcana .quest .qbar { background: rgba(0,0,0,.5); border: 1px solid rgba(242,196,106,.5); }
+.arcana .quest .qbar i { background: linear-gradient(90deg, #ff7a3a, #ffc46b); }
+.arcana .quest .t { font-size: 13px; }
+.arcana .power { border-radius: 50%; background: radial-gradient(circle, #9fe8ff 0%, #2c6fe0 55%, #1a0f33 70%); border: 1.5px solid #f2c46a; box-shadow: 0 0 0 3px #12081f, 0 0 30px 10px rgba(120,200,255,.7); }
+.arcana .power .ic { color: #fff; filter: drop-shadow(0 0 8px #9fe8ff); }
+.arcana .power .tag { font-family: Cinzel; font-weight: 800; font-size: 11px; padding: 2px 8px; background: #1c0e2e; border: 1px solid #f2c46a; color: #f2c46a; letter-spacing: 2px; }
+.arcana .ic-coin { color: var(--gold); --ic-in: #ffe9a8; }
+.arcana .ic-star { color: #c76bff; }
+.arcana .node { background: radial-gradient(circle, #ffe9a8, #f2c46a 60%, #8c5a1c); border: 2px solid #12081f; box-shadow: 0 0 18px rgba(242,196,106,.7); font-family: Cinzel; font-weight: 800; color: #3a1f06; font-size: 18px; }
+.arcana .node.cur { background: radial-gradient(circle, #e0c8ff, #9a5aff 60%, #3a1a80); color: #fff; box-shadow: 0 0 0 4px #f2c46a, 0 0 40px 14px rgba(199,107,255,.7); font-size: 24px; }
+.arcana .node.lock { background: #2a1c3a; border: 1.5px solid #6a5a7a; color: #8a7a9a; box-shadow: none; }
+.arcana .alt { font-family: Cinzel; font-size: 11px; color: #c9a8e8; letter-spacing: 2px; }
+.arcana .badge { background: #c76bff; color: #fff; font-size: 12px; }
+.arcana .sidebtn small { font-family: Cinzel; font-size: 10px; letter-spacing: 1px; color: var(--gold); }
+.arcana .playbar, .arcana .btn-green { background: linear-gradient(180deg, #7a3ad8, #3a1680); border: 1.5px solid #f2c46a; border-radius: 6px; box-shadow: 0 0 0 3px #12081f, 0 0 30px rgba(199,107,255,.6), inset 0 0 20px rgba(255,255,255,.12); }
+.arcana .playbar .t, .arcana .btn.big .t { font-size: 28px; }
+.arcana .playbar small { font-family: Cinzel; color: #e0c8ff; font-size: 12px; letter-spacing: 3px; }
+.arcana .btn-blue { background: rgba(28,14,46,.95); border: 1.5px solid #f2c46a; border-radius: 6px; color: var(--gold); box-shadow: 0 0 0 3px #12081f; }
+.arcana .rays { background: radial-gradient(circle, rgba(199,107,255,.45), transparent 55%); }
+.arcana .ribbon { font-size: 34px; text-align: center; }
+.arcana .ribbon small { display: block; font-size: 14px; letter-spacing: 6px; }
+.arcana .starsrow .ic { color: #c76bff; stroke: #12081f; filter: drop-shadow(0 0 12px rgba(199,107,255,.9)); }
+.arcana .starsrow .ic.off { color: #2a1c3a; filter: none; }
+.arcana .card { background: linear-gradient(180deg, rgba(58,30,88,.92), rgba(28,14,46,.95)); border: 1.5px solid #f2c46a; border-radius: 6px; box-shadow: 0 0 0 3px #12081f; font-size: 15px; }
+.arcana .card .row b { font-family: Cinzel; font-size: 20px; color: var(--gold); }
+.arcana .card .reward { border-top: 1px solid rgba(242,196,106,.4); padding-top: 10px; }
+.arcana .nextup { border: 1px dashed rgba(242,196,106,.5); font-size: 13px; }
+.arcana .nextup b { font-family: Cinzel; color: var(--gold); display: block; font-size: 13px; letter-spacing: 1px; }
+
+/* =================== CLAY =================== */
+.clay { --ink: rgba(80,50,40,.0); color: #5a4038; font-family: Fredoka, sans-serif; }
+.clay .ic { stroke: none; }
+.clay .t { font-family: Fredoka; font-weight: 700; color: #5a4038; }
+.clay .panel, .clay .moves, .clay .next, .clay .quest, .clay .goal, .clay .pill, .clay .sidebtn { background: #fff8ee; border-radius: 24px; box-shadow: 0 6px 0 #ecd9c4, 0 12px 24px rgba(120,80,60,.18); }
+.clay .btn-ic { width: 50px; height: 50px; border-radius: 50%; display: grid; place-items: center; font-size: 22px; color: #fff; background: #ff8a6b; box-shadow: 0 5px 0 #d9654a, 0 10px 18px rgba(120,80,60,.2); }
+.clay .goal .gi { color: #5aa8f0; font-size: 30px; }
+.clay .goal .bar { background: #f0e2d2; border-radius: 10px; }
+.clay .goal .bar i { background: linear-gradient(90deg, #7fd0c0, #5aa8f0); border-radius: 10px; }
+.clay .goal .num .t { font-size: 22px; }
+.clay .goal .num small, .clay .moves small, .clay .next span { font-weight: 600; font-size: 12px; color: #b08a78; }
+.clay .moves .t { font-size: 32px; line-height: 1; color: #ff8a6b; }
+.clay .well { padding: 12px; background: linear-gradient(180deg, #f2c99a, #d9a066); border-radius: 30px; box-shadow: 0 8px 0 #b07a44, 0 18px 36px rgba(120,80,60,.3), inset 0 3px 0 rgba(255,255,255,.5); }
+.clay .well canvas { border-radius: 20px; }
+.clay .plaque { padding: 5px 18px; background: #fff8ee; border-radius: 20px; font-size: 15px; box-shadow: 0 4px 0 #ecd9c4; top: -16px; }
+.clay .quest .ic { color: #ff8a6b; }
+.clay .quest .qbar { background: #f0e2d2; border-radius: 6px; }
+.clay .quest .qbar i { background: #ff8a6b; border-radius: 6px; }
+.clay .quest .t { font-size: 15px; }
+.clay .power { border-radius: 50%; background: #bfeaf5; box-shadow: 0 6px 0 #8fcfe0, 0 0 0 6px #fff8ee, 0 14px 26px rgba(120,80,60,.25); }
+.clay .power .ic { color: #fff; filter: drop-shadow(0 2px 0 #6aaec0); }
+.clay .power .tag { font-weight: 700; font-size: 12px; padding: 2px 10px; background: #ff8a6b; color: #fff; border-radius: 10px; }
+.clay .ic-coin { color: #f6c445; --ic-in: #ffe08a; }
+.clay .ic-star { color: #f6c445; }
+.clay .node { background: #fff8ee; box-shadow: 0 5px 0 #ecd9c4, 0 10px 16px rgba(120,80,60,.2); font-weight: 700; font-size: 20px; }
+.clay .node.cur { background: #ff8a6b; color: #fff; box-shadow: 0 6px 0 #d9654a, 0 0 0 8px rgba(255,255,255,.7); font-size: 26px; }
+.clay .node.lock { background: #e8ddd0; color: #b8a898; box-shadow: 0 4px 0 #d4c6b6; }
+.clay .alt { font-weight: 600; font-size: 12px; color: #8a6a5a; background: rgba(255,248,238,.8); padding: 2px 8px; border-radius: 10px; }
+.clay .badge { background: #ff6b5a; color: #fff; font-size: 12px; font-weight: 700; }
+.clay .sidebtn .ic { color: #ff8a6b; }
+.clay .sidebtn small { font-weight: 600; font-size: 12px; }
+.clay .playbar, .clay .btn-green { background: #ff8a6b; border-radius: 40px; box-shadow: 0 7px 0 #d9654a, 0 16px 26px rgba(120,80,60,.25); }
+.clay .playbar .t, .clay .btn.big .t { color: #fff; font-size: 32px; }
+.clay .playbar small { color: #fff3ec; font-weight: 600; font-size: 14px; }
+.clay .btn-blue { background: #fff8ee; border-radius: 40px; box-shadow: 0 7px 0 #ecd9c4; color: #ff8a6b; }
+.clay .rays { background: radial-gradient(circle, rgba(255,255,255,.8), transparent 50%); }
+.clay .ribbon { font-size: 44px; color: #ff8a6b; }
+.clay .ribbon .t { color: #ff8a6b; }
+.clay .ribbon small { display: block; text-align: center; font-size: 16px; font-weight: 600; color: #b08a78; }
+.clay .starsrow .ic { color: #f6c445; filter: drop-shadow(0 5px 0 #d9a52a); }
+.clay .starsrow .ic.off { color: #eadfd2; filter: drop-shadow(0 5px 0 #d4c6b6); }
+.clay .card { background: #fff8ee; border-radius: 28px; box-shadow: 0 7px 0 #ecd9c4, 0 16px 30px rgba(120,80,60,.2); font-size: 17px; font-weight: 500; }
+.clay .card .row b { font-size: 22px; font-weight: 700; }
+.clay .card .reward { background: #fff1d0; border-radius: 16px; padding: 8px 12px; }
+.clay .nextup { background: #f6ecdf; border-radius: 16px; font-size: 14px; }
+.clay .nextup b { color: #ff8a6b; display: block; }
+</style>
+</head>
+<body>
+<script type="module">
+import { createSession } from '../../../src/session.js';
+import { SHOWCASE } from '../../../src/showcase.js';
+import { landingY } from '../../../src/core.js';
+import { createBoardRenderer } from '../../../src/render/board.js';
+import { SKINS } from '../../../src/render/skins.js';
+import { previewTile } from '../../../src/render/tiles.js';
+import { paintWorld } from '../../../src/render/world.js';
+import { icon } from '../../../src/ui/icons.js';
+
+const dir = new URLSearchParams(location.search).get('dir') || 'toybox';
+const skin = SKINS[dir];
+const COPY = {
+  toybox: { level: 'LEVEL 18', next: 'NEXT', quest: 'Douse 5 fire', pieces: 'PIECES', goal: 'DRAIN', power: 'READY!', play: 'PLAY', cleared: 'CLEARED!', sub: 'Level 18', cont: 'CONTINUE', nextUp: 'NEW NEXT: STONE', nextTxt: 'Heavy. Smashes glass on landing.' },
+  arcana: { level: 'FLOOR XVIII', next: 'NEXT', quest: 'Quench 5 flames', pieces: 'PIECES', goal: 'ESSENCE', power: 'CHARGED', play: 'ASCEND', cleared: 'Floor sealed', sub: 'XVIII', cont: 'Descend', nextUp: 'NEW RUNE: STONE', nextTxt: 'Shatters glass wards.' },
+  clay: { level: 'Level 18', next: 'Next', quest: 'Douse 5 fire', pieces: 'pieces', goal: 'drained', power: 'Ready', play: 'Play', cleared: 'Lovely!', sub: 'Level 18 cleared', cont: 'Next level', nextUp: 'New next: Stone', nextTxt: 'Heavy. Smashes glass on landing.' },
+}[dir];
+
+function phone() {
+  const p = document.createElement('div');
+  p.className = `phone ${dir}`;
+  const w = document.createElement('canvas');
+  w.className = 'world';
+  w.width = 780; w.height = 1688;
+  paintWorld(w.getContext('2d'), 780, 1688, 83, dir);
+  p.appendChild(w);
+  document.body.appendChild(p);
+  return p;
+}
+
+// ---------- gameplay ----------
+{
+  const p = phone();
+  p.id = 'play';
+  p.insertAdjacentHTML('beforeend', `
+  <div class="game">
+    <div class="topbar">
+      <button class="btn-ic">${icon('pause')}</button>
+      <div class="goal panel"><div class="gi">${icon('flask')}</div><div class="gb"><div class="bar"><i></i></div><div class="num"><span class="t">19<span style="opacity:.6">/56</span></span><small>${COPY.goal}</small></div></div></div>
+      <div class="moves"><span class="t">8</span><small>${COPY.pieces}</small></div>
+    </div>
+    <div class="wellwrap"><div class="well"><div class="plaque t">${COPY.level}</div><canvas class="board"></canvas></div></div>
+    <div class="bottombar">
+      <div class="next panel"><span>${COPY.next}</span><canvas class="nx" width="120" height="84" style="width:60px;height:42px"></canvas></div>
+      <div class="quest panel">${icon('drop')}<div class="qt"><span class="t">${COPY.quest}</span><div class="qbar"><i></i></div></div></div>
+      <button class="power">${icon('snow')}<span class="tag t">${COPY.power}</span></button>
+    </div>
+  </div>`);
+  const s = createSession({ rand: () => 0.5 });
+  SHOWCASE.busy(s);
+  const g = s.game;
+  const cv = p.querySelector('.board');
+  const r = createBoardRenderer(cv, skin);
+  const wrap = p.querySelector('.wellwrap').getBoundingClientRect();
+  const pad = dir === 'clay' ? 30 : dir === 'arcana' ? 26 : 28;
+  const { w, h } = r.resize(wrap.width - pad, wrap.height - pad, 2);
+  cv.style.width = `${w}px`; cv.style.height = `${h}px`;
+  const draw = (ts) => { r.draw(g, { ts, piece: g.piece, ghostY: landingY(g), targets: [[2, 16], [3, 16]] }); requestAnimationFrame(draw); };
+  requestAnimationFrame(draw);
+  const nx = p.querySelector('.nx').getContext('2d');
+  const t = previewTile(skin, 'sand', 36);
+  for (const [a, b] of [[0, 0], [1, 0], [0, 1], [1, 1]]) nx.drawImage(t, 24 + a * 36, 6 + b * 36);
+}
+
+// ---------- map ----------
+{
+  const p = phone();
+  p.id = 'map';
+  const tower = document.createElement('canvas');
+  tower.className = 'tower';
+  const TW = 240;
+  tower.width = TW * 2; tower.height = 844 * 2;
+  tower.style.width = `${TW}px`; tower.style.height = '844px';
+  const tc = tower.getContext('2d');
+  const T = 56;
+  const stone = [0, 1, 2].map((v) => previewTile(skin, 'stone', T, v));
+  const brick = [0, 1, 2].map((v) => previewTile(skin, 'brick', T, v));
+  const glass = previewTile(skin, 'glass', T);
+  for (let y = 0; y < (844 * 2) / T + 1; y++) {
+    for (let x = 0; x < (TW * 2) / T; x++) {
+      const band = Math.floor(y / 4) % 3 === 2;
+      const win = !band && (x === 2 || x === 9) && y % 4 === 1;
+      tc.drawImage(win ? glass : band ? brick[(x + y) % 3] : stone[(x * 7 + y) % 3], x * T, y * T - 10);
+    }
+  }
+  const haze = { toybox: 'rgba(170,215,255,.38)', arcana: 'rgba(40,20,70,.45)', clay: 'rgba(255,240,228,.4)' }[dir];
+  tc.fillStyle = haze;
+  tc.fillRect(0, 0, TW * 2, 844 * 2);
+  const edge = tc.createLinearGradient(0, 0, TW * 2, 0);
+  edge.addColorStop(0, 'rgba(0,0,0,.28)'); edge.addColorStop(0.12, 'rgba(0,0,0,0)'); edge.addColorStop(0.88, 'rgba(0,0,0,0)'); edge.addColorStop(1, 'rgba(0,0,0,.28)');
+  tc.fillStyle = edge;
+  tc.fillRect(0, 0, TW * 2, 844 * 2);
+  const map = document.createElement('div');
+  map.className = 'map';
+  map.appendChild(tower);
+  const nodes = [[15, 140, 'done'], [16, 230, 'done'], [17, 330, 'done'], [18, 450, 'cur'], [19, 570, 'lock'], [20, 660, 'lock'], [21, 750, 'lock']];
+  const xs = [150, 240, 160, 195, 240, 150, 225];
+  let html = '';
+  const path = [];
+  nodes.forEach(([n, y, k], i) => {
+    const x = xs[i];
+    path.push([x, y]);
+    const stars = k === 'done' ? `<div class="stars">${icon('star')}${icon('star')}${i === 1 ? icon('star', 'off') : icon('star')}</div>` : '';
+    const label = k === 'lock' ? icon('lock') : `<span class="t">${dir === 'arcana' ? ['XV', 'XVI', 'XVII', 'XVIII'][i] : n}</span>`;
+    html += `<div class="node ${k === 'cur' ? 'cur' : k === 'lock' ? 'lock' : ''}" style="left:${x}px;top:${y}px">${stars}${label}</div>`;
+  });
+  const svgPath = `<svg style="position:absolute;inset:0" width="390" height="844"><path d="M${path.map(([x, y]) => `${x} ${y}`).join(' L')}" fill="none" stroke="${dir === 'clay' ? '#fff8ee' : dir === 'arcana' ? '#f2c46a' : '#fff'}" stroke-width="7" stroke-dasharray="2 14" stroke-linecap="round" opacity=".9"/></svg>`;
+  map.insertAdjacentHTML('beforeend', `${svgPath}${html}
+    <div class="alt" style="top:230px">85 ft</div><div class="alt" style="top:450px">83 ft</div><div class="alt" style="top:660px">81 ft</div>
+    <div class="maphud"><div class="pill">${icon('coin')}<span class="t">1,240</span></div><div class="pill">${icon('star')}<span class="t">47</span></div><div style="flex:1"></div><button class="btn-ic">${icon('gear')}</button></div>
+    <div class="side"><div class="sidebtn panel">${icon('calendar')}<span class="badge">!</span><small class="t">Daily</small></div><div class="sidebtn panel">${icon('shop')}<small class="t">Shop</small></div><div class="sidebtn panel">${icon('book')}<small class="t">Codex</small></div></div>
+    <button class="playbar btn"><span class="t">${COPY.play}</span><small>${COPY.level}</small></button>`);
+  p.appendChild(map);
+}
+
+// ---------- win ----------
+{
+  const p = phone();
+  p.id = 'win';
+  p.insertAdjacentHTML('beforeend', `
+  <div style="position:absolute;inset:0;background:${dir === 'clay' ? 'rgba(255,240,228,.55)' : dir === 'arcana' ? 'rgba(18,8,31,.6)' : 'rgba(13,22,64,.55)'}"></div>
+  <div class="win">
+    <div class="rays"></div>
+    <div class="ribbon t">${COPY.cleared}<small class="t">${COPY.sub}</small></div>
+    <div class="starsrow">${icon('star')}${icon('star', 'big')}${icon('star', 'off')}</div>
+    <div class="card">
+      <div class="row">${icon('flask')}<span>Drained</span><b>56 / 56</b></div>
+      <div class="row">${icon('pieces')}<span>Pieces left</span><b>8</b></div>
+      <div class="row reward">${icon('coin')}<span>Reward</span><b>+45</b></div>
+      <div class="nextup"><canvas class="nu" width="128" height="64" style="width:64px;height:32px"></canvas><div><b>${COPY.nextUp}</b>${COPY.nextTxt}</div></div>
+    </div>
+    <div class="btnrow"><button class="btn sq btn-blue">${icon('retry')}</button><button class="btn big btn-green"><span class="t">${COPY.cont}</span></button></div>
+  </div>`);
+  const nu = p.querySelector('.nu').getContext('2d');
+  nu.drawImage(previewTile(skin, 'stone', 60), 0, 2);
+  nu.drawImage(previewTile(skin, 'glass', 60), 64, 2);
+}
+window.ready = true;
+</script>
+</body>
+</html>
