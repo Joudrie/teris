@@ -429,7 +429,7 @@ test('mixed pieces start at level 8', () => {
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
-  const g = createGame({ level: 30, rand, config: { ...levelConfig(30), mode: 'normal' } });
+  const g = createGame({ level: 30, rand, config: { ...levelConfig(30), mode: 'normal', pieces: Infinity } });
   let mixed = 0;
   for (let i = 0; i < 40; i++) {
     const mats = pieceMats(g.piece);
