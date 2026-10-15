@@ -101,9 +101,9 @@ export function buildMap(app) {
     <div class="map-track" style="height:${H}px">
       <div class="map-sky" style="background:linear-gradient(180deg,#1f6fd8 0,#3f9cf5 ${H * 0.2}px,#7ccaff ${H * 0.5}px,#bfe9ff ${H * 0.82}px,#dff6ff ${H - 260}px,#5cbf43 ${H - 150}px,#4aa936 100%)"></div>
       ${clouds}
-      <img class="map-logo" src="assets/wordmark.png" alt="Tumbledown">
+      <div class="map-logo" role="img" aria-label="Tumbledown"><b>TUMBLEDOWN</b><small>Sky tower · 100 floors</small></div>
       <div class="map-tower" style="background-image:url(${pat});background-size:224px auto"></div>
-      <svg class="map-path" style="left:calc(50% - 112px);width:224px;height:${H}px"><path d="${path}" fill="none" stroke="#fff" stroke-width="7" stroke-dasharray="2 15" stroke-linecap="round" opacity=".9"/></svg>
+      <svg class="map-path" style="left:calc(50% - 112px);width:224px;height:${H}px"><path d="${path}" fill="none" stroke="#fff3d6" stroke-width="6" stroke-dasharray="6 12" stroke-linecap="butt" opacity=".9"/></svg>
       ${nodes}${alts}
     </div>`;
   scroll.querySelectorAll('.node').forEach((n) => {
@@ -156,10 +156,15 @@ export function openSheet(app, html, onOpen) {
   $('sheetX').onclick = () => { app.sound('close'); closeSheet(app); };
   wrap.onclick = (e) => { if (e.target === wrap) closeSheet(app); };
   if (onOpen) onOpen(body);
+  // The slab lands about 320 ms into its fall: thud and dust (see @keyframes slab).
+  clearTimeout(landTimer);
+  landTimer = setTimeout(() => { if (!wrap.hidden) app.slabLanded?.(body.getBoundingClientRect()); }, 320);
 }
+let landTimer = 0;
 
 export function closeSheet(app) {
   if ($('sheet').hidden) return;
+  app.crumble?.($('sheetBody').getBoundingClientRect());
   $('sheet').hidden = true;
   $('sheetBody').innerHTML = '';
   app.sheetOpen(false);
@@ -209,7 +214,7 @@ export function openSettings(app) {
     <h2 class="t">Settings</h2>
     ${toggles(app)}
     <button class="btn btn-navy small" id="setHelp">${icon('book')}<span class="t">How to play</span></button>
-    <p class="note">Tumbledown · fonts: Lilita One and Nunito (SIL Open Font License) · all art and sound made in code.</p>`, () => {
+    <p class="note">Tumbledown · fonts: Jersey 10, Silkscreen and Space Grotesk (SIL Open Font License) · all art and sound made in code.</p>`, () => {
     $('setHelp').onclick = () => { app.sound('tap'); openHelp(app, () => openSettings(app)); };
     wireToggles(app, () => { closeSheet(app); render(); });
   });

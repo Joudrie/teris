@@ -51,6 +51,14 @@ const buzz = (p) => call('buzz', p);
 
 const cv = $('cv');
 let skin = SKINS[meta.skin()];
+const PX_STAR = (cls) => `<svg class="pxstar ${cls}" viewBox="0 0 11 11" shape-rendering="crispEdges" aria-hidden="true"><path class="e" d="M5 0h1v2h1v2h4v1h-1v1h-1v1h1v3h-1v1h-1v-1h-1v-1h-3v1h-1v1h-1v-1h-1v-3h1v-1h-1v-1h-1v-1h4v-2h1z"/><path class="f" d="M5 1h1v2h1v2h3v1h-2v2h1v1h-1v-1h-1v-1h-3v1h-1v1h-1v-1h1v-2h-2v-1h3v-2h1z"/><path class="h" d="M5 2h1v2h-1zM3 5h1v1h-1z"/></svg>`;
+
+// The interface is built from the game's own blocks: bake a few tiles once and hand them to the
+// stylesheet as textures (--tex-stone, --tex-fire, ...). Always the Toybox tiles, so the chrome
+// stays the same whichever block skin the player picks.
+for (const m of ['stone', 'brick', 'wood', 'fire', 'ice', 'sand']) {
+  document.documentElement.style.setProperty(`--tex-${m}`, `url(${previewTile(SKINS.toybox, m, 48).toDataURL()})`);
+}
 const board = createBoardRenderer(cv, skin);
 const fx = createFx($('fxc'));
 fx.motion = settings.motion;
@@ -441,9 +449,16 @@ function overlays() {
     $('ovT').textContent = w.title;
     $('ovSub').textContent = sess.daily ? w.sub : `Level ${sess.level}`;
     $('ovRing').hidden = true;
-    $('ovStars').innerHTML = sess.daily ? '' : [1, 2, 3].map((k) => icon('star', k <= view.stars ? 'on' : '')).join('');
+    $('ovStars').innerHTML = sess.daily ? '' : [1, 2, 3].map((k) => PX_STAR(k <= view.stars ? 'on' : '')).join('');
     $('ovStars').querySelectorAll('.on').forEach((el, i) => { el.style.animationDelay = `${0.35 + i * 0.32}s`; });
-    for (let i = 0; i < (sess.daily ? 0 : view.stars); i++) setTimeout(() => { play('star', { n: i + 1 }); buzz(20); }, 350 + i * 320);
+    for (let i = 0; i < (sess.daily ? 0 : view.stars); i++) {
+      // Each star lands like a gold block: the sound and dust come at the moment of impact.
+      setTimeout(() => {
+        play('star', { n: i + 1 }); buzz(20);
+        const el = $('ovStars').children[i];
+        if (el) { const r = el.getBoundingClientRect(); fx.dust(r.left + r.width / 2, r.bottom - 6, 6, true); }
+      }, 350 + i * 320 + 280);
+    }
     const g = game();
     $('ovS').innerHTML = `
       <div class="row">${icon('flask')}<span>Drained</span><b>${w.drained} / ${g.cfg.goal.pieces}</b></div>
@@ -693,6 +708,9 @@ const app = {
   openHome() { openHome(sess); },
   restart() { start(sess, sess.level, { daily: sess.daily }); },
   sheetOpen(v) { view.paused = v; if (v) play('open'); },
+  // Menus are stone slabs: they land with a thud and break up when closed.
+  slabLanded(r) { fx.dust(r.left + r.width * 0.25, r.bottom, 5, true); fx.dust(r.left + r.width * 0.75, r.bottom, 5, true); play('land'); buzz(12); },
+  crumble(r) { if (r.width) fx.rubble(r.left, r.top, r.width, r.height, ['#8f96a4', '#6e7480', '#b4bac6', '#a87a4a'], 34, 14); },
   isMuted: () => isMuted(),
   toggleMute() {
     unlock();
@@ -733,7 +751,13 @@ $('rewardsIc').innerHTML = icon('gift');
 $('shopIc').innerHTML = icon('shop');
 $('codexIc').innerHTML = icon('book');
 $('homeBtn').onclick = () => { unlock(); sw = null; if (sess.phase === 'play' && !sess.home) openPause(app); };
-$('playBtn').onclick = () => { unlock(); play('tap'); app.playFromMap(); };
+$('playBtn').onclick = () => {
+  unlock(); play('tap');
+  // The Play block bursts into embers as the level drops in.
+  const r = $('playBtn').getBoundingClientRect();
+  fx.rubble(r.left, r.top, r.width, r.height, ['#ff7b1c', '#ffc35a', '#b8460c', '#ffe08a'], 30, 12);
+  app.playFromMap();
+};
 $('dailyBtn').onclick = () => { unlock(); play('tap'); if (dailyReady(sess)) { startDaily(sess); fit(); } };
 $('settingsBtn').onclick = () => { unlock(); play('tap'); openSettings(app); };
 $('rewardsBtn').onclick = () => { unlock(); play('tap'); openRewards(app); };

@@ -1,4 +1,6 @@
-# Design system: Toybox
+# Design system: Toybox (replaced)
+
+> **Replaced by [QUARRY.md](QUARRY.md).** Toybox turned out to be the assistant's default style, shared almost value for value with Cartopia ([fingerprint report](../fingerprint/REPORT.md)). Kept for history.
 
 The tokens live in code: CSS custom properties at the top of [`style.css`](../../style.css), and the board and material palette in [`src/render/skins.js`](../../src/render/skins.js). Components use tokens only. To add a color, add a token.
 

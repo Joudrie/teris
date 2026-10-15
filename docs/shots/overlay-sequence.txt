@@ -3,7 +3,6 @@ scene:lose
 click:powerBtn
 click:ovA
 click:ovA
-click:ovB
 scene:interstitial
 scene:revive
 click:ovC

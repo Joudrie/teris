@@ -85,6 +85,14 @@ export function createFx(cv) {
     }
   }
 
+  // A whole slab breaking up: chunks spread over a rect and fall away. These ignore the board
+  // clip, since menus and buttons crumble wherever they are on screen.
+  function rubble(x, y, w, h, colors, n = 28, size = 12) {
+    for (let k = 0; k < n * motion + (motion ? 0 : 2); k++) {
+      add({ kind: 'cube', free: true, x: x + rand(0, w), y: y + rand(0, h), vx: rand(-140, 140), vy: rand(-220, -40), g: 1300, life: rand(0.6, 1), max: 1, size: size * rand(0.6, 1.4), color: colors[k % colors.length], rot: rand(0, TAU), vr: rand(-9, 9) });
+    }
+  }
+
   function shards(x, y, n, spread = 30) {
     for (let k = 0; k < n * motion; k++) {
       const a = rand(0, TAU);
@@ -101,8 +109,8 @@ export function createFx(cv) {
     for (let k = 0; k < n * motion; k++) add({ kind: 'spark', x: x + rand(-6, 6), y, vx: rand(-40, 40), vy: rand(-160, -60), g: -40, life: rand(0.4, 0.9), max: 1, size: rand(2, 4), color });
   }
 
-  function dust(x, y, n) {
-    for (let k = 0; k < n * motion; k++) add({ kind: 'smoke', x: x + rand(-20, 20), y, vx: rand(-90, 90), vy: rand(-40, -10), g: 0, life: rand(0.35, 0.6), max: 1, size: rand(8, 14), grow: 1.6, alpha: 0.5 });
+  function dust(x, y, n, free = false) {
+    for (let k = 0; k < n * motion; k++) add({ kind: 'smoke', free, x: x + rand(-20, 20), y, vx: rand(-90, 90), vy: rand(-40, -10), g: 0, life: rand(0.35, 0.6), max: 1, size: rand(8, 14), grow: 1.6, alpha: 0.5 });
   }
 
   function confetti(n, colors) {
@@ -180,16 +188,19 @@ export function createFx(cv) {
     ctx.translate(t.x, y);
     ctx.scale(s, s);
     ctx.globalAlpha = fade;
-    ctx.font = `${t.size}px 'Lilita One', system-ui, sans-serif`;
+    // Pixel display type, cut like a block: a dark carved edge and a solid step underneath,
+    // no sticker outline.
+    const size = Math.round(t.size * 1.3);
+    ctx.font = `${size}px 'Jersey 10', 'Space Grotesk', monospace`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.lineJoin = 'round';
-    const lw = Math.max(4, t.size * 0.17);
+    ctx.lineJoin = 'miter';
+    const lw = Math.max(3, size * 0.09);
     ctx.lineWidth = lw;
-    ctx.strokeStyle = '#0d1640';
-    ctx.fillStyle = 'rgba(13,22,64,.45)';
-    ctx.fillText(t.text, 0, lw * 0.9);
-    ctx.strokeText(t.text, 0, lw * 0.9);
+    ctx.strokeStyle = '#2a1606';
+    ctx.fillStyle = '#2a1606';
+    ctx.fillText(t.text, 0, size * 0.09);
+    ctx.strokeText(t.text, 0, size * 0.09);
     ctx.strokeText(t.text, 0, 0);
     let fill = t.style;
     const styles = {
@@ -202,7 +213,7 @@ export function createFx(cv) {
     };
     if (styles[t.style]) {
       const [a, b, c] = styles[t.style];
-      const g = ctx.createLinearGradient(0, -t.size * 0.5, 0, t.size * 0.5);
+      const g = ctx.createLinearGradient(0, -size * 0.45, 0, size * 0.45);
       g.addColorStop(0, a); g.addColorStop(0.5, b); g.addColorStop(1, c);
       fill = g;
     }
@@ -213,20 +224,39 @@ export function createFx(cv) {
       ctx.fillStyle = '#fff';
       ctx.save();
       ctx.beginPath();
-      ctx.rect(-W, -t.size * 0.5, W * 2, t.size * 0.3);
+      ctx.rect(-W, -size * 0.45, W * 2, size * 0.24);
       ctx.clip();
       ctx.fillText(t.text, 0, 0);
       ctx.restore();
     }
     if (t.sub) {
       ctx.globalAlpha = fade;
-      ctx.font = `${Math.round(t.size * 0.38)}px 'Lilita One', system-ui, sans-serif`;
-      ctx.lineWidth = Math.max(3, t.size * 0.09);
-      const sy = t.size * 0.72;
+      ctx.font = `${Math.round(t.size * 0.46)}px 'Jersey 10', 'Space Grotesk', monospace`;
+      ctx.lineWidth = Math.max(3, t.size * 0.08);
+      const sy = t.size * 0.8;
       ctx.strokeText(t.sub, 0, sy);
       ctx.fillStyle = '#fff';
       ctx.fillText(t.sub, 0, sy);
     }
+    ctx.restore();
+  }
+
+  function drawCube(p, a) {
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.rot);
+    ctx.globalAlpha = a;
+    const s = p.size;
+    ctx.fillStyle = p.color;
+    ctx.fillRect(-s / 2, -s / 2, s, s);
+    // One-texel bevel like the blocks: light top-left, dark bottom-right.
+    const b = Math.max(1.5, s * 0.18);
+    ctx.fillStyle = 'rgba(255,255,255,.38)';
+    ctx.fillRect(-s / 2, -s / 2, s, b);
+    ctx.fillRect(-s / 2, -s / 2, b, s);
+    ctx.fillStyle = 'rgba(0,0,0,.4)';
+    ctx.fillRect(-s / 2, s / 2 - b, s, b);
+    ctx.fillRect(s / 2 - b, -s / 2, b, s);
     ctx.restore();
   }
 
@@ -243,23 +273,10 @@ export function createFx(cv) {
     ctx.save();
     if (clip) { ctx.beginPath(); ctx.rect(clip.x - 6, clip.y - 6, clip.w + 12, clip.h + 12); ctx.clip(); }
     for (const p of parts) {
-      if (p.kind === 'confetti') continue;
+      if (p.kind === 'confetti' || p.free) continue;
       const a = Math.max(0, Math.min(1, p.life / Math.min(0.35, p.max)));
       if (p.kind === 'cube') {
-        ctx.save();
-        ctx.translate(p.x, p.y);
-        ctx.rotate(p.rot);
-        ctx.globalAlpha = a;
-        const s = p.size;
-        ctx.fillStyle = '#0d1640';
-        ctx.fillRect(-s / 2 - 1.5, -s / 2 - 1.5, s + 3, s + 3);
-        ctx.fillStyle = p.color;
-        ctx.fillRect(-s / 2, -s / 2, s, s);
-        ctx.fillStyle = 'rgba(255,255,255,.4)';
-        ctx.fillRect(-s / 2, -s / 2, s, s * 0.28);
-        ctx.fillStyle = 'rgba(0,0,0,.28)';
-        ctx.fillRect(-s / 2, s * 0.22, s, s * 0.28);
-        ctx.restore();
+        drawCube(p, a);
       } else if (p.kind === 'shard') {
         ctx.save();
         ctx.translate(p.x, p.y);
@@ -277,7 +294,7 @@ export function createFx(cv) {
         sg.addColorStop(1, 'rgba(90,190,240,.7)');
         ctx.fillStyle = sg;
         ctx.fill();
-        ctx.strokeStyle = '#0d1640';
+        ctx.strokeStyle = 'rgba(20,40,60,.7)';
         ctx.lineWidth = 1.5;
         ctx.stroke();
         ctx.restore();
@@ -301,6 +318,17 @@ export function createFx(cv) {
       ctx.globalAlpha = 1;
     }
     ctx.restore();
+    for (const p of parts) {
+      if (!p.free) continue;
+      const a = Math.max(0, Math.min(1, p.life / Math.min(0.35, p.max)));
+      if (p.kind === 'cube') drawCube(p, a);
+      else {
+        const s2 = p.size * (1 + (1 - p.life / p.max) * (p.grow || 1));
+        ctx.globalAlpha = a * (p.alpha ?? 0.55);
+        ctx.drawImage(smoke, p.x - s2, p.y - s2, s2 * 2, s2 * 2);
+        ctx.globalAlpha = 1;
+      }
+    }
     for (const p of parts) {
       if (p.kind !== 'confetti') continue;
       {
@@ -365,7 +393,7 @@ export function createFx(cv) {
   }
 
   return {
-    resize, step, draw, clear, cubes, shards, puff, sparks, dust, confetti, ring, flight, word, popText,
+    resize, step, draw, clear, cubes, rubble, shards, puff, sparks, dust, confetti, ring, flight, word, popText,
     flash: doFlash,
     gold: GOLD,
     set motion(v) { motion = v ? 1 : 0; },

@@ -37,7 +37,7 @@
  {
   "name": "390x844 flick up fires the power at full meter",
   "ok": true,
-  "info": "{\"dt\":132,\"tx\":0,\"ty\":-140,\"moved\":false,\"what\":\"power\"}"
+  "info": "{\"dt\":135,\"tx\":0,\"ty\":-140,\"moved\":false,\"what\":\"power\"}"
  },
  {
   "name": "390x844 flick up at 0% meter does nothing",
@@ -97,7 +97,7 @@
  {
   "name": "375x667 quick flick down slams",
   "ok": true,
-  "info": "{\"dt\":132,\"tx\":8,\"ty\":120,\"moved\":true,\"what\":\"slam\"}"
+  "info": "{\"dt\":134,\"tx\":8,\"ty\":120,\"moved\":true,\"what\":\"slam\"}"
  },
  {
   "name": "375x667 diagonal swipe moves sideways, no slam",
@@ -142,7 +142,7 @@
  {
   "name": "rotate and resize mid-game: board refits, no errors",
   "ok": true,
-  "info": "{\"bottom\":731,\"right\":383,\"vw\":430,\"vh\":932,\"h\":560}"
+  "info": "{\"bottom\":744.328125,\"right\":391,\"vw\":430,\"vh\":932,\"h\":586.65625}"
  },
  {
   "name": "landscape phone: board still visible (shrinks to fit)",
@@ -157,7 +157,7 @@
  {
   "name": "overlays opened/closed in random order: input and frames still work",
   "ok": true,
-  "info": "15 steps; "
+  "info": "14 steps; "
  },
  {
   "name": "localStorage blocked: game starts and runs with no errors",
@@ -172,11 +172,11 @@
  {
   "name": "performance at 1x CPU throttle: physics tick under 4 ms",
   "ok": true,
-  "info": "physics 0.65 ms, game JS per frame 5.45 ms avg / 75.2 worst (debug validator 0.15 ms extra), 60 fps in software-rendered headless Chromium"
+  "info": "physics 1.20 ms, game JS per frame 6.03 ms avg / 95.8 worst (debug validator 0.13 ms extra), 60 fps in software-rendered headless Chromium"
  },
  {
   "name": "performance at 4x CPU throttle: physics tick under 4 ms",
   "ok": false,
-  "info": "physics 7.51 ms, game JS per frame 42.41 ms avg / 421.1 worst (debug validator 0.55 ms extra), 13 fps in software-rendered headless Chromium"
+  "info": "physics 6.96 ms, game JS per frame 39.51 ms avg / 261.6 worst (debug validator 0.53 ms extra), 16 fps in software-rendered headless Chromium"
  }
 ]
