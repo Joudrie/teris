@@ -568,9 +568,8 @@ window.addEventListener('resize', fit);
 
 startLevel(level);
 fit();
-// ?debug skips the home screen so tests land straight in the game.
-if (new URLSearchParams(location.search).has('debug')) closeHome();
-else openHome();
+// The game opens straight into play; home is only behind the home button.
+closeHome();
 
 // ?debug in the URL exposes the live game for testing in the browser console.
 if (new URLSearchParams(location.search).has('debug')) {
