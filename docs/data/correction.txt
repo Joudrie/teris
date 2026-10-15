@@ -1,0 +1,7 @@
+33: 36 -> 37 (target 71%, now 60%)
+45: 32 -> 31 (target 60%, now 68%)
+57: 41 -> 40 (target 41%, now 45%)
+58: 41 -> 42 (target 68%, now 73%)
+64: 45 -> 44 (target 36%, now 57%)
+69: 43 -> 44 (target 35%, now 25%)
+92: 36 -> 35 (target 38%, now 35%)

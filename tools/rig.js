@@ -19,9 +19,10 @@ import { createBot, botStep, mulberry32, cloneGame } from './bots.js';
 const DT = 1 / 30;
 const MAX_TIME = 420; // seconds of play before a game counts as stuck
 
-export function playGame({ level, bot: kind, seed, help = false, check = true, maxTime = MAX_TIME, useRevive = true }) {
+export function playGame({ level, bot: kind, seed, help = false, check = true, maxTime = MAX_TIME, useRevive = true, budget = null }) {
   const rand = mulberry32(seed);
   const cfg = levelConfig(level, { help });
+  if (budget) cfg.pieces = budget;
   // Tuning experiments: scale goals or fall speed without editing the levels.
   if (process.env.GOALX) cfg.goal = { pieces: Math.round(cfg.goal.pieces * +process.env.GOALX) };
   if (process.env.SPEEDX) cfg.speed = (cfg.speed || 0.4) * +process.env.SPEEDX;
@@ -31,7 +32,7 @@ export function playGame({ level, bot: kind, seed, help = false, check = true, m
   const r = {
     level, seed, kind, won: false, wonWithRevive: false, lostAt: null, time: 0, powers: 0,
     longestGap: 0, firstDrain: null, firstCombo: null, firstBar: null, bestMult: 1, errors: [],
-    revived: false, pieces: 0,
+    revived: false, pieces: 0, budget: cfg.pieces,
   };
   let gap = 0;
   let lastDrained = 0;
