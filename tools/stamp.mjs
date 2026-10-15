@@ -4,8 +4,8 @@
 // deploy a returning player can get the old page, or worse, a mix of old and new modules.
 // This script gives every module and the stylesheet a content-hashed URL through an import
 // map (an unchanged file keeps its URL and stays cached), and bakes a build id into the
-// page. On load the page fetches version.json uncached; if the build is newer than its
-// own, it jumps once to the fresh page.
+// page. On load (and when the tab comes back into view) the page fetches version.json
+// uncached; if the build is newer than its own, it jumps once to the fresh page.
 //
 //   node tools/stamp.mjs          rewrite index.html and version.json
 //   node tools/stamp.mjs --check  exit 1 if they are out of date (writes nothing)
@@ -43,17 +43,26 @@ const cssV = hash(read('style.css'));
 const build = hash([hash(bare), cssV, ...modules.map(([, v]) => v)].join('\n'));
 const mainV = modules.find(([k]) => k === './src/main.js')[1].split('?v=')[1];
 
+// Checked on load, and again whenever the tab comes back into view (at most every 15 s), so a
+// tab left open in the background picks up a deploy too.
 const check = `(function () {
     var B = '${build}';
     window.BUILD = B;
     if (!window.fetch) return;
-    fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (v) {
-      if (!v || !v.build || v.build === B) return;
-      var u = new URL(location.href);
-      if (u.searchParams.get('v') === v.build) return; // asked for that build once already
-      u.searchParams.set('v', v.build);
-      location.replace(u.toString());
-    }).catch(function () {});
+    var last = 0;
+    function check() {
+      if (Date.now() - last < 15000) return;
+      last = Date.now();
+      fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (v) {
+        if (!v || !v.build || v.build === B) return;
+        var u = new URL(location.href);
+        if (u.searchParams.get('v') === v.build) return; // asked for that build once already
+        u.searchParams.set('v', v.build);
+        location.replace(u.toString());
+      }).catch(function () {});
+    }
+    check();
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) check(); });
   })();`;
 const map = JSON.stringify({ imports: Object.fromEntries(modules) }, null, 2).replace(/\n/g, '\n  ');
 const block = `${START}

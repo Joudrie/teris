@@ -27,7 +27,7 @@
  {
   "name": "390x844 quick flick down slams",
   "ok": true,
-  "info": "{\"dt\":132,\"tx\":8,\"ty\":120,\"moved\":true,\"what\":\"slam\"}"
+  "info": "{\"dt\":134,\"tx\":8,\"ty\":120,\"moved\":true,\"what\":\"slam\"}"
  },
  {
   "name": "390x844 diagonal swipe moves sideways, no slam",
@@ -37,7 +37,7 @@
  {
   "name": "390x844 flick up fires the power at full meter",
   "ok": true,
-  "info": "{\"dt\":133,\"tx\":0,\"ty\":-140,\"moved\":false,\"what\":\"power\"}"
+  "info": "{\"dt\":132,\"tx\":0,\"ty\":-140,\"moved\":false,\"what\":\"power\"}"
  },
  {
   "name": "390x844 flick up at 0% meter does nothing",
@@ -52,7 +52,7 @@
  {
   "name": "390x844 board and quest line fit on screen",
   "ok": true,
-  "info": "{\"bottom\":673.65625,\"right\":355,\"quest\":818,\"vw\":390,\"vh\":844}"
+  "info": "{\"bottom\":687,\"right\":363,\"quest\":818,\"vw\":390,\"vh\":844}"
  },
  {
   "name": "390x844 home screen scrolls",
@@ -97,7 +97,7 @@
  {
   "name": "375x667 quick flick down slams",
   "ok": true,
-  "info": "{\"dt\":127,\"tx\":8,\"ty\":120,\"moved\":true,\"what\":\"slam\"}"
+  "info": "{\"dt\":132,\"tx\":8,\"ty\":120,\"moved\":true,\"what\":\"slam\"}"
  },
  {
   "name": "375x667 diagonal swipe moves sideways, no slam",
@@ -107,7 +107,7 @@
  {
   "name": "375x667 flick up fires the power at full meter",
   "ok": true,
-  "info": "{\"dt\":131,\"tx\":0,\"ty\":-140,\"moved\":false,\"what\":\"power\"}"
+  "info": "{\"dt\":134,\"tx\":0,\"ty\":-140,\"moved\":false,\"what\":\"power\"}"
  },
  {
   "name": "375x667 flick up at 0% meter does nothing",
@@ -142,7 +142,7 @@
  {
   "name": "rotate and resize mid-game: board refits, no errors",
   "ok": true,
-  "info": "{\"bottom\":744.328125,\"right\":391,\"vw\":430,\"vh\":932,\"h\":586.65625}"
+  "info": "{\"bottom\":731,\"right\":383,\"vw\":430,\"vh\":932,\"h\":560}"
  },
  {
   "name": "landscape phone: board still visible (shrinks to fit)",
@@ -152,12 +152,12 @@
  {
   "name": "background tab for 4 s and back: no time jump",
   "ok": true,
-  "info": "moved 0 rows while hidden, 1 on return"
+  "info": "moved 1 rows while hidden, 1 on return"
  },
  {
   "name": "overlays opened/closed in random order: input and frames still work",
   "ok": true,
-  "info": "16 steps; "
+  "info": "15 steps; "
  },
  {
   "name": "localStorage blocked: game starts and runs with no errors",
@@ -172,11 +172,11 @@
  {
   "name": "performance at 1x CPU throttle: physics tick under 4 ms",
   "ok": true,
-  "info": "physics 1.09 ms, game JS per frame 6.52 ms avg / 73.7 worst (debug validator 0.13 ms extra), 59 fps in software-rendered headless Chromium"
+  "info": "physics 0.65 ms, game JS per frame 5.45 ms avg / 75.2 worst (debug validator 0.15 ms extra), 60 fps in software-rendered headless Chromium"
  },
  {
   "name": "performance at 4x CPU throttle: physics tick under 4 ms",
   "ok": false,
-  "info": "physics 9.23 ms, game JS per frame 44.87 ms avg / 405.9 worst (debug validator 0.68 ms extra), 15 fps in software-rendered headless Chromium"
+  "info": "physics 7.51 ms, game JS per frame 42.41 ms avg / 421.1 worst (debug validator 0.55 ms extra), 13 fps in software-rendered headless Chromium"
  }
 ]

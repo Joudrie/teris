@@ -815,6 +815,59 @@ window.addEventListener('pointerup', (e) => {
 });
 window.addEventListener('pointercancel', () => { sw = null; });
 
+// No accidental zoom. Two quick taps are how you rotate twice, and iOS Safari reads them as a
+// double-tap zoom (it doesn't reliably honor touch-action: none); pinches zoom too. Once zoomed,
+// the board's own gestures make it hard to get back out. So:
+//   - a quick second tap has its default cancelled. Pointer events (the game's taps) have
+//     already been delivered by then; a button gets its click back by hand.
+//   - pinch gestures are cancelled while the page is at normal size.
+//   - if the page is zoomed anyway (an OS zoom feature, an older cached page), pinching is
+//     allowed again so the player can zoom out, and the page snaps back to normal size as soon
+//     as the fingers lift.
+const zoomed = () => !!window.visualViewport && visualViewport.scale > 1.01;
+let lastTap = 0;
+let tapFrom = null;
+document.addEventListener('touchstart', (e) => {
+  const t = e.touches[0];
+  tapFrom = e.touches.length === 1 ? { x: t.clientX, y: t.clientY } : null;
+}, { passive: true });
+document.addEventListener('touchend', (e) => {
+  if (e.touches.length || !tapFrom) return;
+  const t = e.changedTouches[0];
+  const tap = Math.hypot(t.clientX - tapFrom.x, t.clientY - tapFrom.y) < 12;
+  tapFrom = null;
+  if (!tap) return;
+  const quick = e.timeStamp - lastTap < 400;
+  lastTap = e.timeStamp;
+  if (!quick) return;
+  e.preventDefault();
+  const b = e.target.closest?.('button, a, label');
+  if (b && !b.disabled) b.click();
+}, { passive: false });
+for (const type of ['gesturestart', 'gesturechange']) {
+  document.addEventListener(type, (e) => { if (!zoomed()) e.preventDefault(); }, { passive: false });
+}
+document.addEventListener('touchmove', (e) => { if (e.touches.length > 1 && !zoomed()) e.preventDefault(); }, { passive: false });
+const viewportMeta = document.querySelector('meta[name="viewport"]');
+const viewportBase = viewportMeta?.content || '';
+let unzoomTimer = 0;
+function unzoom() {
+  clearTimeout(unzoomTimer);
+  unzoomTimer = setTimeout(() => {
+    if (!zoomed() || !viewportMeta) return;
+    // Rewriting the viewport tag makes iOS re-apply its scale limits, which zooms back out.
+    viewportMeta.content = `${viewportBase}, minimum-scale=1`;
+    setTimeout(() => { viewportMeta.content = viewportBase; }, 400);
+  }, 450);
+}
+if (window.visualViewport) {
+  visualViewport.addEventListener('resize', () => {
+    document.documentElement.classList.toggle('zoomed', zoomed());
+    if (zoomed()) unzoom();
+  });
+}
+document.addEventListener('touchend', () => { if (zoomed()) unzoom(); }, { passive: true });
+
 // Desktop fallback only.
 const KEYS = {
   ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'rotate', ArrowDown: 'soft', ' ': 'slam', f: 'power', Enter: 'power',

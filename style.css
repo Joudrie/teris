@@ -46,8 +46,11 @@ body {
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-touch-callout: none;
   overscroll-behavior: none;
 }
+/* Zoomed in anyway (see the zoom guard in main.js): let the player pinch back out. */
+html.zoomed body, html.zoomed .map-scroll, html.zoomed .sheet { touch-action: manipulation; }
 button { font: inherit; color: inherit; border: 0; padding: 0; background: none; cursor: pointer; }
 [hidden] { display: none !important; }
 canvas { display: block; }
