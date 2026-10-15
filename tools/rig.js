@@ -248,7 +248,7 @@ async function main() {
   } else if (o.cmd === 'campaign') {
     const players = +(o.players || 40);
     const jobs = Array.from({ length: players }, (_, i) => ({ bot: o.bot || 'human', seed: seed0 * 7919 + i, to }));
-    const res = await runParallel(jobs, 'campaign');
+    const res = (await runParallel(jobs, 'campaign')).flat();
     const by = new Map();
     for (const r of res) {
       if (r.error) { console.log('INVARIANT BREAK', r); continue; }
