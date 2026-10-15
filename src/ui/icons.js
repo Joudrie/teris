@@ -46,6 +46,7 @@ const P = {
   bolt: '<path d="M13.6 2L4.6 13.4h6l-1.4 8.6 9.2-11.6h-6z"/>',
   book: '<path d="M4 4.4c3-1 5.6-.6 8 1.2v15c-2.4-1.8-5-2.2-8-1.2z"/><path d="M20 4.4c-3-1-5.6-.6-8 1.2v15c2.4-1.8 5-2.2 8-1.2z"/>',
   plus: '<path d="M10.4 4h3.2v6.4H20v3.2h-6.4V20h-3.2v-6.4H4v-3.2h6.4z"/>',
+  hand: '<path d="M8.6 11.2V4.6a1.6 1.6 0 0 1 3.2 0v5.6h.6V8.8a1.6 1.6 0 0 1 3.2 0v1.6h.6V9.8a1.6 1.6 0 0 1 3.2 0v5.4a6.2 6.2 0 0 1-6.2 6.2h-1.1a6.2 6.2 0 0 1-5.1-2.7l-3-4.4a1.7 1.7 0 0 1 2.6-2.1l2 2.1z"/>',
   ad: '<rect x="2.6" y="5" width="18.8" height="14" rx="3"/><path class="i-in" d="M10 9l5 3-5 3z"/>',
 };
 
@@ -56,4 +57,4 @@ export const icon = (name, cls = '') => `<svg class="ic ic-${name} ${cls}" viewB
 // Icons for the materials and powers, used in the codex, quest chip and ability button.
 export const MATERIAL_ICON = { fire: 'flame', water: 'drop', wood: 'log', wetwood: 'log', ice: 'snow', sand: 'wind', glass: 'bolt', stone: 'hammer', brick: 'pieces', mud: 'drop' };
 export const POWER_ICON = { rain: 'rain', blaze: 'flame', freeze: 'snow', sweep: 'wind', hammer: 'hammer' };
-export const QUEST_ICON = { combo: 'bolt', douse: 'drop', burn: 'flame', melt: 'snow', smash: 'hammer' };
+export const QUEST_ICON = { chain: 'bolt', combo: 'bolt', douse: 'drop', burn: 'flame', melt: 'snow', smash: 'hammer' };

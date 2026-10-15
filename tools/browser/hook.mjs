@@ -96,13 +96,15 @@ const after = await page.evaluate(() => ({ phase: mb.sess.phase, level: mb.sess.
 await shot(page, '07-level-2');
 check('session loop: one tap from the win screen and level 2 is falling', after.phase === 'play' && after.level === 2 && after.piece && !after.ad, JSON.stringify(after));
 
-// Mute: sound layer exists and can be switched off, and it is remembered.
+// Mute: sound layer exists and can be switched off, and it is remembered. The sound
+// toggle lives in the pause sheet.
+await page.click('#homeBtn');
 await page.click('#muteBtn');
 const muted = await page.evaluate(() => JSON.parse(localStorage.getItem('mb_muted')));
 check('sound layer can be muted, and the choice is remembered', muted === true);
 
-// Daily reason to return.
-await page.click('#homeBtn');
+// Daily reason to return: from the pause sheet to the tower map.
+await page.click('#pauseHome');
 await page.waitForTimeout(200);
 await shot(page, '08-home-daily');
 const daily = await page.evaluate(() => ({ disabled: document.getElementById('dailyBtn').disabled, info: document.getElementById('dailyInfo').textContent }));

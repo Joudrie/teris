@@ -1,0 +1,10 @@
+wins: 356
+p25 share left: 0.000
+p50 share left: 0.026
+p60 share left: 0.036
+p70 share left: 0.053
+p75 share left: 0.065
+p80 share left: 0.079
+p85 share left: 0.094
+p90 share left: 0.108
+exit 0

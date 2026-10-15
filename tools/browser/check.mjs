@@ -128,12 +128,13 @@ for (const [w, h] of [[390, 844], [375, 667]]) {
     const fitInfo = await page.evaluate(() => { const b = document.getElementById('cv').getBoundingClientRect(); const q = document.getElementById('quest').getBoundingClientRect(); return { bottom: b.bottom, right: b.right, quest: q.bottom, vw: innerWidth, vh: innerHeight }; });
     check(`${tag} board and quest line fit on screen`, fitInfo.bottom <= fitInfo.vh && fitInfo.right <= fitInfo.vw && fitInfo.quest <= fitInfo.vh + 1, JSON.stringify(fitInfo));
 
-    // Home screen scrolls.
+    // Home screen scrolls. The pause button opens the pause sheet; the map is one tap more.
     await page.click('#homeBtn');
-    await page.waitForTimeout(100);
+    await page.click('#pauseHome');
+    await page.waitForTimeout(150);
     await t.swipe(w / 2, h * 0.8, w / 2, h * 0.2, 300, 10);
     await page.waitForTimeout(400);
-    const homeTop = await page.evaluate(() => document.getElementById('home').scrollTop);
+    const homeTop = await page.evaluate(() => (document.getElementById('mapScroll') || document.getElementById('home')).scrollTop);
     check(`${tag} home screen scrolls`, homeTop > 50, `scrollTop ${homeTop}`);
     const frozen = await piece(page);
     await page.waitForTimeout(600);
@@ -202,7 +203,7 @@ for (const [w, h] of [[390, 844], [375, 667]]) {
       seq.push(`scene:${sc}`);
       await page.evaluate(async (id) => { const { SCENES } = await import('./src/scenes.js'); SCENES[id].setup(mb.sess); }, sc);
     } else {
-      const ids = ['homeBtn', 'playBtn', 'muteBtn', 'callout', 'meterAd', 'ovA', 'ovB', 'ovC', 'dailyBtn'];
+      const ids = ['homeBtn', 'playBtn', 'muteBtn', 'callout', 'meterAd', 'ovA', 'ovB', 'ovC', 'dailyBtn', 'resumeBtn', 'pauseHome', 'powerBtn', 'shopBtn', 'sheetX'];
       const id = ids[Math.floor(rand() * ids.length)];
       const vis = await page.evaluate((x) => { const e = document.getElementById(x); return !!e && !e.hidden && e.offsetParent !== null && !e.disabled; }, id);
       if (vis) { seq.push(`click:${id}`); await page.click(`#${id}`, { timeout: 1000 }).catch(() => {}); }
@@ -212,13 +213,16 @@ for (const [w, h] of [[390, 844], [375, 667]]) {
   // Whatever state we ended in, we must be able to get back to a live board.
   for (let k = 0; k < 20; k++) {
     const st = await page.evaluate(() => ({ phase: mb.sess.phase, home: mb.sess.home, ad: !!mb.sess.ad }));
+    const sheet = await page.evaluate(() => !document.getElementById('sheet').hidden);
+    if (sheet) { await page.click('#sheetX'); continue; }
     if (st.phase === 'play' && !st.home && !st.ad) break;
     if (st.home) await page.click('#playBtn');
     else if (st.ad) await page.waitForTimeout(600);
     else if (st.phase === 'won' || st.phase === 'lost') await page.click('#ovB');
     else await page.waitForTimeout(300);
   }
-  await page.evaluate(() => { mb.sess.callout = null; });
+  // Slow the fall (as the swipe checks do) so a lock between the two reads can't fake a failure.
+  await page.evaluate(() => { mb.sess.callout = null; mb.game.cfg.speed = 5; });
   const fr0 = await page.evaluate(() => mb.stats().frames);
   const p0 = await piece(page);
   await page.keyboard.press('ArrowLeft');

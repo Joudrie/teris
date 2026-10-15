@@ -6,13 +6,13 @@
 //      where a block has partly burned, melted or crumbled,
 //   5. heat glow, fire glow and flame tongues,
 //   6. the ghost (with the cells it would react with) and the falling piece.
-// It only reads the game; it never changes a rule. The one thing it writes is a cached
-// texture offset (_v, _row) on each rigid particle the first time it sees it.
+// It only reads the game and never touches a particle: each rigid particle's texture offset
+// is kept in a WeakMap, so the simulation's objects keep their shape (and their speed).
 
 import { GW, GH, S, COLS, ROWS } from '../core.js';
 import { canvas, css, mix } from './color.js';
 import { RIGID, LOOSE } from './skins.js';
-import { bakeTiles, bakeFlames, bakeWall, VARIANTS, FIRE_FRAMES } from './tiles.js';
+import { bakeTiles, bakeFlames, bakeWall, bakeEmblems, VARIANTS, FIRE_FRAMES } from './tiles.js';
 
 const N = GW * GH;
 const LOOSE_LIST = ['water', 'sand', 'mud'];
@@ -40,8 +40,45 @@ export function createBoardRenderer(cv, skin) {
   const heatAcc = new Float32Array((GW / 2) * (GH / 2));
   const layer = canvas(8, 8);
   const lctx = layer.getContext('2d');
+  const baseCv = canvas(8, 8);
+  const bctx = baseCv.getContext('2d');
+  const topCv = canvas(8, 8);
+  const tctx = topCv.getContext('2d');
   let grain = null;
   let ripple = null;
+
+  // Packed colors for loose particles by depth, shade, frost and heat, so the per-frame
+  // pass allocates nothing.
+  let lut = null;
+  function bakeLut() {
+    const mt = st.skin.mats;
+    const water = new Uint32Array(16 * 8);
+    for (let d = 0; d < 16; d++) {
+      for (let f = 0; f < 8; f++) {
+        let col = mix(mix(mt.water.base, mt.water.light, 0.18), mt.water.dark, Math.min(1, d / 14));
+        if (f) col = mix(col, mt.ice.light, (f / 7) * 0.8);
+        water[d * 8 + f] = pack(col);
+      }
+    }
+    const sand = new Uint32Array(8 * 13 * 5);
+    for (let sh = 0; sh < 8; sh++) {
+      for (let d = 0; d < 13; d++) {
+        for (let h = 0; h < 5; h++) {
+          const shade = (sh + 0.5) / 8;
+          let col = mix(mt.sand.base, shade > 0.5 ? mt.sand.light : mt.sand.dark, Math.abs(shade - 0.5) * 0.5);
+          col = mix(col, mt.sand.dark, Math.min(0.5, (d * 2) / 24));
+          if (h) col = mix(col, mt.fire.light, (h / 4) * 0.7);
+          sand[(sh * 13 + d) * 5 + h] = pack(col);
+        }
+      }
+    }
+    const mud = new Uint32Array(8);
+    for (let sh = 0; sh < 8; sh++) {
+      const shade = (sh + 0.5) / 8;
+      mud[sh] = pack(mix(mt.mud.base, shade > 0.5 ? mt.mud.light : mt.mud.dark, Math.abs(shade - 0.5) * 0.6));
+    }
+    lut = { water, sand, mud };
+  }
 
   function bakePatterns() {
     const P = st.P;
@@ -79,10 +116,19 @@ export function createBoardRenderer(cv, skin) {
     cv.height = st.H;
     layer.width = st.W;
     layer.height = st.H;
+    baseCv.width = st.W;
+    baseCv.height = st.H;
+    topCv.width = st.W;
+    topCv.height = st.H;
+    st.sig = null;
+    st.calm = 0;
+    st.cacheFor = null;
     st.tiles = bakeTiles(st.skin, P * S);
     st.flames = bakeFlames(st.skin, Math.round(P * 2.2), Math.round(P * 3.4));
     st.wall = bakeWall(st.skin, st.W, st.H, COLS, ROWS);
+    st.emblems = bakeEmblems(Math.round(P * S * 0.62));
     bakePatterns();
+    bakeLut();
     return { w: st.W / d, h: st.H / d, P };
   }
 
@@ -109,82 +155,180 @@ export function createBoardRenderer(cv, skin) {
     }
     for (const [c, y] of list) {
       const top = ids.get(c.id);
-      c._v = (y - top) & 3;
-      c._row = (y - top) >> 2;
+      vmap.set(c, (((y - top) >> 2) << 2) | ((y - top) & 3));
     }
   }
 
+  const bboxes = { water: null, sand: null, mud: null };
+  const bboxStore = { water: new Int16Array(4), sand: new Int16Array(4), mud: new Int16Array(4) };
+  const vmap = new WeakMap(); // particle -> (cell row in block << 2) | row in cell
   const variantOf = (x, row) => (((x >> 2) * 3 + row * 5) % VARIANTS + VARIANTS) % VARIANTS;
+
+  const MAT_CODE = { fire: 1, water: 2, wood: 3, wetwood: 4, ice: 5, sand: 6, glass: 7, stone: 8, brick: 9, mud: 10 };
+  const depth = new Int16Array(GW);
+  const needV = [];
+  const surf = [];
+  const sameAt = (grid, xx, yy, id, m) => {
+    const n = xx >= 0 && xx < GW && yy >= 0 && yy < GH ? grid[yy][xx] : null;
+    return n && n.id === id && n.m === m;
+  };
+
+  // Rigid tiles into `target`: the solid ones (cached between frames) or only fire (animated).
+  function drawRigid(target, grid, onlyFire, ts, assist) {
+    const { P, tiles } = st;
+    const T = P * S;
+    st.frame++;
+    const frame = st.frame;
+    const stamp = st.stamp;
+    const fireFrame = Math.floor(ts / 110);
+    let light = null;
+    let dark = null;
+    const e = Math.max(1, Math.round(P * 0.16));
+    target.imageSmoothingEnabled = false;
+    for (let y = 0; y < GH; y++) {
+      const row = grid[y];
+      for (let x = 0; x < GW; x++) {
+        const c = row[x];
+        if (!c || !RIGID.has(c.m) || (c.m === 'fire') !== onlyFire) continue;
+        const i = y * GW + x;
+        if (stamp[i] === frame) continue;
+        const u = x & 3;
+        const pv = vmap.get(c) || 0;
+        const v = pv & 3;
+        const ox = x - u;
+        const oy = y - v;
+        const variant = variantOf(x, pv >> 2);
+        const tile = onlyFire ? tiles.fireFrames[(fireFrame + (c.id % FIRE_FRAMES)) % FIRE_FRAMES][variant] : tiles[c.m][variant];
+        let intact = oy >= 0 && oy + 3 < GH;
+        for (let j = 0; intact && j < 4; j++) {
+          const r2 = grid[oy + j];
+          for (let k = 0; k < 4; k++) {
+            const n = r2[ox + k];
+            if (!n || n.id !== c.id || n.m !== c.m || ((vmap.get(n) || 0) & 3) !== j) { intact = false; break; }
+          }
+        }
+        if (intact) {
+          target.drawImage(tile, ox * P, oy * P);
+          if (assist) { const em = st.emblems[c.m]; target.drawImage(em, ox * P + (T - em.width) / 2, oy * P + (T - em.height) / 2); }
+          for (let j = 0; j < 4; j++) for (let k = 0; k < 4; k++) stamp[(oy + j) * GW + ox + k] = frame;
+          continue;
+        }
+        stamp[i] = frame;
+        target.drawImage(tile, u * P, v * P, P, P, x * P, y * P, P, P);
+        // Freshly broken edges get their own bevel so a crumbled block still looks solid.
+        if (!light) { light = new Path2D(); dark = new Path2D(); }
+        if (v !== 0 && !sameAt(grid, x, y - 1, c.id, c.m)) light.rect(x * P, y * P, P, e);
+        if (u !== 0 && !sameAt(grid, x - 1, y, c.id, c.m)) light.rect(x * P, y * P, e, P);
+        if (v !== 3 && !sameAt(grid, x, y + 1, c.id, c.m)) dark.rect(x * P, y * P + P - e, P, e);
+        if (u !== 3 && !sameAt(grid, x + 1, y, c.id, c.m)) dark.rect(x * P + P - e, y * P, e, P);
+      }
+    }
+    if (light) {
+      target.fillStyle = 'rgba(255,255,255,0.32)';
+      target.fill(light);
+      target.fillStyle = 'rgba(0,0,0,0.32)';
+      target.fill(dark);
+    }
+  }
 
   function draw(g, opts = {}) {
     st.g = g;
     const { P, W, H, skin: sk, tiles } = st;
     const ts = opts.ts || 0;
     const T = P * S;
-    st.frame++;
-    const frame = st.frame;
-    const stamp = st.stamp;
     const grid = g.grid;
 
-    // ---------- pass 1: fields and bookkeeping ----------
-    shadow.u32.fill(0);
+    // ---------- pass 1: fields, bounds and a signature of the solid blocks ----------
     glowAcc.fill(0);
     heatAcc.fill(0);
-    const bbox = {};
-    for (const m of LOOSE_LIST) {
-      looseField[m].u32.fill(pack(sk.mats[m].base));
-      bbox[m] = null;
-    }
-    const depth = new Int16Array(GW);
-    const needV = [];
-    const shadowA = Math.round(255 * sk.shadow);
+    const bbox = bboxes;
+    for (const m of LOOSE_LIST) bbox[m] = null;
+    depth.fill(0);
+    needV.length = 0;
     let anyHeat = false;
     let anyFire = false;
+    let hb0 = GW; let hb1 = -1; let hb2 = GH; let hb3 = -1;
+    let fb0 = COLS; let fb1 = -1; let fb2 = ROWS; let fb3 = -1;
+    let sig = 7;
     for (let y = 0; y < GH; y++) {
       const row = grid[y];
       for (let x = 0; x < GW; x++) {
         const c = row[x];
         if (!c) { depth[x] = 0; continue; }
         const i = y * GW + x;
-        shadow.u32[i] = shadowA << 24;
         const m = c.m;
         if (LOOSE.has(m)) {
           depth[x]++;
           const b = bbox[m];
-          if (!b) bbox[m] = [x, y, x, y];
-          else { if (x < b[0]) b[0] = x; if (x > b[2]) b[2] = x; b[3] = y; }
-          const p = sk.mats[m];
+          if (!b) {
+            const nb = bboxStore[m];
+            nb[0] = x; nb[1] = y; nb[2] = x; nb[3] = y;
+            bbox[m] = nb;
+            looseField[m].u32.fill(pack(sk.mats[m].base));
+          } else { if (x < b[0]) b[0] = x; if (x > b[2]) b[2] = x; b[3] = y; }
           let col;
-          if (m === 'water') {
-            col = mix(mix(p.base, p.light, 0.18), p.dark, Math.min(1, (depth[x] - 1) / 14));
-            if (c.frz > 0) col = mix(col, sk.mats.ice.light, Math.min(1, c.frz / 0.75) * 0.8);
-          } else if (m === 'sand') {
-            col = mix(p.base, c.shade > 0.5 ? p.light : p.dark, Math.abs(c.shade - 0.5) * 0.5);
-            col = mix(col, p.dark, Math.min(0.5, (depth[x] - 1) / 24));
-            if (c.heat > 0) col = mix(col, sk.mats.fire.light, Math.min(1, c.heat / 0.25) * 0.7);
-          } else {
-            col = mix(p.base, c.shade > 0.5 ? p.light : p.dark, Math.abs(c.shade - 0.5) * 0.6);
-          }
-          looseField[m].u32[i] = pack(col);
+          if (m === 'water') col = lut.water[Math.min(15, depth[x] - 1) * 8 + (c.frz > 0 ? Math.min(7, 1 + Math.floor((c.frz / 0.75) * 6)) : 0)];
+          else if (m === 'sand') col = lut.sand[(Math.min(7, Math.floor(c.shade * 8)) * 13 + Math.min(12, (depth[x] - 1) >> 1)) * 5 + (c.heat > 0 ? Math.min(4, 1 + Math.floor((c.heat / 0.25) * 3)) : 0)];
+          else col = lut.mud[Math.min(7, Math.floor(c.shade * 8))];
+          looseField[m].u32[i] = col;
         } else {
           depth[x] = 0;
-          if (c._v === undefined) needV.push([c, y]);
-          if (m === 'fire') { glowAcc[(y >> 2) * COLS + (x >> 2)] += 1; anyFire = true; }
-          if (c.heat > 0 && m !== 'fire') { heatAcc[(y >> 1) * (GW / 2) + (x >> 1)] += Math.min(1, c.heat / 0.75); anyHeat = true; }
+          if (!vmap.has(c)) needV.push([c, y]);
+          if (m === 'fire') {
+            glowAcc[(y >> 2) * COLS + (x >> 2)] += 1;
+            anyFire = true;
+            if ((x >> 2) < fb0) fb0 = x >> 2; if ((x >> 2) > fb1) fb1 = x >> 2;
+            if ((y >> 2) < fb2) fb2 = y >> 2; if ((y >> 2) > fb3) fb3 = y >> 2;
+          } else {
+            sig = (Math.imul(sig, 31) + i * 16 + MAT_CODE[m] + (c.id << 13)) | 0;
+            if (c.heat > 0) {
+              heatAcc[(y >> 1) * (GW / 2) + (x >> 1)] += Math.min(1, c.heat / 0.75);
+              anyHeat = true;
+              if (x < hb0) hb0 = x; if (x > hb1) hb1 = x; if (y < hb2) hb2 = y; if (y > hb3) hb3 = y;
+            }
+          }
         }
       }
     }
-    if (needV.length) assignV(needV);
+    if (needV.length) { assignV(needV); sig = (sig + 1) | 0; }
+    sig = (sig + (opts.assist ? 99991 : 0)) | 0;
 
+    // ---------- the well with block shadows, and the solid blocks ----------
+    // While the board is changing every frame (reactions running) the cache would be rebuilt
+    // every frame anyway, so draw straight to the board; once it settles, cache it.
+    const changed = sig !== st.sig;
+    st.sig = sig;
+    st.calm = changed ? 0 : st.calm + 1;
+    const direct = st.calm < 2;
+    const lite = !!opts.lite;
+    const paintBase = (c) => {
+      c.globalCompositeOperation = 'source-over';
+      c.drawImage(st.wall, 0, 0);
+      if (lite) return;
+      shadow.u32.fill(0);
+      const shadowA = Math.round(255 * sk.shadow) << 24;
+      for (let y = 0; y < GH; y++) {
+        const row = grid[y];
+        for (let x = 0; x < GW; x++) { const cc = row[x]; if (cc && RIGID.has(cc.m)) shadow.u32[y * GW + x] = shadowA; }
+      }
+      shadow.x.putImageData(shadow.img, 0, 0);
+      c.imageSmoothingEnabled = true;
+      c.drawImage(shadow.c, P * 0.35, P * 0.55, W, H);
+    };
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
-    ctx.drawImage(st.wall, 0, 0);
-
-    // ---------- drop shadow ----------
-    shadow.x.putImageData(shadow.img, 0, 0);
-    ctx.imageSmoothingEnabled = true;
-    ctx.drawImage(shadow.c, P * 0.35, P * 0.55, W, H);
+    if (direct) {
+      paintBase(ctx);
+    } else {
+      if (st.calm === 2 || st.cacheFor !== sig) {
+        st.cacheFor = sig;
+        paintBase(bctx);
+        tctx.clearRect(0, 0, W, H);
+        drawRigid(tctx, grid, false, ts, opts.assist);
+      }
+      ctx.drawImage(baseCv, 0, 0);
+    }
 
     // ---------- loose materials ----------
     for (const m of LOOSE_LIST) {
@@ -204,26 +348,27 @@ export function createBoardRenderer(cv, skin) {
       // outline is soft and round instead of a staircase.
       lctx.beginPath();
       const rad = P * 0.74;
-      const surf = [];
+      surf.length = 0;
+      const same = (n) => n && n.m === m;
       for (let y = b[1]; y <= b[3]; y++) {
         const row = grid[y];
-        for (let x = b[0]; x <= b[2]; x++) {
-          const c = row[x];
-          if (!c || c.m !== m) continue;
-          const up = y > 0 ? grid[y - 1][x] : null;
-          const dn = y < GH - 1 ? grid[y + 1][x] : null;
-          const lf = x > 0 ? row[x - 1] : null;
-          const rt = x < GW - 1 ? row[x + 1] : null;
-          const same = (n) => n && n.m === m;
-          if (same(up) && same(dn) && same(lf) && same(rt)) {
-            lctx.rect(x * P - 0.5, y * P - 0.5, P + 1, P + 1);
-          } else {
-            lctx.moveTo(x * P + P / 2 + rad, y * P + P / 2);
-            lctx.arc(x * P + P / 2, y * P + P / 2, rad, 0, Math.PI * 2);
-            // Squares where neighbours are solid ground, so bodies sit flush on blocks.
-            if (dn || lf || rt) lctx.rect(x * P, y * P + P * 0.3, P, P * 0.7);
-          }
-          if (!up || !same(up)) surf.push(x, y, up ? 1 : 0);
+        let run = -1; // start of a run of interior particles, drawn as one rectangle
+        for (let x = b[0]; x <= b[2] + 1; x++) {
+          const c = x <= b[2] ? row[x] : null;
+          const mine = c && c.m === m;
+          const up = mine && y > 0 ? grid[y - 1][x] : null;
+          const dn = mine && y < GH - 1 ? grid[y + 1][x] : null;
+          const lf = mine && x > 0 ? row[x - 1] : null;
+          const rt = mine && x < GW - 1 ? row[x + 1] : null;
+          const inner = mine && same(up) && same(dn) && same(lf) && same(rt);
+          if (inner) { if (run < 0) run = x; continue; }
+          if (run >= 0) { lctx.rect(run * P - 0.5, y * P - 0.5, (x - run) * P + 1, P + 1); run = -1; }
+          if (!mine) continue;
+          lctx.moveTo(x * P + P / 2 + rad, y * P + P / 2);
+          lctx.arc(x * P + P / 2, y * P + P / 2, rad, 0, Math.PI * 2);
+          // Squares where neighbours are solid ground, so bodies sit flush on blocks.
+          if (dn || lf || rt) lctx.rect(x * P, y * P + P * 0.3, P, P * 0.7);
+          if (!same(up)) surf.push(x, y, up ? 1 : 0);
         }
       }
       lctx.fillStyle = '#fff';
@@ -233,12 +378,16 @@ export function createBoardRenderer(cv, skin) {
       f.x.putImageData(f.img, 0, 0);
       lctx.globalCompositeOperation = 'source-in';
       lctx.imageSmoothingEnabled = true;
-      lctx.drawImage(f.c, 0, 0, W, H);
+      const fx0 = Math.max(0, b[0] - 1);
+      const fy0 = Math.max(0, b[1] - 1);
+      const fw = Math.min(GW, b[2] + 2) - fx0;
+      const fh = Math.min(GH, b[3] + 2) - fy0;
+      lctx.drawImage(f.c, fx0, fy0, fw, fh, fx0 * P, fy0 * P, fw * P, fh * P);
       lctx.globalCompositeOperation = 'source-atop';
       if (m === 'sand') {
         lctx.fillStyle = grain;
         lctx.fillRect(x0, y0, x1 - x0, y1 - y0);
-      } else if (m === 'water') {
+      } else if (m === 'water' && !lite) {
         lctx.save();
         lctx.translate((ts / 40) % (P * 12), (ts / 90) % (P * 12));
         lctx.fillStyle = ripple;
@@ -275,56 +424,10 @@ export function createBoardRenderer(cv, skin) {
       ctx.globalAlpha = 1;
     }
 
-    // ---------- rigid blocks ----------
-    ctx.imageSmoothingEnabled = false;
+    if (direct) drawRigid(ctx, grid, false, ts, opts.assist);
+    else { ctx.imageSmoothingEnabled = false; ctx.drawImage(topCv, 0, 0); }
+    if (anyFire) drawRigid(ctx, grid, true, ts, opts.assist);
     const fireFrame = Math.floor(ts / 110);
-    const lightEdges = new Path2D();
-    const darkEdges = new Path2D();
-    let partial = 0;
-    const e = Math.max(1, Math.round(P * 0.16));
-    for (let y = 0; y < GH; y++) {
-      const row = grid[y];
-      for (let x = 0; x < GW; x++) {
-        const c = row[x];
-        if (!c || !RIGID.has(c.m)) continue;
-        const i = y * GW + x;
-        if (stamp[i] === frame) continue;
-        const u = x & 3;
-        const v = c._v;
-        const ox = x - u;
-        const oy = y - v;
-        const variant = variantOf(x, c._row);
-        const tile = c.m === 'fire' ? tiles.fireFrames[(fireFrame + (c.id % FIRE_FRAMES)) % FIRE_FRAMES][variant] : tiles[c.m][variant];
-        let intact = oy >= 0 && oy + 3 < GH;
-        for (let j = 0; intact && j < 4; j++) {
-          const r2 = grid[oy + j];
-          for (let k = 0; k < 4; k++) {
-            const n = r2[ox + k];
-            if (!n || n.id !== c.id || n.m !== c.m || n._v !== j) { intact = false; break; }
-          }
-        }
-        if (intact) {
-          ctx.drawImage(tile, ox * P, oy * P);
-          for (let j = 0; j < 4; j++) for (let k = 0; k < 4; k++) stamp[(oy + j) * GW + ox + k] = frame;
-          continue;
-        }
-        stamp[i] = frame;
-        partial++;
-        ctx.drawImage(tile, u * P, v * P, P, P, x * P, y * P, P, P);
-        // Freshly broken edges get their own bevel so a crumbled block still looks solid.
-        const sameAt = (xx, yy) => { const n = xx >= 0 && xx < GW && yy >= 0 && yy < GH ? grid[yy][xx] : null; return n && n.id === c.id && n.m === c.m; };
-        if (v !== 0 && !sameAt(x, y - 1)) lightEdges.rect(x * P, y * P, P, e);
-        if (u !== 0 && !sameAt(x - 1, y)) lightEdges.rect(x * P, y * P, e, P);
-        if (v !== 3 && !sameAt(x, y + 1)) darkEdges.rect(x * P, y * P + P - e, P, e);
-        if (u !== 3 && !sameAt(x + 1, y)) darkEdges.rect(x * P + P - e, y * P, e, P);
-      }
-    }
-    if (partial) {
-      ctx.fillStyle = 'rgba(255,255,255,0.32)';
-      ctx.fill(lightEdges);
-      ctx.fillStyle = 'rgba(0,0,0,0.32)';
-      ctx.fill(darkEdges);
-    }
 
     // ---------- heat, flames and glow ----------
     ctx.imageSmoothingEnabled = true;
@@ -335,13 +438,20 @@ export function createBoardRenderer(cv, skin) {
         heat.u32[k] = a > 0 ? pack([255, 70 + 60 * a, 20], Math.round(a * 200)) : 0;
       }
       heat.x.putImageData(heat.img, 0, 0);
-      // Char first (multiply darkens toward ember red), then a lighter pass for the glow.
-      ctx.globalCompositeOperation = 'multiply';
-      ctx.globalAlpha = 0.7;
-      ctx.drawImage(heat.c, 0, 0, hw * 2 * P, (GH / 2) * 2 * P);
+      // Only the part of the board that is hot: char first (multiply darkens toward ember
+      // red), then a lighter pass for the glow.
+      const sx = Math.max(0, (hb0 >> 1) - 2);
+      const sy = Math.max(0, (hb2 >> 1) - 2);
+      const sw = Math.min(hw, (hb1 >> 1) + 3) - sx;
+      const sh = Math.min(GH / 2, (hb3 >> 1) + 3) - sy;
+      if (!lite) {
+        ctx.globalCompositeOperation = 'multiply';
+        ctx.globalAlpha = 0.7;
+        ctx.drawImage(heat.c, sx, sy, sw, sh, sx * 2 * P, sy * 2 * P, sw * 2 * P, sh * 2 * P);
+      }
       ctx.globalCompositeOperation = 'lighter';
       ctx.globalAlpha = 0.45 + 0.15 * Math.sin(ts / 120);
-      ctx.drawImage(heat.c, 0, 0, hw * 2 * P, (GH / 2) * 2 * P);
+      ctx.drawImage(heat.c, sx, sy, sw, sh, sx * 2 * P, sy * 2 * P, sw * 2 * P, sh * 2 * P);
       ctx.globalAlpha = 1;
       ctx.globalCompositeOperation = 'source-over';
     }
@@ -370,7 +480,11 @@ export function createBoardRenderer(cv, skin) {
       ctx.globalCompositeOperation = 'lighter';
       const pulse = 0.85 + 0.15 * Math.sin(ts / 240);
       ctx.globalAlpha = 0.55 * pulse;
-      ctx.drawImage(glow.c, -T * 0.5, -T * 0.5, W + T, H + T);
+      const gx0 = Math.max(0, fb0 - 1);
+      const gy0 = Math.max(0, fb2 - 1);
+      const gw = Math.min(COLS, fb1 + 2) - gx0;
+      const gh = Math.min(ROWS, fb3 + 2) - gy0;
+      ctx.drawImage(glow.c, gx0, gy0, gw, gh, gx0 * T - T * 0.5, gy0 * T - T * 0.5, gw * T + T, gh * T + T);
       ctx.globalAlpha = 1;
       ctx.globalCompositeOperation = 'source-over';
     }
@@ -410,6 +524,7 @@ export function createBoardRenderer(cv, skin) {
         const m = mats[k];
         const tile = m === 'fire' ? tiles.fireFrames[fireFrame % FIRE_FRAMES][0] : tiles[m][variantOf((piece.x + a) * S, bb - minB)];
         ctx.drawImage(tile, x, y);
+        if (opts.assist) { const em = st.emblems[m]; ctx.drawImage(em, x + (T - em.width) / 2, y + (T - em.height) / 2); }
       });
       if (mats.includes('fire')) {
         ctx.globalCompositeOperation = 'lighter';

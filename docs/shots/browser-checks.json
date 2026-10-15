@@ -27,7 +27,7 @@
  {
   "name": "390x844 quick flick down slams",
   "ok": true,
-  "info": "{\"dt\":133,\"tx\":8,\"ty\":120,\"moved\":true,\"what\":\"slam\"}"
+  "info": "{\"dt\":134,\"tx\":8,\"ty\":120,\"moved\":true,\"what\":\"slam\"}"
  },
  {
   "name": "390x844 diagonal swipe moves sideways, no slam",
@@ -37,7 +37,7 @@
  {
   "name": "390x844 flick up fires the power at full meter",
   "ok": true,
-  "info": "{\"dt\":135,\"tx\":0,\"ty\":-140,\"moved\":false,\"what\":\"power\"}"
+  "info": "{\"dt\":134,\"tx\":0,\"ty\":-140,\"moved\":false,\"what\":\"power\"}"
  },
  {
   "name": "390x844 flick up at 0% meter does nothing",
@@ -52,12 +52,12 @@
  {
   "name": "390x844 board and quest line fit on screen",
   "ok": true,
-  "info": "{\"bottom\":684,\"right\":352,\"quest\":705,\"vw\":390,\"vh\":844}"
+  "info": "{\"bottom\":673.65625,\"right\":355,\"quest\":818,\"vw\":390,\"vh\":844}"
  },
  {
   "name": "390x844 home screen scrolls",
   "ok": true,
-  "info": "scrollTop 491"
+  "info": "scrollTop 492"
  },
  {
   "name": "390x844 game waits behind the home screen",
@@ -97,7 +97,7 @@
  {
   "name": "375x667 quick flick down slams",
   "ok": true,
-  "info": "{\"dt\":133,\"tx\":8,\"ty\":120,\"moved\":true,\"what\":\"slam\"}"
+  "info": "{\"dt\":134,\"tx\":8,\"ty\":120,\"moved\":true,\"what\":\"slam\"}"
  },
  {
   "name": "375x667 diagonal swipe moves sideways, no slam",
@@ -107,7 +107,7 @@
  {
   "name": "375x667 flick up fires the power at full meter",
   "ok": true,
-  "info": "{\"dt\":134,\"tx\":0,\"ty\":-140,\"moved\":false,\"what\":\"power\"}"
+  "info": "{\"dt\":135,\"tx\":0,\"ty\":-140,\"moved\":false,\"what\":\"power\"}"
  },
  {
   "name": "375x667 flick up at 0% meter does nothing",
@@ -117,17 +117,17 @@
  {
   "name": "375x667 the page never scrolls during play",
   "ok": true,
-  "info": "{\"y\":0,\"top\":0,\"bodyH\":670,\"vh\":667}"
+  "info": "{\"y\":0,\"top\":0,\"bodyH\":667,\"vh\":667}"
  },
  {
   "name": "375x667 board and quest line fit on screen",
   "ok": true,
-  "info": "{\"bottom\":639,\"right\":329.5,\"quest\":660,\"vw\":375,\"vh\":667}"
+  "info": "{\"bottom\":531.828125,\"right\":315.5,\"quest\":641,\"vw\":375,\"vh\":667}"
  },
  {
   "name": "375x667 home screen scrolls",
   "ok": true,
-  "info": "scrollTop 385"
+  "info": "scrollTop 471"
  },
  {
   "name": "375x667 game waits behind the home screen",
@@ -142,22 +142,22 @@
  {
   "name": "rotate and resize mid-game: board refits, no errors",
   "ok": true,
-  "info": "{\"bottom\":751,\"right\":392,\"vw\":430,\"vh\":932,\"h\":635}"
+  "info": "{\"bottom\":731,\"right\":383,\"vw\":430,\"vh\":932,\"h\":560}"
  },
  {
   "name": "landscape phone: board still visible (shrinks to fit)",
   "ok": true,
-  "info": "{\"h\":246,\"bottom\":362,\"vh\":390}"
+  "info": "{\"h\":240,\"bottom\":314,\"vh\":390}"
  },
  {
   "name": "background tab for 4 s and back: no time jump",
   "ok": true,
-  "info": "moved 0 rows while hidden, 1 on return"
+  "info": "moved 1 rows while hidden, 0 on return"
  },
  {
   "name": "overlays opened/closed in random order: input and frames still work",
-  "ok": true,
-  "info": "16 steps; "
+  "ok": false,
+  "info": "14 steps; "
  },
  {
   "name": "localStorage blocked: game starts and runs with no errors",
@@ -172,11 +172,11 @@
  {
   "name": "performance at 1x CPU throttle: physics tick under 4 ms",
   "ok": true,
-  "info": "physics 0.40 ms, game JS per frame 1.30 ms avg / 9.3 worst (debug validator 0.10 ms extra), 60 fps in software-rendered headless Chromium"
+  "info": "physics 0.87 ms, game JS per frame 6.21 ms avg / 73.7 worst (debug validator 0.17 ms extra), 60 fps in software-rendered headless Chromium"
  },
  {
   "name": "performance at 4x CPU throttle: physics tick under 4 ms",
-  "ok": true,
-  "info": "physics 3.03 ms, game JS per frame 6.76 ms avg / 339.6 worst (debug validator 0.29 ms extra), 58 fps in software-rendered headless Chromium"
+  "ok": false,
+  "info": "physics 4.56 ms, game JS per frame 28.62 ms avg / 288.5 worst (debug validator 0.32 ms extra), 18 fps in software-rendered headless Chromium"
  }
 ]

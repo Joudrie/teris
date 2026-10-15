@@ -27,12 +27,12 @@
  {
   "name": "first level clears in 1-2 minutes, as a new player plays it",
   "ok": true,
-  "info": "celebrate at 82 s"
+  "info": "celebrate at 81 s"
  },
  {
   "name": "win screen: big celebration, then what is new next level",
   "ok": true,
-  "info": "Level cleared! | Next: level 2. No fire bed this time: set up your own reactions."
+  "info": "Level cleared! | Next up: level 2No fire bed this time: set up your own reactions."
  },
  {
   "name": "win screen offers the daily challenge",
@@ -57,7 +57,7 @@
  {
   "name": "home screen: daily challenge ready",
   "ok": true,
-  "info": "new today"
+  "info": "New today"
  },
  {
   "name": "no console errors or invariant breaks in the whole session",
@@ -67,6 +67,6 @@
  {
   "name": "every loss shows real progress and the one revive",
   "ok": true,
-  "info": "So close! 90% | Watch ad: clear the top 4 rows"
+  "info": "So close! 90% | Clear top rows Watch an ad"
  }
 ]

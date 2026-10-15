@@ -1,184 +1,508 @@
-// The view: draws the session and turns touches into inputs. All game and screen logic
-// lives in session.js and core.js.
+// The view: draws the session, plays the feedback and turns touches into inputs. All game
+// and screen logic lives in session.js and core.js; the meta layer (stars, coins, boosters,
+// gifts, skins) lives in meta.js. Rendering is in src/render/, screens in src/ui/.
 
-import { pieceMats, landingY, progress, piecesDrained, piecesLeft, COLS, GW, GH, S, altitude } from './core.js';
-import { POWERS, questText } from './levels.js';
+import { pieceMats, landingY, piecesDrained, piecesLeft, reacts, COLS, GW, GH, S, altitude, TOTAL_LEVELS } from './core.js';
+import { POWERS, questText, levelConfig, levelPreview } from './levels.js';
 import {
   createSession, step, input, live, next, replay, watchRevive, watchMeterAd, meterAdAvailable, openHome,
   closeHome, startDaily, dismissCallout, winScreen, loseScreen, homeInfo, dailyReady, start, CELEBRATE_TIME,
-  playLog, clearPlayLog, playLogSummary,
+  AD_TIME, playLog, clearPlayLog, playLogSummary,
 } from './session.js';
 import { questCount } from './core.js';
-import { drawScenery } from './scenery.js';
 import { adsRemoved } from './ads.js';
-import { initSound, setMuted, isMuted, unlock, play } from './sound.js';
+import * as sound from './sound.js';
 import { validate, createValidator } from './validate.js';
+import { createBoardRenderer } from './render/board.js';
+import { SKINS } from './render/skins.js';
+import { previewTile } from './render/tiles.js';
+import { paintWorld } from './render/world.js';
+import { createFx } from './render/fx.js';
+import { css } from './render/color.js';
+import { icon, POWER_ICON, QUEST_ICON } from './ui/icons.js';
+import { createMeta, starsFor, winCoins, BOOSTERS } from './meta.js';
+import {
+  buildMap, mapHud, openPause, openSettings, openShop, openRewards, openCodex, closeSheet,
+} from './ui/screens.js';
 
-const BASE = {
-  water: '#3f8ee3', wood: '#c0813f', wetwood: '#5f4a33', ice: '#8fcdf0', sand: '#dcb66b',
-  stone: '#8d93a1', mud: '#6e4c30', glass: '#cdeee6', brick: '#a8453a', fire: '#ff6a1f',
-};
-const NAME = {
-  water: 'Water', wood: 'Wood', wetwood: 'Wet wood', ice: 'Ice', sand: 'Sand', stone: 'Stone',
-  mud: 'Mud', glass: 'Glass', brick: 'Brick', fire: 'Fire',
-};
-// One-line tip for the next piece.
-const TIP = {
-  fire: 'drop water on it to put it out, or set it by wood and ice',
-  water: 'pour it on fire, sand or wood',
-  wood: 'put it next to fire, or soak it twice',
-  ice: 'put it next to fire to melt it',
-  sand: 'wet it to make mud, or melt it with fire into glass',
-  glass: 'slam a piece onto it to smash it',
-  stone: 'heavy: smashes glass. Water wears it down',
-  brick: 'water wears it down into sand',
-};
-const POWER_COLOR = { rain: '#7fc4ff', blaze: '#ff7a1a', freeze: '#9fe6ff', sweep: '#f0c060', hammer: '#ffffff' };
-
+const BRAND = 'Tumbledown';
 const params = new URLSearchParams(location.search);
 const DEBUG = params.has('debug');
-
 const $ = (id) => document.getElementById(id);
-const cv = $('cv');
-const ctx = cv.getContext('2d');
-const nxCv = $('nx');
-const nctx = nxCv.getContext('2d');
-const PX = 8; // canvas pixels per particle
-cv.width = GW * PX;
-cv.height = GH * PX;
+const { play, unlock, isMuted, setMuted, initSound } = sound;
+const call = (name, ...a) => (typeof sound[name] === 'function' ? sound[name](...a) : undefined);
 
-// Particle layer: one pixel per particle, scaled up without smoothing.
-const layer = document.createElement('canvas');
-layer.width = GW;
-layer.height = GH;
-const lctx = layer.getContext('2d');
-const img = lctx.createImageData(GW, GH);
-
-const hexRGB = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
-// Four shades per material so loose grains read as texture.
-const SHADES = Object.fromEntries(Object.entries(BASE).map(([m, h]) => {
-  const [r, g, b] = hexRGB(h);
-  return [m, [0.82, 0.92, 1, 1.08].map((f) => [r, g, b].map((v) => Math.min(255, Math.round(v * f))))];
-}));
-const RIGID = new Set(['stone', 'ice', 'glass', 'brick', 'wood', 'wetwood', 'fire']);
-const lighten = (h, k) => `rgb(${hexRGB(h).map((v) => Math.min(255, Math.round(v + (255 - v) * k))).join(',')})`;
-
-// Stable pseudo-random 0..1 for a pixel, so a falling piece's texture doesn't flicker.
-const hash = (x, y) => {
-  const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
-  return n - Math.floor(n);
-};
-
-// Colour of one particle: each material has its own texture so glass, ice and the rest
-// can't be confused even before the full art pass.
-function pixelColor(m, x, y, shade, ts) {
-  let k = Math.floor(shade * 4);
-  if (m === 'wood' || m === 'wetwood') k = y % S === 0 ? 0 : 2 + (shade > 0.7 ? 1 : 0); // plank grain
-  let [r, g, b] = SHADES[m][k];
-  let a = 255;
-  if (m === 'fire') {
-    const f = 0.75 + 0.35 * Math.sin(ts / 70 + x * 1.3 + y * 2.1);
-    r = Math.min(255, r * f + 40); g = Math.min(255, g * f + 30 * f); b *= f;
-  } else if (m === 'glass') {
-    // See-through and faintly green, with long diagonal glints: the sky shows through.
-    r = 175; g = 235; b = 215; a = 70;
-    if ((x + y) % 8 === 0) { r = 255; g = 255; b = 255; a = 235; }
-  } else if (m === 'ice') {
-    // Solid, bluer and opaque, with darker crackle lines and white frost specks.
-    if ((x * 3 + y * 2) % 7 === 0) { r = 70; g = 150; b = 205; } else if (shade > 0.88) { r = 245; g = 252; b = 255; }
-  } else if (m === 'water') {
-    const w = 0.92 + 0.1 * Math.sin(ts / 300 + x * 0.7 + y * 0.4);
-    r *= w; g *= w; b = Math.min(255, b * w + 10);
-  }
-  return [r, g, b, a];
-}
-
-// ---------- session ----------
+// ---------- session and meta ----------
 
 let storage = null;
 try { storage = window.localStorage; } catch (e) { storage = null; }
 const sess = createSession({ storage, adsRemoved });
+const meta = createMeta(sess.store);
 initSound(sess.store.get('mb_muted', false));
 if (params.has('level')) start(sess, +params.get('level'));
 
-let fx = { debris: [], puffs: [], popups: [], flash: null, shake: 0 };
+let settings = meta.settings();
+call('setMusic', settings.music);
+call('setHaptics', settings.haptics);
+document.body.classList.toggle('calm', !settings.motion);
+const buzz = (p) => call('buzz', p);
+
+// ---------- renderers ----------
+
+const cv = $('cv');
+let skin = SKINS[meta.skin()];
+const board = createBoardRenderer(cv, skin);
+const fx = createFx($('fxc'));
+fx.motion = settings.motion;
+const worldCv = $('world');
+const wctx = worldCv.getContext('2d');
+
+const POWER_STYLE = {
+  rain: { pc: '#8fd0ff', pc2: '#3f9cff', pc3: '#1c5fc8', word: 'aqua' },
+  blaze: { pc: '#ffd27a', pc2: '#ff7a1c', pc3: '#c2360c', word: 'gold' },
+  freeze: { pc: '#b8f6ff', pc2: '#2bb8f2', pc3: '#1677c8', word: 'aqua' },
+  sweep: { pc: '#ffe6a3', pc2: '#f3b84a', pc3: '#b07a1e', word: 'gold' },
+  hammer: { pc: '#f0f2f8', pc2: '#9aa3b8', pc3: '#5f6573', word: 'white' },
+};
+const QUEST_SHORT = {
+  chain: (n) => `Hit a ×${n} combo`,
+  douse: (n) => `Put out ${n} fire`,
+  smash: (n) => `Smash ${n} glass`,
+  burn: (n) => `Burn ${n} wood`,
+  melt: (n) => `Melt ${n} ice`,
+};
+const PRAISE = { 2: ['Nice!', 'green'], 3: ['Great!', 'gold'], 4: ['Amazing!', 'pink'] };
+// The first-time callouts, rewritten as one short line with a gesture to copy.
+const CALLOUTS = {
+  1: ['Drop <em>water</em> on the <em>fire</em>', ['water', 'fire'], 'slam'],
+  3: ['<em>Fire</em> burns <em>wood</em>', ['fire', 'wood'], 'swipe'],
+  4: ['<em>Water</em> turns <em>sand</em> to mud', ['water', 'sand'], 'swipe'],
+  5: ['Flick down to <em>smash</em> glass', ['glass'], 'slam'],
+  6: ['<em>Fire</em> melts <em>sand</em> into glass', ['fire', 'sand'], 'swipe'],
+  7: ['<em>Fire</em> melts <em>ice</em>. Water freezes!', ['fire', 'ice'], 'swipe'],
+  8: ['Tap to <em>turn</em> two-part pieces', ['wood', 'ice'], 'tap'],
+  10: ['Full meter? <em>Tap the power!</em>', [], 'up'],
+  11: ['<em>Stone</em> smashes glass', ['stone', 'glass'], 'slam'],
+  12: ['<em>Flood!</em> Soak up the water', ['fire', 'sand'], 'swipe'],
+  13: ['<em>Water</em> wears <em>brick</em> away', ['water', 'brick'], 'swipe'],
+  15: ['Drop <em>stone</em> on the tower!', ['stone', 'glass'], 'slam'],
+  20: ['Melt the <em>glacier</em>, then freeze it!', ['fire', 'ice'], 'up'],
+};
+
+// ---------- view state ----------
+
+const view = {
+  paused: false, // a sheet is open over the game
+  intro: 0, // seconds left on the level intro card
+  hitstop: 0,
+  shake: 0,
+  pieceX: null,
+  lastPiece: null,
+  shown: 0, // drained count shown on the goal (catches up as the flights land)
+  lastDrained: 0,
+  recent: [], // recent reaction points [x, y, color, time] that drains fly from
+  stars: 0,
+  coins: 0,
+  first: false,
+  lastWorld: '',
+  fromMap: false,
+};
+const selected = new Set(); // boosters picked on the map for the next fresh level
 let lastHud = '';
-let lastDrained = 0;
 let lastOverlay = '';
 let shownGame = null;
-
+let lastNext = '';
 const game = () => sess.game;
+
+// ---------- layout ----------
+
+// Dynamic resolution: start at full sharpness, step the board and effects down if frames
+// run slow on this device (software-rendered canvas, old phones), never back up mid-session.
+const QUALITY = [1, 1.5, 2];
+let quality = 2;
+let drawEma = 0;
+let emaFrames = 0;
+const pixelRatio = () => Math.min(QUALITY[quality], window.devicePixelRatio || 1);
+
+function fit() {
+  const landscape = innerWidth > innerHeight;
+  const ww = $('wellwrap').getBoundingClientRect();
+  const availW = landscape ? Math.min(innerWidth * 0.46, 620) : ww.width;
+  const availH = landscape ? innerHeight - 40 : ww.height;
+  const { w, h } = board.resize(availW - 28, availH - 34, pixelRatio());
+  cv.style.width = `${w}px`;
+  cv.style.height = `${h}px`;
+  fx.resize(Math.min(1.5, pixelRatio()));
+  paintWorldNow(true);
+  const nx = $('nx');
+  const d = Math.min(2, window.devicePixelRatio || 1);
+  nx.width = Math.round(72 * d);
+  nx.height = Math.round(48 * d);
+  lastNext = '';
+}
+
+function paintWorldNow(force = false) {
+  const level = sess.daily ? game().level : sess.level;
+  const alt = altitude(Math.min(TOTAL_LEVELS, level));
+  const key = `${alt}:${innerWidth}x${innerHeight}`;
+  if (!force && key === view.lastWorld) return;
+  view.lastWorld = key;
+  const d = Math.min(quality ? 1.5 : 1, window.devicePixelRatio || 1);
+  worldCv.width = Math.round(innerWidth * d);
+  worldCv.height = Math.round(innerHeight * d);
+  paintWorld(wctx, worldCv.width, worldCv.height, alt, 'toybox');
+  // The backdrop never animates, so it becomes the page background rather than a canvas
+  // layer the compositor has to blend every frame.
+  document.body.style.backgroundImage = `url(${worldCv.toDataURL('image/jpeg', 0.9)})`;
+}
+
+// Board particle coordinates to screen (CSS px).
+// Read once per frame: layout reads after style writes would force a reflow per event.
+let boxCache = null;
+function boardBox() {
+  if (boxCache) return boxCache;
+  const r = cv.getBoundingClientRect();
+  boxCache = { x: r.left + cv.clientLeft, y: r.top + cv.clientTop, w: cv.clientWidth, h: cv.clientHeight };
+  return boxCache;
+}
+let goalCache = null;
+const toScreen = (px, py, b = boardBox()) => [b.x + (px / GW) * b.w, b.y + (py / GH) * b.h];
+const goalPoint = () => {
+  if (goalCache) return goalCache;
+  const r = $('goalIc').getBoundingClientRect();
+  goalCache = [r.left + r.width / 2, r.top + r.height / 2];
+  return goalCache;
+};
+const matColor = (m) => css(skin.mats[m]?.base || [255, 255, 255]);
+
+// ---------- feedback ----------
+
+function remember(px, py, m) {
+  const [x, y] = toScreen(px, py);
+  view.recent.push([x, y, matColor(m), performance.now()]);
+  if (view.recent.length > 16) view.recent.shift();
+}
+
+function shakeWell(n) {
+  if (!settings.motion) return;
+  view.shake = Math.max(view.shake, n);
+}
+
+let puffT = 0;
+function handleEvents() {
+  for (const e of sess.events) {
+    if (DEBUG && eventLog.length < 5000 && e.type !== 'steam' && e.type !== 'burn') eventLog.push({ t: performance.now(), type: e.type, mult: e.mult, slam: e.slam, power: e.power });
+    const now = performance.now();
+    if (e.type === 'combo') {
+      const [txt, style] = PRAISE[Math.min(4, e.mult)] || PRAISE[4];
+      const b = boardBox();
+      const bonus = game().cfg.comboBar ? `Goal ×${1 + (e.mult - 1) * game().cfg.comboBar}` : '';
+      fx.word(txt, b.x + b.w / 2, b.y + b.h * 0.3, { size: 46 + e.mult * 6, style, sub: bonus });
+      shakeWell(3 + e.mult * 2);
+      if (e.mult >= 3) { fx.flash('#fff3b0', 0.22, 0.28); warm(0.6); }
+      play('combo', e);
+      buzz(15 * e.mult);
+    } else if (e.type === 'shatter') {
+      let sx = 0;
+      let sy = 0;
+      for (const [x, y] of e.cells) { sx += x; sy += y; }
+      const n = e.cells.length || 1;
+      const [x, y] = toScreen(sx / n + 0.5, sy / n + 0.5);
+      fx.shards(x, y, 34, Math.min(60, Math.sqrt(n) * 3));
+      fx.ring(x, y, '#e8fdff', 80);
+      fx.flash('#e8fdff', 0.16, 0.35);
+      fx.word('SMASH!', x, y - 30, { size: 40, style: 'aqua', life: 0.9 });
+      remember(sx / n, sy / n, 'glass');
+      shakeWell(12);
+      view.hitstop = Math.max(view.hitstop, 0.08);
+      play('shatter');
+      buzz([30, 20, 40]);
+    } else if (e.type === 'steam') {
+      if (now - puffT > 45) {
+        puffT = now;
+        const [x, y] = toScreen(e.x + 0.5, e.y);
+        fx.puff(x, y, false, 14);
+      }
+      remember(e.x, e.y, 'water');
+      play('steam');
+    } else if (e.type === 'burn') {
+      const [x, y] = toScreen(e.x + 0.5, e.y);
+      if (now - puffT > 45) { puffT = now; fx.puff(x, y, true, 13); }
+      fx.sparks(x, y, 2);
+      remember(e.x, e.y, 'fire');
+      play('burn');
+    } else if (e.type === 'land') {
+      landed(e);
+    } else if (e.type === 'power') {
+      firePower(e);
+    } else if (e.type === 'quest') {
+      toast(`${icon('check')} Quest done! Power +30%`);
+      play('quest');
+      const q = $('quest').getBoundingClientRect();
+      fx.ring(q.left + q.width / 2, q.top + q.height / 2, '#b6ff7a', 70);
+    } else if (e.type === 'win') {
+      celebrate();
+    } else if (e.type === 'callout') {
+      play('callout');
+    } else if (e.type === 'lose') {
+      $('well').classList.add('lost');
+      play('lose');
+      buzz([60, 40, 60]);
+    } else if (e.type === 'start') {
+      onStart();
+    }
+  }
+  sess.events.length = 0;
+}
+
+function landed(e) {
+  const p = view.lastPiece;
+  const b = boardBox();
+  let x0 = Infinity;
+  let x1 = -Infinity;
+  let bottom = 0;
+  if (p && p.cells.length === e.cells.length) {
+    const y = e.cells[0][1] - p.cells[0][1];
+    for (const [a, bb] of p.cells) {
+      x0 = Math.min(x0, (p.x + a) * S);
+      x1 = Math.max(x1, (p.x + a + 1) * S);
+      bottom = Math.max(bottom, y + (bb + 1) * S);
+    }
+  } else {
+    for (const [cx] of e.cells) { x0 = Math.min(x0, cx * S); x1 = Math.max(x1, (cx + 1) * S); }
+    bottom = GH;
+  }
+  const [sx0, sy] = toScreen(x0, bottom, b);
+  const [sx1] = toScreen(x1, bottom, b);
+  if (e.slam) {
+    fx.dust((sx0 + sx1) / 2, sy, 14);
+    fx.ring((sx0 + sx1) / 2, sy, 'rgba(255,255,255,.9)', 50);
+    shakeWell(9);
+    view.hitstop = Math.max(view.hitstop, 0.05);
+    play('slam');
+    buzz(25);
+  } else {
+    fx.dust(sx0 + 4, sy, 3);
+    fx.dust(sx1 - 4, sy, 3);
+    play('land');
+  }
+}
+
+function firePower(e) {
+  const st = POWER_STYLE[e.power] || POWER_STYLE.rain;
+  const b = boardBox();
+  fx.flash(st.pc, 0.55, 0.5);
+  fx.word(`${POWERS[e.power].label}!`, b.x + b.w / 2, b.y + b.h * 0.42, { size: 54, style: st.word, life: 1.4, sub: `+${Math.floor(e.points / 64)}` });
+  const step = Math.max(1, Math.floor(e.cells.length / 70));
+  const [gx, gy] = goalPoint();
+  for (let i = 0, k = 0; i < e.cells.length; i += step, k++) {
+    const [px, py, m] = e.cells[i];
+    const [x, y] = toScreen(px + 0.5, py + 0.5, b);
+    fx.cubes(x, y, [matColor(m)], 1, 220, 7);
+    if (k % 3 === 0) fx.flight(x, y, gx, gy, { color: matColor(m), delay: 0.25 + k * 0.012, dur: 0.6 });
+  }
+  shakeWell(16);
+  view.hitstop = Math.max(view.hitstop, 0.12);
+  play('power', e);
+  buzz([40, 30, 80]);
+}
+
+function warm(t) {
+  const v = $('vignette');
+  v.classList.add('warm');
+  clearTimeout(warm.t);
+  warm.t = setTimeout(() => v.classList.remove('warm'), t * 1000);
+}
+
+// Everything left on the board bursts into voxel debris, then the stars are worked out.
+function celebrate() {
+  const g = game();
+  const b = boardBox();
+  const k = Math.max(1, Math.floor(GW * GH / 900));
+  let n = 0;
+  for (let y = 0; y < GH; y++) {
+    for (let x = 0; x < GW; x++) {
+      const c = g.grid[y][x];
+      if (!c) continue;
+      if (n++ % (k * 4) === 0) {
+        const [sx, sy] = toScreen(x + 0.5, y + 0.5, b);
+        fx.cubes(sx, sy, [matColor(c.m)], 1, 320, 9);
+      }
+      g.grid[y][x] = null;
+    }
+  }
+  fx.confetti(140, ['#ffc83a', '#45c41e', '#2f8cff', '#ff6b5a', '#ff9ad8', '#8ff0ff']);
+  fx.flash('#fff6c8', 0.4, 0.45);
+  const left = piecesLeft(g);
+  const leftNum = Number.isFinite(left) ? left : 0;
+  view.stars = starsFor(leftNum, g.cfg.pieces);
+  if (sess.daily) {
+    view.first = false;
+  } else {
+    const r = meta.recordStars(sess.level, view.stars);
+    view.first = r.first;
+  }
+  view.coins = winCoins({ stars: view.stars, first: view.first, daily: sess.daily });
+  meta.addCoins(view.coins);
+  view.shown = piecesDrained(g);
+  fx.word('CLEARED!', b.x + b.w / 2, b.y + b.h * 0.38, { size: 64, style: 'gold', life: 1.8, sub: leftNum ? `${leftNum} piece${leftNum === 1 ? '' : 's'} to spare!` : '' });
+  shakeWell(10);
+  play('win');
+  buzz([30, 30, 30, 30, 80]);
+  call('setIntensity', 1);
+}
+
+function onStart() {
+  endIntro();
+  fx.clear();
+  view.lastDrained = 0;
+  view.shown = 0;
+  view.pieceX = null;
+  view.recent = [];
+  lastHud = '';
+  lastNext = '';
+  $('well').classList.remove('lost');
+  $('vignette').classList.remove('on', 'warm');
+  paintWorldNow();
+  call('setMusicMood', sess.home ? 'map' : 'play');
+  call('setIntensity', 0.2);
+  if (sess.callout) play('callout');
+}
+
+// ---------- toast and intro ----------
+
+function toast(html, tone = 'green') {
+  const t = $('toast');
+  t.innerHTML = html;
+  t.style.background = tone === 'navy' ? 'linear-gradient(180deg, var(--navy-hi), var(--navy))' : '';
+  t.classList.add('show');
+  clearTimeout(toast.t);
+  toast.t = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+function showIntro(boosts) {
+  const g = game();
+  const cfg = g.cfg;
+  const chips = [
+    `<span class="chip">${icon('flask')}Drain ${cfg.goal.pieces}</span>`,
+    `<span class="chip">${icon('pieces')}${piecesLeft(g)} pieces</span>`,
+    `<span class="chip">${icon(POWER_ICON[cfg.power])}${POWERS[cfg.power].label}</span>`,
+  ];
+  const boostChips = boosts.map((k) => `<span class="chip" style="background:var(--green)">${icon(BOOSTERS[k].icon)}${BOOSTERS[k].label}</span>`).join('');
+  $('intro').innerHTML = `<div class="intro-card panel"><span class="t big">Level ${sess.level}</span><div class="chips">${chips.join('')}</div>${boostChips ? `<div class="chips">${boostChips}</div>` : ''}</div>`;
+  $('intro').hidden = false;
+  view.intro = 1.7;
+  play('whoosh');
+}
 
 // ---------- overlays ----------
 
-function setButtons(list) {
-  ['ovA', 'ovB', 'ovC'].forEach((id, i) => {
-    const el = $(id);
-    const opt = list[i];
-    el.hidden = !opt;
-    if (opt) {
-      el.textContent = opt[0];
-      el.onclick = () => { unlock(); play('tap'); opt[1](); };
-    }
-  });
+function setBtn(id, html, fn, cls) {
+  const el = $(id);
+  el.hidden = !html;
+  if (!html) return;
+  el.innerHTML = html;
+  if (cls) el.className = cls;
+  el.onclick = () => { unlock(); play('tap'); fn(); };
 }
 
-// Shows whichever screen the session is on. Only touches the DOM when that changes.
 function overlays() {
   const key = [sess.phase, sess.home, sess.ad && sess.ad.kind, sess.game.revived, game() === shownGame].join('|');
   const adEl = $('ad');
   if (sess.ad) {
     adEl.hidden = false;
-    adEl.querySelector('.ad-label').textContent = sess.ad.kind === 'interstitial' ? 'Test interstitial ad' : `Test rewarded ad: ${sess.ad.kind === 'revive' ? 'revive' : 'fill power meter'}`;
+    const k = sess.ad.kind;
+    adEl.querySelector('.ad-label').innerHTML = k === 'interstitial' ? 'Quick break' : k === 'revive' ? 'Your reward is coming' : 'Charging your power';
     adEl.querySelector('.ad-count').textContent = String(Math.max(1, Math.ceil(sess.ad.left)));
+    $('adRing').style.strokeDashoffset = String(314.16 * Math.max(0, sess.ad.left / AD_TIME));
   } else {
     adEl.hidden = true;
   }
   if (key === lastOverlay) return;
   lastOverlay = key;
   shownGame = game();
+  if (sess.home || sess.phase !== 'play' || sess.ad) closeSheet(app);
 
   $('home').hidden = !sess.home;
   if (sess.home) {
-    const h = homeInfo(sess);
-    $('homeLevel').textContent = `Level ${h.level}`;
-    $('homeFt').textContent = `${h.ft} ft up`;
-    $('dailyBtn').disabled = !h.dailyReady;
-    $('dailyInfo').textContent = h.dailyReady ? (h.streak ? `streak ${h.streak}` : 'new today') : 'done today ✓';
+    buildMap(app);
+    mapHud(app);
+    call('setMusicMood', 'map');
     if (params.has('playtest')) showPlaytest();
+  } else if (sess.phase === 'play') {
+    call('setMusicMood', 'play');
   }
 
   const over = $('over');
   if (sess.phase === 'won') {
     const w = winScreen(sess);
+    over.className = `over win${sess.daily ? ' daily' : ''}`;
     $('ovT').textContent = w.title;
-    $('ovS').textContent = `${w.drained} blocks drained. ${w.sub}`;
-    $('ovN').textContent = w.next;
-    $('ovN').hidden = false;
-    setButtons([
-      [w.nextLabel, () => next(sess)],
-      ['Replay this level', () => replay(sess)],
-      w.dailyReady && !sess.daily ? ['★ Daily challenge ready', () => startDaily(sess)] : null,
-    ]);
+    $('ovSub').textContent = sess.daily ? w.sub : `Level ${sess.level}`;
+    $('ovRing').hidden = true;
+    $('ovStars').innerHTML = sess.daily ? '' : [1, 2, 3].map((k) => icon('star', k <= view.stars ? 'on' : '')).join('');
+    $('ovStars').querySelectorAll('.on').forEach((el, i) => { el.style.animationDelay = `${0.35 + i * 0.32}s`; });
+    for (let i = 0; i < (sess.daily ? 0 : view.stars); i++) setTimeout(() => { play('star', { n: i + 1 }); buzz(20); }, 350 + i * 320);
+    const g = game();
+    $('ovS').innerHTML = `
+      <div class="row">${icon('flask')}<span>Drained</span><b>${w.drained} / ${g.cfg.goal.pieces}</b></div>
+      <div class="row">${icon('pieces')}<span>Pieces left</span><b>${Math.max(0, piecesLeft(g) || 0)}</b></div>
+      <div class="row reward">${icon('coin')}<span>Reward</span><b>+${view.coins}</b></div>`;
+    const nextLevel = sess.daily ? null : sess.level >= TOTAL_LEVELS ? 1 : sess.level + 1;
+    const newMat = nextLevel ? introducedMat(nextLevel) : null;
+    $('ovN').innerHTML = sess.daily ? `<div><b>${w.next}</b></div>` : `${newMat ? '<canvas id="ovNc" width="60" height="60"></canvas>' : ''}<div><b>Next up: level ${nextLevel}</b>${shortPreview(nextLevel)}</div>`;
+    if (newMat) $('ovNc').getContext('2d').drawImage(previewTile(skin, newMat, 60), 0, 0);
+    setBtn('ovA', `<span class="t">${sess.daily ? 'Continue' : sess.level >= TOTAL_LEVELS ? 'Play again' : 'Continue'}</span>`, () => next(sess), 'btn btn-green big');
+    setBtn('ovB', icon('retry'), () => replay(sess), 'btn btn-blue sq');
+    $('ovB').setAttribute('aria-label', 'Replay level');
+    setBtn('ovC', w.dailyReady && !sess.daily ? `${icon('calendar')}<span>Daily challenge ready</span>` : '', () => startDaily(sess), 'btn btn-gold wide');
     over.hidden = false;
+    // Coins fly from the reward row to the top of the screen.
+    setTimeout(() => {
+      const r = $('ovS').querySelector('.reward');
+      if (!r || $('over').hidden) return;
+      const rr = r.getBoundingClientRect();
+      for (let i = 0; i < Math.min(12, 3 + Math.floor(view.coins / 8)); i++) fx.flight(rr.left + 30, rr.top + rr.height / 2, innerWidth / 2, 20, { kind: 'coin', delay: i * 0.06, dur: 0.7, onArrive: i % 3 ? null : () => play('coin') });
+    }, 1300);
   } else if (sess.phase === 'lost') {
     const l = loseScreen(sess);
+    over.className = 'over lose';
     $('ovT').textContent = l.title;
-    $('ovS').textContent = l.sub;
-    $('ovN').textContent = l.help ? 'Helping hand next try: an extra fire and water in every bag.' : '';
-    $('ovN').hidden = !l.help;
-    setButtons([
-      l.canRevive ? [l.revive, () => watchRevive(sess)] : null,
-      ['Retry level', () => replay(sess)],
-      null,
-    ]);
+    $('ovSub').textContent = '';
+    $('ovStars').innerHTML = '';
+    $('ovRing').hidden = false;
+    $('ovPct').textContent = `${l.pct}%`;
+    $('ovRingFg').style.strokeDashoffset = '314.16';
+    requestAnimationFrame(() => requestAnimationFrame(() => { $('ovRingFg').style.strokeDashoffset = String(314.16 * (1 - l.pct / 100)); }));
+    $('ovS').innerHTML = `<p class="lead">${l.sub}</p>`;
+    $('ovN').innerHTML = l.help ? `${icon('gift')}<div><b>Helping hand</b>Next try: extra fire and water in every bag.</div>` : '';
+    if (l.canRevive) {
+      setBtn('ovA', `<span class="t">${l.outOfPieces ? '+5 Pieces' : 'Clear top rows'}</span><small class="adtag">${icon('ad')} Watch an ad</small>`, () => watchRevive(sess), 'btn btn-green big');
+      setBtn('ovB', icon('retry'), () => replay(sess), 'btn btn-blue sq');
+    } else {
+      $('ovA').hidden = true;
+      setBtn('ovB', '<span class="t">Try again</span>', () => replay(sess), 'btn btn-green big');
+    }
+    $('ovB').setAttribute('aria-label', 'Try again');
+    setBtn('ovC', '', null);
     over.hidden = false;
   } else {
     over.hidden = true;
   }
 }
 
-// ?playtest: the local playtest log on the home screen, to lay next to the bot numbers.
+// The material a level introduces, for the win screen's "next up" tile.
+const INTRO_MAT = { 3: 'wood', 4: 'sand', 5: 'glass', 7: 'ice', 11: 'stone', 13: 'brick' };
+const introducedMat = (l) => INTRO_MAT[l] || null;
+function shortPreview(l) {
+  if (CALLOUTS[l]) return CALLOUTS[l][0].replace(/<\/?em>/g, '') + '.';
+  const c = levelConfig(l);
+  if (c.mode === 'flood') return 'Flood: the water keeps rising.';
+  if (c.mode === 'prefill') return 'Burn through a wooden wall.';
+  if (c.showcase) return 'Showcase floor: big set piece, power half charged.';
+  return levelPreview(l);
+}
+
 function showPlaytest() {
   const p = playLogSummary(playLog(sess));
   const f = (x) => (x === null || x === undefined ? '–' : `${Math.round(x * 100)}%`);
@@ -202,402 +526,256 @@ $('playtestCopy').onclick = () => {
 };
 $('playtestClear').onclick = () => { clearPlayLog(sess); showPlaytest(); };
 
-$('meterAd').onclick = () => { unlock(); watchMeterAd(sess); };
-$('callout').onclick = () => dismissCallout(sess);
-
-// ---------- effects ----------
-
-const cellsCenter = (cells) => {
-  let sx = 0;
-  let sy = 0;
-  for (const [x, y] of cells) { sx += x; sy += y; }
-  return [(sx / cells.length + 0.5) * PX, (sy / cells.length + 0.5) * PX];
-};
-
-function burst(cells, color, speed, max) {
-  const step = Math.max(1, Math.floor(cells.length / max));
-  for (let i = 0; i < cells.length; i += step) {
-    const [x, y, m] = cells[i];
-    const a = Math.random() * Math.PI * 2;
-    const v = speed * (0.4 + Math.random());
-    fx.debris.push({
-      x: (x + 0.5) * PX, y: (y + 0.5) * PX, vx: Math.cos(a) * v, vy: Math.sin(a) * v - speed * 0.6,
-      life: 1, color: color || BASE[m] || '#fff', size: PX * (0.6 + Math.random() * 0.6),
-    });
-  }
-}
-
-function popup(x, y, text, color = '#fff', size = 18, kind = '') {
-  if (kind) fx.popups = fx.popups.filter((p) => p.kind !== kind); // the newest of a kind replaces the last
-  fx.popups.push({ x, y, text, color, size, life: 1, kind });
-}
-
-const eventLog = []; // ?debug only: what happened and when, for the browser checks
-function handleEvents() {
-  for (const e of sess.events) {
-    if (DEBUG && eventLog.length < 5000 && e.type !== 'steam' && e.type !== 'burn') eventLog.push({ t: performance.now(), type: e.type, mult: e.mult, slam: e.slam, power: e.power });
-    if (e.type === 'combo') {
-      popup(cv.width / 2, cv.height * 0.25, `COMBO ×${e.mult}`, '#ffd34d', 18 + e.mult * 4, 'combo');
-      if (game().cfg.comboBar) popup(cv.width / 2, cv.height * 0.25 + 26, `bar fills ×${1 + (e.mult - 1) * game().cfg.comboBar} faster`, '#fff3c4', 14, 'combo2');
-      fx.shake = Math.max(fx.shake, 3 + e.mult * 2);
-      if (e.mult >= 3) fx.flash = { color: '#ffd34d', life: 0.25 };
-      play('combo', e);
-    } else if (e.type === 'shatter') {
-      burst(e.cells.map(([x, y]) => [x, y, 'glass']), '#e8fffa', 220, 120);
-      fx.shake = Math.max(fx.shake, 8);
-      const [x, y] = cellsCenter(e.cells);
-      popup(x, y, 'SMASH!', '#e8fffa', 24, 'smash');
-      play('shatter');
-    } else if (e.type === 'steam') {
-      fx.puffs.push({ x: (e.x + 0.5) * PX, y: e.y * PX, life: 1, smoke: false });
-      play('steam');
-    } else if (e.type === 'burn') {
-      fx.puffs.push({ x: (e.x + 0.5) * PX, y: e.y * PX, life: 1, smoke: true });
-      play('burn');
-    } else if (e.type === 'land') {
-      const cell = S * PX;
-      const [cx, cy] = e.cells.reduce(([a, b], [x, y]) => [a + x, Math.max(b, y)], [0, 0]);
-      const px = ((cx / e.cells.length) + 0.5) * cell;
-      const py = (cy / S + 1) * cell;
-      if (e.slam) {
-        fx.shake = Math.max(fx.shake, 5);
-        for (let i = 0; i < 10; i++) fx.puffs.push({ x: px + (Math.random() - 0.5) * cell * 2, y: py, life: 0.6, smoke: true });
-        popup(px, py - cell, 'SLAM', '#ffffff', 15, 'slam');
-        play('slam');
-      } else {
-        play('land');
-      }
-    } else if (e.type === 'power') {
-      const color = POWER_COLOR[e.power];
-      burst(e.cells, color, 260, 700);
-      fx.flash = { color, life: 0.6 };
-      fx.shake = 16;
-      popup(cv.width / 2, cv.height / 2, `${POWERS[e.power].label.toUpperCase()}!  +${Math.floor(e.points / 64)}`, color, 30, 'power');
-      play('power');
-    } else if (e.type === 'quest') {
-      popup(cv.width / 2, cv.height * 0.32, 'Side quest done! +power', '#7fdc8f', 20, 'quest');
-      play('quest');
-    } else if (e.type === 'win') {
-      celebrate();
-      play('win');
-    } else if (e.type === 'callout') {
-      play('callout');
-    } else if (e.type === 'lose') {
-      play('lose');
-    } else if (e.type === 'start') {
-      fx = { debris: [], puffs: [], popups: [], flash: null, shake: 0 };
-      lastDrained = 0;
-      lastHud = '';
-      if (sess.callout) play('callout');
-    }
-  }
-  sess.events.length = 0;
-}
-
-// Everything left on the board shatters and falls away.
-function celebrate() {
-  const g = game();
-  const cells = [];
-  for (let y = 0; y < GH; y++) {
-    for (let x = 0; x < GW; x++) {
-      if (g.grid[y][x]) { cells.push([x, y, g.grid[y][x].m]); g.grid[y][x] = null; }
-    }
-  }
-  burst(cells, null, 200, 900);
-  // Confetti in the theme colours.
-  const conf = [];
-  for (let i = 0; i < 160; i++) conf.push([Math.floor(Math.random() * GW), Math.floor(Math.random() * GH * 0.5), Object.keys(BASE)[i % 10]]);
-  burst(conf, null, 260, 160);
-  fx.flash = { color: '#ffd34d', life: 0.5 };
-  fx.shake = 12;
-}
-
-function stepFx(dt) {
-  for (const d of fx.debris) { d.x += d.vx * dt; d.y += d.vy * dt; d.vy += 600 * dt; d.life -= dt * 0.9; }
-  fx.debris = fx.debris.filter((d) => d.life > 0 && d.y < cv.height + 20);
-  if (fx.debris.length > 1500) fx.debris.splice(0, fx.debris.length - 1500);
-  for (const p of fx.puffs) { p.y -= 30 * dt; p.life -= dt * 1.2; }
-  fx.puffs = fx.puffs.filter((p) => p.life > 0);
-  if (fx.puffs.length > 300) fx.puffs.splice(0, fx.puffs.length - 300);
-  for (const p of fx.popups) { p.y -= 40 * dt; p.life -= dt * 0.8; }
-  fx.popups = fx.popups.filter((p) => p.life > 0);
-  if (fx.flash) { fx.flash.life -= dt; if (fx.flash.life <= 0) fx.flash = null; }
-  fx.shake = Math.max(0, fx.shake - dt * 40);
-}
-
-// ---------- drawing ----------
-
-function drawParticles(ts) {
-  const g = game();
-  const d = img.data;
-  d.fill(0);
-  for (let y = 0; y < GH; y++) {
-    const row = g.grid[y];
-    for (let x = 0; x < GW; x++) {
-      const c = row[x];
-      if (!c) continue;
-      let [r, gg, b, a] = pixelColor(c.m, x, y, c.shade, ts);
-      // Light edge around each solid piece so you can see where one ends and the next begins.
-      if (RIGID.has(c.m)) {
-        const up = y > 0 ? g.grid[y - 1][x] : null;
-        const dn = y < GH - 1 ? g.grid[y + 1][x] : null;
-        const lf = x > 0 ? row[x - 1] : null;
-        const rt = x < GW - 1 ? row[x + 1] : null;
-        if (!up || up.id !== c.id || !dn || dn.id !== c.id || !lf || lf.id !== c.id || !rt || rt.id !== c.id) {
-          r += (255 - r) * 0.45; gg += (255 - gg) * 0.45; b += (255 - b) * 0.45; a = 255;
-        }
-      }
-      const i = (y * GW + x) * 4;
-      d[i] = r; d[i + 1] = gg; d[i + 2] = b; d[i + 3] = a;
-    }
-  }
-  // The falling piece goes into the same image: one upload instead of 256 rectangles.
-  const p = sess.phase === 'play' ? g.piece : null;
-  if (p) {
-    const mats = pieceMats(p);
-    p.cells.forEach(([a, b], k) => {
-      const x0 = (p.x + a) * S;
-      const y0 = p.y + b * S;
-      for (let y = Math.max(0, y0); y < y0 + S && y < GH; y++) {
-        for (let x = x0; x < x0 + S; x++) {
-          const [r, gg, bl, al] = pixelColor(mats[k], x, y, hash(x, y - p.y), ts);
-          const i = (y * GW + x) * 4;
-          d[i] = r; d[i + 1] = gg; d[i + 2] = bl; d[i + 3] = al;
-        }
-      }
-    });
-  }
-  lctx.putImageData(img, 0, 0);
-  ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(layer, 0, 0, cv.width, cv.height);
-}
-
-// The falling piece shows its real texture, with each block outlined in its material's colour.
-function drawPiece(ts) {
-  const g = game();
-  const p = g.piece;
-  if (!p) return;
-  const cell = S * PX;
-  const mats = pieceMats(p);
-  const gy = landingY(g);
-  ctx.lineWidth = 2;
-  p.cells.forEach(([a, b], i) => {
-    // Ghost: where it will land, outline only.
-    ctx.globalAlpha = 0.45;
-    ctx.strokeStyle = lighten(BASE[mats[i]], 0.3);
-    ctx.strokeRect((p.x + a) * cell + 2, (gy + b * S) * PX + 2, cell - 4, cell - 4);
-    ctx.globalAlpha = 1;
-  });
-  // Its pixels are drawn with the board (drawParticles); here just each block's outline.
-  p.cells.forEach(([a, b], i) => {
-    const m = mats[i];
-    const x0 = (p.x + a) * S;
-    const y0 = p.y + b * S;
-    ctx.strokeStyle = lighten(BASE[m], 0.45);
-    ctx.strokeRect(x0 * PX + 1, y0 * PX + 1, cell - 2, cell - 2);
-  });
-}
-
-function drawFx() {
-  for (const d of fx.debris) {
-    ctx.globalAlpha = Math.max(0, d.life);
-    ctx.fillStyle = d.color;
-    ctx.fillRect(d.x - d.size / 2, d.y - d.size / 2, d.size, d.size);
-  }
-  for (const p of fx.puffs) {
-    ctx.globalAlpha = p.life * 0.6;
-    ctx.fillStyle = p.smoke ? '#4a4038' : '#eef3f7';
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, 4 + (1 - p.life) * 8, 0, 7);
-    ctx.fill();
-  }
-  ctx.textAlign = 'center';
-  for (const p of fx.popups) {
-    ctx.globalAlpha = Math.min(1, p.life * 1.5);
-    ctx.font = `700 ${p.size}px system-ui, sans-serif`;
-    ctx.lineWidth = 4;
-    ctx.strokeStyle = 'rgba(0,0,0,.6)';
-    ctx.strokeText(p.text, p.x, p.y);
-    ctx.fillStyle = p.color;
-    ctx.fillText(p.text, p.x, p.y);
-  }
-  ctx.globalAlpha = 1;
-  if (fx.flash) {
-    ctx.globalAlpha = Math.min(0.45, fx.flash.life);
-    ctx.fillStyle = fx.flash.color;
-    ctx.fillRect(0, 0, cv.width, cv.height);
-    ctx.globalAlpha = 1;
-  }
-}
-
-function bigText(lines) {
-  ctx.textAlign = 'center';
-  ctx.lineWidth = 6;
-  ctx.strokeStyle = 'rgba(0,0,0,.6)';
-  for (const [text, y, size, color] of lines) {
-    ctx.font = `800 ${size}px system-ui, sans-serif`;
-    ctx.strokeText(text, cv.width / 2, cv.height * y);
-    ctx.fillStyle = color;
-    ctx.fillText(text, cv.width / 2, cv.height * y);
-  }
-}
-
-// The scenery only changes with altitude (between levels and during the celebration's
-// camera drop), so it is drawn once per altitude and reused: the city alone is
-// thousands of rectangles.
-const bg = document.createElement('canvas');
-const bgCtx = bg.getContext('2d');
-let bgKey = null;
-function sceneryAt(alt) {
-  const key = `${Math.round(alt * 50)}:${cv.width}x${cv.height}`;
-  if (key !== bgKey) {
-    bgKey = key;
-    bg.width = cv.width;
-    bg.height = cv.height;
-    drawScenery(bgCtx, alt, cv.width, cv.height);
-    bgCtx.fillStyle = 'rgba(20,22,30,.35)';
-    bgCtx.fillRect(0, 0, cv.width, cv.height);
-  }
-  return bg;
-}
-
-function draw(ts) {
-  const g = game();
-  const level = sess.daily ? g.level : sess.level;
-  // During the celebration the camera pans down 1 ft.
-  let alt = altitude(Math.min(100, level));
-  if (sess.phase === 'celebrate') alt -= Math.min(1, Math.max(0, (sess.celebrateT - 0.8) / 1.2));
-  else if (sess.phase === 'won') alt -= 1;
-
-  ctx.save();
-  if (fx.shake > 0) ctx.translate((Math.random() - 0.5) * fx.shake, (Math.random() - 0.5) * fx.shake);
-  ctx.drawImage(sceneryAt(Math.max(1, alt)), 0, 0);
-  drawParticles(ts);
-  if (sess.phase === 'play') drawPiece(ts);
-  drawFx();
-  if (sess.phase === 'celebrate') { // the win screen takes over after this
-    const total = piecesDrained(g);
-    const shown = sess.phase === 'won' ? total : Math.floor(total * Math.min(1, sess.celebrateT / (CELEBRATE_TIME * 0.55)));
-    const pop = sess.phase === 'won' ? 1 : Math.min(1, sess.celebrateT * 4);
-    bigText([
-      ['LEVEL CLEARED', 0.38, Math.round(22 + 14 * pop), '#ffd34d'],
-      [`${shown} blocks drained`, 0.46, 24, '#ffffff'],
-    ]);
-  }
-  ctx.restore();
-}
+// ---------- HUD ----------
 
 function drawNext() {
-  nctx.clearRect(0, 0, nxCv.width, nxCv.height);
-  const { shape, mats } = game().next;
-  const s = 12;
+  const g = game();
+  if (!g.next) return;
+  const key = `${g.next.mats.join()}|${g.next.shape.flat().join()}|${skin.id}`;
+  if (key === lastNext) return;
+  const changed = lastNext !== '';
+  lastNext = key;
+  const nx = $('nx');
+  const c = nx.getContext('2d');
+  c.clearRect(0, 0, nx.width, nx.height);
+  const { shape, mats } = g.next;
   const w = Math.max(...shape.map(([a]) => a)) + 1;
   const h = Math.max(...shape.map(([, b]) => b)) + 1;
-  const ox = (nxCv.width - w * s) / 2;
-  const oy = (nxCv.height - h * s) / 2;
-  nctx.lineWidth = 1.5;
-  shape.forEach(([a, b], i) => {
-    nctx.fillStyle = BASE[mats[i]];
-    nctx.fillRect(ox + a * s + 1, oy + b * s + 1, s - 2, s - 2);
-    nctx.strokeStyle = lighten(BASE[mats[i]], 0.5);
-    nctx.strokeRect(ox + a * s + 1.5, oy + b * s + 1.5, s - 3, s - 3);
-  });
+  const s = Math.floor(Math.min(nx.width / w, nx.height / h, nx.height / 2));
+  const ox = (nx.width - w * s) / 2;
+  const oy = (nx.height - h * s) / 2;
+  shape.forEach(([a, b], i) => c.drawImage(previewTile(skin, mats[i], s, (a + b) % 3), ox + a * s, oy + b * s));
+  if (changed) { nx.classList.remove('pop'); void nx.offsetWidth; nx.classList.add('pop'); }
 }
 
-// "Fire + Wood" for a two-material piece, "Glass" for a plain one.
-const label = (mats) => [...new Set(mats)].map((m) => NAME[m]).join(' + ');
+function spawnFlights(n) {
+  const g = game();
+  const [gx, gy] = goalPoint();
+  const b = boardBox();
+  const now = performance.now();
+  const pts = view.recent.filter((p) => now - p[3] < 1500);
+  for (let i = 0; i < n; i++) {
+    const p = pts.length ? pts[(pts.length - 1 - (i % pts.length))] : [b.x + b.w / 2, b.y + b.h * 0.8, '#8ff0ff'];
+    for (let k = 0; k < 2; k++) {
+      fx.flight(p[0] + (Math.random() - 0.5) * 20, p[1] + (Math.random() - 0.5) * 20, gx, gy, {
+        color: p[2], delay: i * 0.07 + k * 0.05, dur: 0.5 + Math.random() * 0.12,
+        onArrive: k ? null : () => {
+          view.shown = Math.min(piecesDrained(g), view.shown + 1);
+          lastHud = '';
+          const ic = $('goalIc');
+          ic.classList.remove('hit'); void ic.offsetWidth; ic.classList.add('hit');
+          play('drain', { mult: g.mult, step: view.shown });
+          fx.ring(gx, gy, '#8ff0ff', 34);
+        },
+      });
+    }
+  }
+}
 
 function hud() {
   const g = game();
   const cfg = g.cfg;
   const drained = piecesDrained(g);
-  const nowMats = g.piece ? pieceMats(g.piece) : [];
-  const nextMats = g.next ? g.next.mats : [];
+  // A jump of more than a few pieces at once is a scene or showcase being set up, not play.
+  if (drained > view.lastDrained && sess.phase === 'play') {
+    if (drained - view.lastDrained > 8) view.shown = drained;
+    else spawnFlights(drained - view.lastDrained);
+  }
+  if (drained < view.lastDrained) view.shown = drained;
+  view.lastDrained = drained;
   const qn = questCount(g);
   const meterAd = meterAdAvailable(sess);
   const left = piecesLeft(g);
-  const key = [sess.level, sess.daily, drained, left, g.settling !== null, nowMats, nextMats, g.next && g.next.shape, g.meter.toFixed(2), g.questDone, qn, sess.phase, meterAd, isMuted()].join('|');
-  if (key === lastHud) return;
-  if (drained > lastDrained && sess.phase === 'play') {
-    const el = document.querySelector('.drain');
-    el.classList.remove('bump');
-    void el.offsetWidth; // restart the bump animation
-    el.classList.add('bump');
-    // A "+1" pops off the side of the board toward the bar.
-    popup(cv.width - 40, cv.height * (1 - progress(g)) + 20, `+${drained - lastDrained}`, '#7fdc8f', 22, 'plus');
-    play('drain', { mult: g.mult });
-  }
-  lastDrained = drained;
-  lastHud = key;
-
-  $('lvl').textContent = sess.daily ? 'Daily' : `Lv ${sess.level} · ${altitude(sess.level)} ft`;
-  $('drainNum').textContent = String(drained);
-  $('drainGoal').textContent = `/${cfg.goal.pieces}`;
-  $('left').textContent = g.settling !== null ? '0' : String(left);
-  document.querySelector('.left').classList.toggle('low', left <= 3);
-  $('drainBar').style.height = `${progress(g) * 100}%`;
-
   const full = g.meter >= 1 && sess.phase === 'play';
-  $('meterLabel').textContent = full ? `${POWERS[cfg.power].label} ready! Swipe up` : POWERS[cfg.power].label;
-  $('meterBar').style.width = `${g.meter * 100}%`;
-  document.querySelector('.meter').classList.toggle('full', full);
-  $('meterAd').hidden = !meterAd;
+  const key = [sess.level, sess.daily, view.shown, left, g.settling !== null, g.meter.toFixed(2), g.questDone, qn, sess.phase, meterAd, skin.id].join('|');
+  drawNext();
+  if (key === lastHud) return;
+  const wasFull = $('powerBtn').classList.contains('ready');
+  lastHud = key;
+  const goal = cfg.goal.pieces;
+  $('lvl').textContent = sess.daily ? 'Daily' : `Level ${sess.level}`;
+  $('lvl').classList.toggle('daily', sess.daily);
+  $('drainNum').textContent = String(Math.min(view.shown, goal));
+  $('drainGoal').textContent = `/${goal}`;
+  $('drainBar').style.width = `${Math.min(1, view.shown / goal) * 100}%`;
+  call('setIntensity', 0.2 + 0.8 * Math.min(1, view.shown / goal));
+  const shownLeft = g.settling !== null ? 0 : left;
+  $('left').textContent = Number.isFinite(shownLeft) ? String(shownLeft) : '∞';
+  const low = Number.isFinite(left) && left <= 3 && sess.phase === 'play';
+  if (low && !$('moves').classList.contains('low')) play('heartbeat');
+  $('moves').classList.toggle('low', low);
+  $('vignette').classList.toggle('on', Number.isFinite(left) && left <= 1 && sess.phase === 'play' && g.settling === null);
+
+  const pw = POWER_STYLE[cfg.power] || POWER_STYLE.rain;
+  const btn = $('powerBtn');
+  btn.style.setProperty('--charge', String(Math.min(1, g.meter)));
+  btn.style.setProperty('--pc', pw.pc);
+  btn.style.setProperty('--pc2', pw.pc2);
+  btn.style.setProperty('--pc3', pw.pc3);
+  btn.classList.toggle('ready', full);
+  if (full && !wasFull) { play('ready'); buzz(30); }
+  $('powerIc').innerHTML = icon(POWER_ICON[cfg.power] || 'bolt');
+  $('meterLabel').textContent = full ? 'Ready!' : POWERS[cfg.power].label.replace('Deep ', '').replace(' Mode', '');
+  btn.setAttribute('aria-label', `${POWERS[cfg.power].label}${full ? ' ready: tap to use' : ''}`);
+  const ad = $('meterAd');
+  ad.hidden = !meterAd;
+  if (meterAd) ad.innerHTML = `${icon('ad')}Fill`;
 
   const q = cfg.quest;
-  $('quest').textContent = g.questDone ? `✓ Side quest done: ${questText(q)}` : `Side quest: ${questText(q)} (${Math.min(qn, q.n)}/${q.n}) → +power`;
-  $('quest').classList.toggle('done', g.questDone);
-
-  $('nowName').textContent = nowMats.length ? label(nowMats) : '–';
-  $('nextName').textContent = nextMats.length ? label(nextMats) : '–';
-  $('tip').textContent = [...new Set(nextMats)].map((m) => `${NAME[m]}: ${TIP[m]}`).join(' · ');
-  $('muteBtn').innerHTML = isMuted() ? '&#128263;' : '&#128266;';
-  $('muteBtn').setAttribute('aria-label', isMuted() ? 'Unmute sound' : 'Mute sound');
+  const done = g.questDone;
+  const n = Math.min(qn, q.n);
+  $('quest').className = `quest panel${done ? ' done' : ''}`;
+  $('quest').innerHTML = `<span class="q-ic">${icon(done ? 'check' : QUEST_ICON[q.type] || 'target')}</span><div class="q-body"><span class="q-text t">${done ? 'Quest done!' : QUEST_SHORT[q.type](q.n)}</span><div class="q-row"><div class="q-bar"><i style="width:${(done ? 1 : n / q.n) * 100}%"></i></div><span class="q-n">${done ? '+Power' : `${n}/${q.n}`}</span></div></div>`;
+  $('quest').setAttribute('aria-label', `Side quest: ${questText(q)}, ${n} of ${q.n}`);
 
   const notes = [];
-  if (cfg.help) notes.push('Helping hand: an extra fire and water in every bag.');
-  if (cfg.mode === 'flood') notes.push('Flood: water keeps rising.');
-  if (cfg.mode === 'prefill') notes.push('Burn through the wall.');
-  if (sess.daily) notes.push('Daily challenge: same level for everyone today.');
-  $('banner').textContent = notes.join(' ');
+  if (cfg.help) notes.push([icon('gift'), 'Helping hand']);
+  if (cfg.mode === 'flood') notes.push([icon('drop'), 'Flood']);
+  if (cfg.mode === 'prefill') notes.push([icon('flame'), 'Burn the wall']);
+  if (sess.daily) notes.push([icon('calendar'), 'Same board for everyone today']);
+  $('banner').innerHTML = notes.map(([i, t]) => `${i}<span>${t}</span>`).join(' · ');
   $('banner').hidden = notes.length === 0;
-  if (g.next) drawNext();
 }
 
 function calloutView() {
   const el = $('callout');
   const c = sess.callout;
-  if (!c || sess.home || sess.phase !== 'play') {
-    el.hidden = true;
-    return;
-  }
+  if (!c || sess.home || sess.phase !== 'play' || view.intro > 0) { el.hidden = true; return; }
   el.hidden = false;
   if (el.dataset.text !== c.text) {
     el.dataset.text = c.text;
-    el.innerHTML = `<b>${c.text}</b><small>tap to hide</small>`;
+    const power = /ready/i.test(c.text);
+    const entry = power ? [`${POWERS[game().cfg.power].label} ready! <em>Tap it</em>`, [], 'up'] : CALLOUTS[sess.level];
+    if (entry) {
+      const [text, mats, g] = entry;
+      const tiles = mats.map((m) => `<canvas data-m="${m}" width="68" height="68"></canvas>`).join(icon('plus'));
+      el.innerHTML = `<span class="hand g-${g}">${icon('hand')}</span><span class="co-text">${text}</span>${tiles ? `<span class="co-mats">${tiles}</span>` : ''}<small>Tap to hide</small>`;
+      el.querySelectorAll('canvas').forEach((cn) => cn.getContext('2d').drawImage(previewTile(skin, cn.dataset.m, 68), 0, 0));
+    } else {
+      el.innerHTML = `<span class="co-text">${c.text}</span><small>Tap to hide</small>`;
+    }
   }
   el.style.opacity = String(Math.min(1, c.left / 0.4));
 }
 
+// ---------- the app object the screens talk to ----------
+
+const app = {
+  sess, meta, selected,
+  get skin() { return skin; },
+  sound: (n) => play(n),
+  toast,
+  best: () => Math.max(sess.level, sess.store.get('mb_best', 1)),
+  homeInfo: () => homeInfo(sess),
+  freshGame: () => {
+    const g = game();
+    return sess.phase === 'play' && g.drained === 0 && !g.revived && Number.isFinite(g.left) && g.left === g.cfg.pieces - 1;
+  },
+  playFromMap() {
+    unlock();
+    const fresh = app.freshGame() && !sess.daily;
+    const used = [];
+    if (fresh) {
+      for (const k of selected) if (meta.useBooster(k)) used.push(k);
+      const g = game();
+      if (used.includes('plus3')) g.left += 3;
+      if (used.includes('head')) g.meter = Math.max(g.meter, 0.5);
+      selected.clear();
+    }
+    closeHome(sess);
+    fit();
+    if (fresh) showIntro(used);
+  },
+  openHome() { openHome(sess); },
+  restart() { start(sess, sess.level, { daily: sess.daily }); },
+  sheetOpen(v) { view.paused = v; if (v) play('open'); },
+  isMuted: () => isMuted(),
+  toggleMute() {
+    unlock();
+    setMuted(!isMuted());
+    sess.store.set('mb_muted', isMuted());
+    play('tap');
+  },
+  setSetting(k, v) {
+    meta.set(k, v);
+    settings = meta.settings();
+    if (k === 'music') call('setMusic', v);
+    if (k === 'haptics') { call('setHaptics', v); buzz(20); }
+    if (k === 'motion') { document.body.classList.toggle('calm', !v); fx.motion = v; }
+    play('tap');
+  },
+  refreshMap() { if (sess.home) mapHud(app); },
+  applySkin() {
+    skin = SKINS[meta.skin()];
+    board.setSkin(skin);
+    fit();
+    lastNext = '';
+    if (sess.home) buildMap(app);
+  },
+  celebrateGift() {
+    fx.confetti(60, ['#ffc83a', '#ff9ad8', '#8ff0ff', '#45c41e']);
+    const c = $('coinPill').getBoundingClientRect();
+    for (let i = 0; i < 8; i++) fx.flight(innerWidth / 2, innerHeight / 2, c.left + 20, c.top + c.height / 2, { kind: 'coin', delay: i * 0.05, dur: 0.6, onArrive: () => mapHud(app) });
+  },
+};
+
+// ---------- buttons ----------
+
+$('homeBtn').innerHTML = icon('pause');
+$('goalIc').innerHTML = icon('flask');
+$('settingsBtn').innerHTML = icon('gear');
+$('dailyIc').innerHTML = icon('calendar');
+$('rewardsIc').innerHTML = icon('gift');
+$('shopIc').innerHTML = icon('shop');
+$('codexIc').innerHTML = icon('book');
+$('homeBtn').onclick = () => { unlock(); sw = null; if (sess.phase === 'play' && !sess.home) openPause(app); };
+$('playBtn').onclick = () => { unlock(); play('tap'); app.playFromMap(); };
+$('dailyBtn').onclick = () => { unlock(); play('tap'); if (dailyReady(sess)) { startDaily(sess); fit(); } };
+$('settingsBtn').onclick = () => { unlock(); play('tap'); openSettings(app); };
+$('rewardsBtn').onclick = () => { unlock(); play('tap'); openRewards(app); };
+$('shopBtn').onclick = () => { unlock(); play('tap'); openShop(app); };
+$('codexBtn').onclick = () => { unlock(); play('tap'); openCodex(app); };
+$('meterAd').onclick = () => { unlock(); play('tap'); watchMeterAd(sess); };
+$('callout').onclick = () => dismissCallout(sess);
+$('powerBtn').onclick = () => { unlock(); if (viewLive()) act('power'); };
+$('intro').onclick = endIntro;
+
 // ---------- input ----------
+
+const viewLive = () => live(sess) && !view.paused && view.intro <= 0;
+
+function endIntro() {
+  view.intro = 0;
+  $('intro').hidden = true;
+}
 
 function act(a) {
   unlock();
+  if (view.intro > 0) endIntro(); // any move skips the level card
+  if (!viewLive()) return;
+  const before = game().piece ? { x: game().piece.x, cells: JSON.stringify(game().piece.cells) } : null;
   input(sess, a);
+  const p = game().piece;
+  if (p && before) {
+    if (a === 'left' || a === 'right') { if (p.x !== before.x) play('move'); }
+    else if (a === 'rotate' && JSON.stringify(p.cells) !== before.cells) play('rotate');
+  }
 }
 
-// Swipes count anywhere on the screen except on buttons.
+// Swipes count anywhere on the screen except on buttons and panels.
 let sw = null;
 const gestures = []; // ?debug only
 window.addEventListener('pointerdown', (e) => {
   unlock();
-  if (!live(sess) || e.target.closest('button')) return;
+  if (view.intro > 0) { endIntro(); return; }
+  if (!viewLive() || e.target.closest('button, .map, .sheet-wrap, .over')) return;
   const step = (cv.getBoundingClientRect().width / COLS) * 0.75;
   sw = { id: e.pointerId, sx: e.clientX, sy: e.clientY, ax: e.clientX, ay: e.clientY, t: performance.now(), step, moved: false };
 });
 
 window.addEventListener('pointermove', (e) => {
   if (!sw || e.pointerId !== sw.id) return;
-  if (!live(sess)) { sw = null; return; }
+  if (!viewLive()) { sw = null; return; }
   e.preventDefault();
   let dx = e.clientX - sw.ax;
   let dy = e.clientY - sw.ay;
@@ -618,7 +796,7 @@ window.addEventListener('pointerup', (e) => {
   const ty = e.clientY - sw.sy;
   const moved = sw.moved;
   sw = null;
-  if (!live(sess)) return;
+  if (!viewLive()) return;
   let what = 'none';
   if (dt < 300 && ty < -50 && -ty > Math.abs(tx) * 1.5) what = 'power';
   else if (dt < 250 && ty > 50 && ty > Math.abs(tx) * 1.5) what = 'slam';
@@ -635,86 +813,55 @@ const KEYS = {
 window.addEventListener('keydown', (e) => {
   unlock();
   if (e.key === 'Escape') {
-    if (sess.home) closeHome(sess);
-    else openHome(sess);
+    if (!$('sheet').hidden) closeSheet(app);
+    else if (sess.home) app.playFromMap();
+    else if (sess.phase === 'play') openPause(app);
     return;
   }
   const k = KEYS[e.key];
-  if (!k || !live(sess)) return;
+  if (!k || !viewLive()) return;
   e.preventDefault();
   act(k);
 });
 
-// ---------- home screen ----------
-
-// Full sentences here: the home screen scrolls, so there is room to explain.
-const HOW_IT_GOES = [
-  ['fire', 'Fire never goes out on its own. Water puts it out, and both drain away.'],
-  ['water', 'Water puts out fire, turns sand to mud, and soaks wood.'],
-  ['wood', 'Wood burns away next to fire. Soak it with water twice and it dissolves.'],
-  ['wetwood', 'Wet wood steams next to fire, then dries and burns. More water dissolves it.'],
-  ['ice', 'Fire melts ice into water. Water sitting next to ice freezes into it.'],
-  ['sand', 'Water turns sand into mud. Fire melts sand into glass.'],
-  ['mud', 'Mud sinks away on its own, or water washes it away.'],
-  ['glass', 'Slam a piece onto glass, or drop stone on it, and the whole pane smashes.'],
-  ['brick', 'Brick is heavy. Water wears it down into sand.'],
-  ['stone', 'Stone is the heaviest: it smashes glass. Water wears it down slowly.'],
-];
-
-$('legend').innerHTML = HOW_IT_GOES
-  .map(([k, text]) => `<li><i style="background:${BASE[k]}"></i><span><b>${NAME[k]}</b> ${text}</span></li>`)
-  .join('');
-$('powers').innerHTML = Object.values(POWERS)
-  .map((p) => `<li><b>${p.label}</b> clears all ${p.clears.map((m) => NAME[m].toLowerCase()).join(', ')}.</li>`)
-  .join('');
-
-$('homeBtn').onclick = () => { unlock(); sw = null; openHome(sess); $('home').scrollTop = 0; };
-$('playBtn').onclick = () => { unlock(); closeHome(sess); fit(); };
-$('dailyBtn').onclick = () => { unlock(); if (dailyReady(sess)) startDaily(sess); fit(); };
-$('muteBtn').onclick = () => {
-  unlock();
-  setMuted(!isMuted());
-  sess.store.set('mb_muted', isMuted());
-};
-
-// The board takes all the height the phone gives it.
-function fit() {
-  const stage = document.querySelector('.stage');
-  const top = stage.getBoundingClientRect().top;
-  const room = window.innerHeight - top - 30; // leave a line for the side quest
-  const maxW = stage.clientWidth - 30; // the drain bar sits to the right
-  const h = Math.max(200, Math.min(room, maxW * (GH / GW)));
-  cv.style.height = `${Math.floor(h)}px`;
-  cv.style.width = `${Math.floor(h * (GW / GH))}px`;
-}
 window.addEventListener('resize', fit);
 window.addEventListener('orientationchange', fit);
+if (document.fonts) document.fonts.ready.then(() => { lastHud = ''; });
 fit();
 
 // A hidden tab stops the frame loop; drop the stale timestamp so nothing jumps on return.
 let last = performance.now();
-document.addEventListener('visibilitychange', () => { last = performance.now(); sw = null; });
+document.addEventListener('visibilitychange', () => {
+  last = performance.now();
+  sw = null;
+  if (document.hidden && sess.phase === 'play' && !sess.home && live(sess)) openPause(app);
+});
 
 // ---------- debug ----------
 
 // ?debug exposes the live session for tests and runs the invariant checks every frame.
+const eventLog = [];
 const checker = createValidator();
 const debugErrors = [];
 let frames = 0;
 let physMs = 0;
 let workMs = 0;
-let valMs = 0; // the debug validator's own time, left out of the frame cost
+let valMs = 0;
+let drawMs = 0;
 let worstMs = 0;
 if (DEBUG) {
   window.mb = {
     sess,
+    meta,
+    freeze: false,
     get game() { return sess.game; },
     get phase() { return sess.phase; },
     errors: debugErrors,
     events: eventLog,
     gestures,
-    stats: () => ({ frames, avgPhysMs: physMs / Math.max(1, frames), avgFrameWorkMs: workMs / Math.max(1, frames), worstFrameWorkMs: worstMs, avgValidatorMs: valMs / Math.max(1, frames) }),
-    resetStats: () => { frames = 0; physMs = 0; workMs = 0; worstMs = 0; valMs = 0; },
+    stats: () => ({ frames, avgPhysMs: physMs / Math.max(1, frames), avgFrameWorkMs: workMs / Math.max(1, frames), worstFrameWorkMs: worstMs, avgValidatorMs: valMs / Math.max(1, frames), avgDrawMs: drawMs / Math.max(1, frames) }),
+    quality: () => QUALITY[quality],
+    resetStats: () => { frames = 0; physMs = 0; workMs = 0; worstMs = 0; valMs = 0; drawMs = 0; },
   };
   if (params.has('scene')) {
     import('./scenes.js').then(({ SCENES }) => {
@@ -727,14 +874,32 @@ if (DEBUG) {
       window.mb.sceneReady = true;
     });
   }
+  if (params.has('showcase')) {
+    import('./showcase.js').then(({ SHOWCASE }) => {
+      SHOWCASE[params.get('showcase')](sess);
+      sess.callout = null;
+      window.mb.freeze = true;
+      window.mb.sceneReady = true;
+    });
+  }
 }
+
+// ---------- frame loop ----------
 
 function frame(ts) {
   const dt = Math.min(0.1, Math.max(0, (ts - last) / 1000));
   last = ts;
+  boxCache = null;
+  goalCache = null;
   const t0 = performance.now();
   const valBefore = valMs;
-  step(sess, dt);
+  if (view.intro > 0) {
+    view.intro -= dt;
+    if (view.intro <= 0) $('intro').hidden = true;
+  }
+  const hold = view.paused || view.intro > 0 || (DEBUG && window.mb.freeze);
+  if (view.hitstop > 0) view.hitstop -= dt;
+  else if (!hold) step(sess, dt);
   if (DEBUG) {
     frames++;
     physMs += performance.now() - t0;
@@ -747,8 +912,23 @@ function frame(ts) {
     }
   }
   handleEvents();
-  stepFx(dt);
-  draw(ts);
+  fx.step(dt);
+  const td = performance.now();
+  drawBoard(ts, dt);
+  fx.draw();
+  const dd = performance.now() - td;
+  if (DEBUG) drawMs += dd;
+  // Drop a quality step when frames run long (frame interval or our own draw time).
+  if (!document.hidden && dt > 0 && dt < 0.25) {
+    drawEma = drawEma ? drawEma * 0.92 + Math.max(dd, dt * 1000 - 10) * 0.08 : dd;
+    if (++emaFrames > 20 && drawEma > 9 && quality > 0) {
+      const before = pixelRatio();
+      quality--;
+      emaFrames = 0;
+      drawEma = 0;
+      if (pixelRatio() !== before) fit();
+    }
+  }
   hud();
   overlays();
   calloutView();
@@ -759,4 +939,52 @@ function frame(ts) {
   }
   requestAnimationFrame(frame);
 }
+
+// Cells next to where the piece would land that it reacts with: a light telegraph.
+function targetsOf(g, gy) {
+  const p = g.piece;
+  const mats = pieceMats(p);
+  const out = new Map();
+  p.cells.forEach(([a, b], i) => {
+    const cx = p.x + a;
+    const cy = Math.floor((gy + b * S) / S);
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = cx + dx;
+      const ny = cy + dy;
+      if (nx < 0 || nx >= COLS || ny < 0 || ny >= GH / S) continue;
+      if (p.cells.some(([a2, b2]) => p.x + a2 === nx && Math.floor((gy + b2 * S) / S) === ny)) continue;
+      const c = g.grid[ny * S + 1]?.[nx * S + 1];
+      if (c && reacts(mats[i], c.m)) out.set(`${nx},${ny}`, [nx, ny]);
+    }
+  });
+  return [...out.values()];
+}
+
+function drawBoard(ts, dt) {
+  const g = game();
+  const p = sess.phase === 'play' ? g.piece : null;
+  if (p) {
+    if (view.pieceX === null || view.lastPiece?.ref !== p) view.pieceX = p.x;
+    view.pieceX += (p.x - view.pieceX) * Math.min(1, dt * 28);
+    if (Math.abs(p.x - view.pieceX) < 0.02) view.pieceX = p.x;
+    if (view.lastPiece?.ref !== p || view.lastPiece.rot !== p.cells) view.lastPiece = { ref: p, rot: p.cells, cells: p.cells.map((c) => [...c]), x: p.x, y: p.y };
+    view.lastPiece.x = p.x;
+    view.lastPiece.y = p.y;
+  }
+  const gy = p ? landingY(g) : null;
+  // The telegraph only changes when the piece moves, turns or the board settles.
+  const tkey = p ? `${p.x}|${gy}|${p.cells.flat().join('')}|${g.drained}|${g.nextId}` : '';
+  if (tkey !== view.tkey) { view.tkey = tkey; view.targets = p ? targetsOf(g, gy) : null; }
+  board.draw(g, { ts, piece: p, pieceX: view.pieceX, ghostY: gy, targets: view.targets, assist: settings.assist, lite: quality === 0 });
+  const well = $('well');
+  if (view.shake > 0.2) {
+    view.shake = Math.max(0, view.shake - dt * 40);
+    well.style.transform = `translate(${(Math.random() - 0.5) * view.shake}px, ${(Math.random() - 0.5) * view.shake}px)`;
+  } else if (well.style.transform) {
+    well.style.transform = '';
+    view.shake = 0;
+  }
+}
+
 requestAnimationFrame(frame);
+document.title = BRAND;

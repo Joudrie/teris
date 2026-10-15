@@ -295,16 +295,7 @@ function paintSigil(ctx, T, skin, m, p, variant, frame) {
   ctx.lineWidth = Math.max(1.2, T * 0.07);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  const s = T * 0.24;
-  ctx.beginPath();
-  if (m === 'fire') { ctx.moveTo(0, -s); ctx.quadraticCurveTo(s * 0.9, 0, 0, s); ctx.quadraticCurveTo(-s * 0.9, 0, 0, -s); }
-  else if (m === 'water') { ctx.moveTo(0, -s); ctx.quadraticCurveTo(s, s * 0.3, 0, s); ctx.quadraticCurveTo(-s, s * 0.3, 0, -s); }
-  else if (m === 'wood' || m === 'wetwood') { ctx.moveTo(0, s); ctx.lineTo(0, -s); ctx.moveTo(0, 0); ctx.lineTo(s * 0.7, -s * 0.6); ctx.moveTo(0, s * 0.3); ctx.lineTo(-s * 0.7, -s * 0.3); }
-  else if (m === 'ice') { for (let k = 0; k < 3; k++) { const a = (k * Math.PI) / 3; ctx.moveTo(Math.cos(a) * s, Math.sin(a) * s); ctx.lineTo(-Math.cos(a) * s, -Math.sin(a) * s); } }
-  else if (m === 'sand' || m === 'mud') { ctx.moveTo(-s, s * 0.3); ctx.quadraticCurveTo(-s * 0.4, -s * 0.5, 0, s * 0.3); ctx.quadraticCurveTo(s * 0.4, -s * 0.5, s, s * 0.3); }
-  else if (m === 'glass') { ctx.moveTo(0, -s); ctx.lineTo(s, 0); ctx.lineTo(0, s); ctx.lineTo(-s, 0); ctx.closePath(); }
-  else if (m === 'stone') { ctx.moveTo(-s, s * 0.6); ctx.lineTo(-s * 0.3, -s * 0.7); ctx.lineTo(s * 0.5, -s * 0.4); ctx.lineTo(s, s * 0.6); ctx.closePath(); }
-  else if (m === 'brick') { ctx.rect(-s, -s * 0.6, s * 2, s * 1.2); ctx.moveTo(0, -s * 0.6); ctx.lineTo(0, s * 0.6); }
+  sigilPath(ctx, m, T * 0.24);
   ctx.stroke();
   ctx.restore();
   ctx.fillStyle = `rgba(255,255,255,${skin.gloss})`;
@@ -317,6 +308,40 @@ function paintSigil(ctx, T, skin, m, p, variant, frame) {
     ctx.fill();
     ctx.globalCompositeOperation = 'source-over';
   }
+}
+
+// The material glyphs (also used as color-blind emblems in assist mode).
+function sigilPath(ctx, m, s) {
+  ctx.beginPath();
+  if (m === 'fire') { ctx.moveTo(0, -s); ctx.quadraticCurveTo(s * 0.9, 0, 0, s); ctx.quadraticCurveTo(-s * 0.9, 0, 0, -s); }
+  else if (m === 'water') { ctx.moveTo(0, -s); ctx.quadraticCurveTo(s, s * 0.3, 0, s); ctx.quadraticCurveTo(-s, s * 0.3, 0, -s); }
+  else if (m === 'wood' || m === 'wetwood') { ctx.moveTo(0, s); ctx.lineTo(0, -s); ctx.moveTo(0, 0); ctx.lineTo(s * 0.7, -s * 0.6); ctx.moveTo(0, s * 0.3); ctx.lineTo(-s * 0.7, -s * 0.3); }
+  else if (m === 'ice') { for (let k = 0; k < 3; k++) { const a = (k * Math.PI) / 3; ctx.moveTo(Math.cos(a) * s, Math.sin(a) * s); ctx.lineTo(-Math.cos(a) * s, -Math.sin(a) * s); } }
+  else if (m === 'sand' || m === 'mud') { ctx.moveTo(-s, s * 0.3); ctx.quadraticCurveTo(-s * 0.4, -s * 0.5, 0, s * 0.3); ctx.quadraticCurveTo(s * 0.4, -s * 0.5, s, s * 0.3); }
+  else if (m === 'glass') { ctx.moveTo(0, -s); ctx.lineTo(s, 0); ctx.lineTo(0, s); ctx.lineTo(-s, 0); ctx.closePath(); }
+  else if (m === 'stone') { ctx.moveTo(-s, s * 0.6); ctx.lineTo(-s * 0.3, -s * 0.7); ctx.lineTo(s * 0.5, -s * 0.4); ctx.lineTo(s, s * 0.6); ctx.closePath(); }
+  else if (m === 'brick') { ctx.rect(-s, -s * 0.6, s * 2, s * 1.2); ctx.moveTo(0, -s * 0.6); ctx.lineTo(0, s * 0.6); }
+}
+
+// Assist mode: a white glyph with an ink outline per material, stamped on every block.
+export function bakeEmblems(size) {
+  const out = {};
+  for (const m of MATERIALS) {
+    const c = canvas(size, size);
+    const ctx = c.getContext('2d');
+    ctx.translate(size / 2, size / 2);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    sigilPath(ctx, m, size * 0.3);
+    ctx.strokeStyle = '#0d1640';
+    ctx.lineWidth = Math.max(3, size * 0.2);
+    ctx.stroke();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = Math.max(1.5, size * 0.09);
+    ctx.stroke();
+    out[m] = c;
+  }
+  return out;
 }
 
 const PAINT = { pixel: paintPixel, clay: paintClay, sigil: paintSigil };
