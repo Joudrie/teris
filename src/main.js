@@ -15,18 +15,30 @@ const NAME = {
   mud: 'Mud', glass: 'Glass', brick: 'Brick', fire: 'Fire',
 };
 // How each material breaks down.
+// How each material goes away, short enough to fit two columns on a phone.
 const LEGEND = [
-  ['fire', 'Fire + water: both drain'],
-  ['water', 'Water: puts out fire, washes mud, soaks wood'],
-  ['wood', 'Wood: burns in fire, soak it twice to dissolve'],
-  ['wetwood', 'Wet wood: more water dissolves it, fire steams then burns it'],
-  ['ice', 'Ice: fire melts it to water'],
-  ['sand', 'Sand: water turns a chunk to mud, fire melts a chunk to glass'],
-  ['glass', 'Glass: slam it and the whole pane smashes away'],
-  ['mud', 'Mud: sinks away by itself, fire bakes it to brick'],
-  ['brick', 'Brick: water wears it to sand'],
-  ['stone', 'Stone: water wears it down, slowly'],
+  ['fire', 'Fire: water'],
+  ['water', 'Water: fire, sand, wood'],
+  ['wood', 'Wood: fire, or water twice'],
+  ['wetwood', 'Wet wood: water or fire'],
+  ['ice', 'Ice: fire melts it'],
+  ['sand', 'Sand: water or fire'],
+  ['glass', 'Glass: slam it'],
+  ['mud', 'Mud: sinks by itself'],
+  ['brick', 'Brick: water, slowly'],
+  ['stone', 'Stone: water, very slowly'],
 ];
+// One-line tip for the next piece.
+const TIP = {
+  fire: 'drop water on it to put it out, or set it by wood and ice',
+  water: 'pour it on fire, sand or wood',
+  wood: 'put it next to fire, or soak it twice',
+  ice: 'put it next to fire to melt it',
+  sand: 'wet it to make mud, or melt it with fire into glass',
+  glass: 'slam a piece onto it to smash it',
+  stone: 'hard to clear: water wears it down slowly',
+  brick: 'hard to clear: water wears it down',
+};
 const POWER_COLOR = { blaze: '#ff7a1a', freeze: '#9fe6ff', sweep: '#f0c060', hammer: '#ffffff' };
 
 const $ = (id) => document.getElementById(id);
@@ -369,6 +381,7 @@ function hud() {
   $('quest').classList.toggle('done', game.questDone);
 
   $('nextName').textContent = NAME[game.next.m];
+  $('tip').textContent = `Next: ${NAME[game.next.m].toLowerCase()}, ${TIP[game.next.m]}.`;
   drawNext();
 }
 

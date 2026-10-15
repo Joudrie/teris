@@ -228,3 +228,14 @@ canvas#cv {
 }
 .drain.bump b { animation: bump 0.3s; }
 @keyframes bump { 50% { transform: scale(1.5); } }
+
+/* ---------- next-piece tip and compact legend ---------- */
+
+.tip { font-size: 12px; color: #9fe6ff; min-height: 16px; }
+
+.legend {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px 10px;
+  font-size: 10.5px;
+}
