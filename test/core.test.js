@@ -73,6 +73,27 @@ test('stone does not react to anything', () => {
   assert.equal(g.grid[H - 1][3].m, 'water'); // flowed into the open gap
 });
 
+test('stone landing on glass shatters it back into sand', () => {
+  const g = setup([[5, H - 1, 'glass'], [5, H - 2, 'stone']]);
+  physics(g, 0.12);
+  assert.equal(g.grid[H - 1][5].m, 'sand');
+});
+
+test('glass and brick fall like stone', () => {
+  const g = setup([[2, H - 3, 'glass'], [7, H - 3, 'brick']]);
+  physics(g, 0.12);
+  assert.equal(g.grid[H - 2][2].m, 'glass');
+  assert.equal(g.grid[H - 2][7].m, 'brick');
+});
+
+test('fire turns sand into glass and mud into brick', () => {
+  const g = setup([[4, H - 1, 'sand'], [6, H - 1, 'mud']]);
+  g.fire = new Set([`4,${H - 1}`, `6,${H - 1}`]);
+  physics(g, 0.12);
+  assert.equal(g.grid[H - 1][4].m, 'glass');
+  assert.equal(g.grid[H - 1][6].m, 'brick');
+});
+
 test('a full row clears Tetris-style and rows above drop into place', () => {
   const row = [];
   for (let x = 0; x < W; x++) row.push([x, H - 1, 'stone']);

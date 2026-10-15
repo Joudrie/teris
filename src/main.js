@@ -7,10 +7,11 @@ import { drawScenery } from './scenery.js';
 const COL = {
   water: '#3f8ee3', wood: '#a8743f', wetwood: '#5f4a33', ice: '#b5ecfa',
   sand: '#dcb66b', stone: '#8d93a1', mud: '#6e4c30',
+  glass: '#cdeee6', brick: '#a8453a',
 };
 const NAME = {
   water: 'Water', wood: 'Wood', wetwood: 'Wet wood', ice: 'Ice',
-  sand: 'Sand', stone: 'Stone', mud: 'Mud',
+  sand: 'Sand', stone: 'Stone', mud: 'Mud', glass: 'Glass', brick: 'Brick',
 };
 const LEGEND = [
   ['water', 'Water: flows, soaks into wood'],
@@ -20,6 +21,8 @@ const LEGEND = [
   ['sand', 'Sand: slides, turns water to mud'],
   ['stone', 'Stone: no reaction'],
   ['mud', 'Mud: sand + water, stays put'],
+  ['glass', 'Glass: stone shatters it to sand'],
+  ['brick', 'Brick: baked mud'],
 ];
 
 const $ = (id) => document.getElementById(id);

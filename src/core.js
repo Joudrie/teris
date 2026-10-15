@@ -37,6 +37,7 @@ export function createGame({ level = 1, rand = Math.random } = {}) {
     state: 'play', // 'play' | 'win' | 'lose'
     fallAcc: 0,
     physAcc: 0,
+    fire: null, // Set<"x,y"> of fire cells; null while the fire base is parked
   };
   spawn(g);
   return g;
@@ -166,6 +167,10 @@ export function update(g, dt) {
   }
 }
 
+// Fire cells are set by the parked fire base. None exist yet, so sand never melts to glass
+// and mud never bakes to brick until that feature returns.
+const hot = (g, x, y) => !!g.fire && g.fire.has(`${x},${y}`);
+
 const at = (g, x, y) => (x >= 0 && x < W && y >= 0 && y < H ? g.grid[y][x] : undefined);
 
 function mv(g, moved, x, y, nx, ny) {
@@ -199,12 +204,25 @@ export function physics(g, dt) {
 function react(g, moved, x, y, dt) {
   const c = g.grid[y][x];
   switch (c.m) {
-    case 'stone':
+    case 'stone': {
+      // Stone landing on glass shatters it back into sand.
+      const below = at(g, x, y + 1);
+      if (below && below.m === 'glass') below.m = 'sand';
+      fall(g, moved, x, y);
+      return;
+    }
+
     case 'ice':
+    case 'glass':
+    case 'brick':
       fall(g, moved, x, y);
       return;
 
     case 'sand': {
+      if (hot(g, x, y)) {
+        c.m = 'glass';
+        return;
+      }
       const below = at(g, x, y + 1);
       if (below && below.m === 'water') {
         g.grid[y + 1][x] = { m: 'mud', frz: 0 };
@@ -266,8 +284,12 @@ function react(g, moved, x, y, dt) {
       return;
     }
 
+    case 'mud':
+      // Mud stays put, unless it is in fire.
+      if (hot(g, x, y)) c.m = 'brick';
+      return;
+
     default:
-      // Mud stays put.
       return;
   }
 }
