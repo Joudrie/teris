@@ -231,6 +231,41 @@ export function createBoardRenderer(cv, skin) {
     }
   }
 
+
+  // Particle-space origins (x, y) of the cells next to the landing spot that would react.
+  let tgKey = '';
+  let tgOut = [];
+  function telegraph(grid, piece, mats, gy, reacts) {
+    const key = `${piece.x}|${gy}|${piece.cells.flat().join('')}|${st.sig}`;
+    if (key === tgKey) return tgOut;
+    tgKey = key;
+    const seen = new Set();
+    const out = [];
+    const own = new Set(piece.cells.map(([a, b]) => `${piece.x + a},${b}`));
+    piece.cells.forEach(([a, b], k) => {
+      const cx = (piece.x + a) * S;
+      const top = gy + b * S;
+      const probes = [];
+      if (!own.has(`${piece.x + a},${b + 1}`)) probes.push([cx + 1, top + S], [cx + 2, top + S]);
+      if (!own.has(`${piece.x + a},${b - 1}`)) probes.push([cx + 1, top - 1]);
+      if (!own.has(`${piece.x + a - 1},${b}`)) probes.push([cx - 1, top + 1], [cx - 1, top + 2]);
+      if (!own.has(`${piece.x + a + 1},${b}`)) probes.push([cx + S, top + 1], [cx + S, top + 2]);
+      for (const [x, y] of probes) {
+        if (x < 0 || x >= GW || y < 0 || y >= GH) continue;
+        const c = grid[y][x];
+        if (!c || !reacts(mats[k], c.m)) continue;
+        const ox = x - (x & 3);
+        const oy = RIGID.has(c.m) ? y - ((vmap.get(c) || 0) & 3) : Math.min(GH - S, Math.max(0, y - 1));
+        const id = `${ox},${oy}`;
+        if (seen.has(id)) continue;
+        seen.add(id);
+        out.push([ox, oy]);
+      }
+    });
+    tgOut = out;
+    return out;
+  }
+
   function draw(g, opts = {}) {
     st.g = g;
     const { P, W, H, skin: sk, tiles } = st;
@@ -508,12 +543,24 @@ export function createBoardRenderer(cv, skin) {
           ctx.strokeRect((piece.x + a) * T + ctx.lineWidth, (opts.ghostY + bb * S) * P + ctx.lineWidth, T - ctx.lineWidth * 2, T - ctx.lineWidth * 2);
         });
         ctx.setLineDash([]);
-        // Telegraph: cells the piece would react with when it lands.
-        if (opts.targets && opts.targets.length) {
-          const a = 0.35 + 0.25 * Math.sin(ts / 140);
-          ctx.strokeStyle = `rgba(255,236,140,${a + 0.3})`;
-          ctx.lineWidth = Math.max(2, P * 0.28);
-          for (const [tx, ty] of opts.targets) ctx.strokeRect(tx * T + ctx.lineWidth / 2, ty * T + ctx.lineWidth / 2, T - ctx.lineWidth, T - ctx.lineWidth);
+        // Telegraph: the blocks this piece would react with where it lands.
+        if (opts.reacts) {
+          const targets = telegraph(grid, piece, mats, opts.ghostY, opts.reacts);
+          if (targets.length) {
+            // An ink outline under a pulsing bright one, so it reads even on glowing fire.
+            const a = 0.6 + 0.4 * Math.sin(ts / 140);
+            const lw = Math.max(2, P * 0.3);
+            const inset = lw;
+            ctx.setLineDash([]);
+            for (const [tx, ty] of targets) {
+              ctx.lineWidth = lw + Math.max(2, P * 0.25);
+              ctx.strokeStyle = 'rgba(13,22,64,0.85)';
+              ctx.strokeRect(tx * P + inset, ty * P + inset, T - inset * 2, T - inset * 2);
+              ctx.lineWidth = lw;
+              ctx.strokeStyle = `rgba(255,248,200,${a})`;
+              ctx.strokeRect(tx * P + inset, ty * P + inset, T - inset * 2, T - inset * 2);
+            }
+          }
         }
       }
       const lift = opts.pieceLift || 0;

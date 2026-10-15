@@ -16,7 +16,7 @@ const fmt = (n) => n.toLocaleString('en-US');
 // ---------- tower map ----------
 
 const ROW = 118; // px between floors on the map
-const TOP = 170;
+const TOP = 250;
 export const nodeY = (level) => TOP + (level - 1) * ROW;
 const nodeX = (level) => 50 + Math.sin(level * 1.15) * 15; // percent of the tower width
 
@@ -92,6 +92,7 @@ export function buildMap(app) {
     <div class="map-track" style="height:${H}px">
       <div class="map-sky" style="background:linear-gradient(180deg,#1f6fd8 0,#3f9cf5 ${H * 0.2}px,#7ccaff ${H * 0.5}px,#bfe9ff ${H * 0.82}px,#dff6ff ${H - 260}px,#5cbf43 ${H - 150}px,#4aa936 100%)"></div>
       ${clouds}
+      <img class="map-logo" src="assets/wordmark.png" alt="Tumbledown">
       <div class="map-tower" style="background-image:url(${pat});background-size:224px auto"></div>
       <svg class="map-path" style="left:calc(50% - 112px);width:224px;height:${H}px"><path d="${path}" fill="none" stroke="#fff" stroke-width="7" stroke-dasharray="2 15" stroke-linecap="round" opacity=".9"/></svg>
       ${nodes}${alts}

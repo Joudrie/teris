@@ -122,9 +122,10 @@ export function createFx(cv) {
   }
 
   // Big outlined game text. style: 'gold' | 'white' | 'aqua' | 'pink' | 'green'
-  function word(text, x, y, { size = 54, style = 'gold', life = 1.1, rise = 40, sub = '' } = {}) {
-    texts = texts.filter((t) => t.y !== y || t.x !== x);
-    texts.push({ text, x, y, size, style, life, max: life, rise, sub });
+  function word(text, x, y, { size = 54, style = 'gold', life = 1.1, rise = 40, sub = '', slot = '' } = {}) {
+    // A new word in the same slot replaces the last one, so praise never stacks.
+    if (slot) texts = texts.filter((t) => t.slot !== slot);
+    texts.push({ text, x, y, size, style, life, max: life, rise, sub, slot });
   }
 
   function popText(text, x, y, color = '#fff', size = 22) {

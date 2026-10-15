@@ -133,12 +133,14 @@ function fit() {
   cv.style.width = `${w}px`;
   cv.style.height = `${h}px`;
   fx.resize(Math.min(1.5, pixelRatio()));
-  paintWorldNow(true);
+  paintWorldNow();
   const nx = $('nx');
   const d = Math.min(2, window.devicePixelRatio || 1);
   nx.width = Math.round(72 * d);
   nx.height = Math.round(48 * d);
   lastNext = '';
+  // Resizing clears the canvas: draw straight away so no blank frame is ever shown.
+  if (typeof drawBoard === 'function' && sess.game) drawBoard(performance.now(), 0);
 }
 
 function paintWorldNow(force = false) {
@@ -197,7 +199,7 @@ function handleEvents() {
       const [txt, style] = PRAISE[Math.min(4, e.mult)] || PRAISE[4];
       const b = boardBox();
       const bonus = game().cfg.comboBar ? `Goal ×${1 + (e.mult - 1) * game().cfg.comboBar}` : '';
-      fx.word(txt, b.x + b.w / 2, b.y + b.h * 0.3, { size: 46 + e.mult * 6, style, sub: bonus });
+      fx.word(txt, b.x + b.w / 2, b.y + b.h * 0.3, { size: 46 + e.mult * 6, style, sub: bonus, slot: 'praise' });
       shakeWell(3 + e.mult * 2);
       if (e.mult >= 3) { fx.flash('#fff3b0', 0.22, 0.28); warm(0.6); }
       play('combo', e);
@@ -292,7 +294,8 @@ function firePower(e) {
   const st = POWER_STYLE[e.power] || POWER_STYLE.rain;
   const b = boardBox();
   fx.flash(st.pc, 0.55, 0.5);
-  fx.word(`${POWERS[e.power].label}!`, b.x + b.w / 2, b.y + b.h * 0.42, { size: 54, style: st.word, life: 1.4, sub: `+${Math.floor(e.points / 64)}` });
+  fx.word(`${POWERS[e.power].label}!`, b.x + b.w / 2, b.y + b.h * 0.36, { size: 54, style: st.word, life: 1.4, sub: `+${Math.floor(e.points / 64)}`, slot: 'praise' });
+  dismissCallout(sess);
   const step = Math.max(1, Math.floor(e.cells.length / 70));
   const [gx, gy] = goalPoint();
   for (let i = 0, k = 0; i < e.cells.length; i += step, k++) {
@@ -345,7 +348,7 @@ function celebrate() {
   view.coins = winCoins({ stars: view.stars, first: view.first, daily: sess.daily });
   meta.addCoins(view.coins);
   view.shown = piecesDrained(g);
-  fx.word('CLEARED!', b.x + b.w / 2, b.y + b.h * 0.38, { size: 64, style: 'gold', life: 1.8, sub: leftNum ? `${leftNum} piece${leftNum === 1 ? '' : 's'} to spare!` : '' });
+  fx.word('CLEARED!', b.x + b.w / 2, b.y + b.h * 0.38, { size: 64, style: 'gold', life: 1.8, slot: 'praise', sub: leftNum ? `${leftNum} piece${leftNum === 1 ? '' : 's'} to spare!` : '' });
   shakeWell(10);
   play('win');
   buzz([30, 30, 30, 30, 80]);
@@ -853,6 +856,7 @@ if (DEBUG) {
   window.mb = {
     sess,
     meta,
+    board,
     freeze: false,
     get game() { return sess.game; },
     get phase() { return sess.phase; },
@@ -940,26 +944,6 @@ function frame(ts) {
   requestAnimationFrame(frame);
 }
 
-// Cells next to where the piece would land that it reacts with: a light telegraph.
-function targetsOf(g, gy) {
-  const p = g.piece;
-  const mats = pieceMats(p);
-  const out = new Map();
-  p.cells.forEach(([a, b], i) => {
-    const cx = p.x + a;
-    const cy = Math.floor((gy + b * S) / S);
-    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-      const nx = cx + dx;
-      const ny = cy + dy;
-      if (nx < 0 || nx >= COLS || ny < 0 || ny >= GH / S) continue;
-      if (p.cells.some(([a2, b2]) => p.x + a2 === nx && Math.floor((gy + b2 * S) / S) === ny)) continue;
-      const c = g.grid[ny * S + 1]?.[nx * S + 1];
-      if (c && reacts(mats[i], c.m)) out.set(`${nx},${ny}`, [nx, ny]);
-    }
-  });
-  return [...out.values()];
-}
-
 function drawBoard(ts, dt) {
   const g = game();
   const p = sess.phase === 'play' ? g.piece : null;
@@ -972,10 +956,7 @@ function drawBoard(ts, dt) {
     view.lastPiece.y = p.y;
   }
   const gy = p ? landingY(g) : null;
-  // The telegraph only changes when the piece moves, turns or the board settles.
-  const tkey = p ? `${p.x}|${gy}|${p.cells.flat().join('')}|${g.drained}|${g.nextId}` : '';
-  if (tkey !== view.tkey) { view.tkey = tkey; view.targets = p ? targetsOf(g, gy) : null; }
-  board.draw(g, { ts, piece: p, pieceX: view.pieceX, ghostY: gy, targets: view.targets, assist: settings.assist, lite: quality === 0 });
+  board.draw(g, { ts, piece: p, pieceX: view.pieceX, ghostY: gy, reacts, assist: settings.assist, lite: quality === 0 });
   const well = $('well');
   if (view.shake > 0.2) {
     view.shake = Math.max(0, view.shake - dt * 40);
