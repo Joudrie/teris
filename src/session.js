@@ -125,6 +125,7 @@ export function start(s, level, { daily = false } = {}) {
       s.store.set('mb_seen', [...list, s.level]);
     }
   }
+  s.track = { t: 0, firstDrain: null, sinceDrain: 0, longestGap: 0, drained: 0, landed: false };
   s.events.push({ type: 'start', level: s.level, daily });
 }
 
@@ -169,6 +170,7 @@ export function step(s, dt) {
   }
   if (s.phase === 'play') {
     update(s.game, dt);
+    trackPlay(s, dt);
     afterGame(s);
   } else if (s.phase === 'celebrate') {
     s.celebrateT += dt;
@@ -176,10 +178,81 @@ export function step(s, dt) {
   }
 }
 
+// ---------- playtest log ----------
+// The same numbers the rig measures, kept on this device only, so a real playtest can be
+// compared with the bots. Nothing is sent anywhere. See ?playtest on the home screen.
+const LOG_KEY = 'mb_log';
+const LOG_MAX = 300;
+
+function trackPlay(s, dt) {
+  const k = s.track;
+  const g = s.game;
+  k.t += dt;
+  if (g.drained > k.drained) {
+    if (k.firstDrain === null) k.firstDrain = k.t;
+    k.drained = g.drained;
+    k.sinceDrain = 0;
+  } else if (k.landed) {
+    k.sinceDrain += dt;
+    if (k.sinceDrain > k.longestGap) k.longestGap = k.sinceDrain;
+  }
+}
+
+function logAttempt(s, result) {
+  const g = s.game;
+  const k = s.track;
+  const entry = {
+    at: s.now(),
+    level: s.daily ? 'daily' : s.level,
+    result,
+    reason: g.loseReason || null,
+    pct: Math.floor(progress(g) * 100),
+    time: Math.round(k.t * 10) / 10,
+    firstDrain: k.firstDrain === null ? null : Math.round(k.firstDrain * 10) / 10,
+    longestGap: Math.round(k.longestGap * 10) / 10,
+    powers: g.powers,
+    revived: g.revived,
+    help: !!g.cfg.help,
+  };
+  const log = s.store.get(LOG_KEY, []);
+  log.push(entry);
+  s.store.set(LOG_KEY, log.slice(-LOG_MAX));
+}
+
+export const playLog = (s) => s.store.get(LOG_KEY, []);
+export const clearPlayLog = (s) => s.store.set(LOG_KEY, []);
+
+// Summary of the log in the rig's terms: first-try wins by level band, close losses,
+// gaps and powers, so a playtest can be laid next to the bot tables in DESIGN.md.
+export function playLogSummary(log) {
+  const firsts = new Map();
+  for (const e of log) if (typeof e.level === 'number' && !firsts.has(e.level)) firsts.set(e.level, e);
+  const band = (a, b) => {
+    const xs = [...firsts.values()].filter((e) => e.level >= a && e.level <= b);
+    return xs.length ? { n: xs.length, firstTry: xs.filter((e) => e.result === 'win' && !e.revived).length / xs.length } : null;
+  };
+  const losses = log.filter((e) => e.result === 'lose');
+  const med = (xs) => { const v = xs.filter((x) => x !== null).sort((x, y) => x - y); return v.length ? v[Math.floor(v.length / 2)] : null; };
+  return {
+    attempts: log.length,
+    levels: firsts.size,
+    early: band(1, 20),
+    mid: band(21, 60),
+    late: band(61, 100),
+    closeLosses: losses.length ? losses.filter((e) => e.pct >= 80).length / losses.length : null,
+    medianGap: med(log.map((e) => e.longestGap)),
+    medianFirstDrain: med(log.map((e) => e.firstDrain)),
+    powersPerAttempt: log.length ? log.reduce((t, e) => t + e.powers, 0) / log.length : null,
+  };
+}
+
 // Moves game events into the session queue and reacts to a win or a loss.
 function afterGame(s) {
   const g = s.game;
-  for (const e of g.events) s.events.push(e);
+  for (const e of g.events) {
+    if (e.type === 'land' && s.track) s.track.landed = true;
+    s.events.push(e);
+  }
   g.events.length = 0;
   if (s.phase !== 'play') return;
   if (g.state === 'win') {
@@ -199,6 +272,7 @@ function afterGame(s) {
       s.store.set('mb_level', s.level >= TOTAL_LEVELS ? 1 : s.level + 1);
       s.store.set('mb_best', Math.max(s.store.get('mb_best', 1), Math.min(TOTAL_LEVELS, s.level + 1)));
     }
+    logAttempt(s, 'win');
     s.events.push({ type: 'win', drained: piecesDrained(g) });
   } else if (g.state === 'lose') {
     s.phase = 'lost';
@@ -207,6 +281,7 @@ function afterGame(s) {
       s.lossCounted = true; // one loss per attempt, even if the revive also runs out
       s.store.set(`mb_losses_${s.level}`, Math.max(0, s.store.get(`mb_losses_${s.level}`, 0)) + 1);
     }
+    logAttempt(s, 'lose');
     s.events.push({ type: 'lose', pct: Math.floor(progress(g) * 100) });
   }
 }

@@ -6,6 +6,7 @@ import { POWERS, questText } from './levels.js';
 import {
   createSession, step, input, live, next, replay, watchRevive, watchMeterAd, meterAdAvailable, openHome,
   closeHome, startDaily, dismissCallout, winScreen, loseScreen, homeInfo, dailyReady, start, CELEBRATE_TIME,
+  playLog, clearPlayLog, playLogSummary,
 } from './session.js';
 import { questCount } from './core.js';
 import { drawScenery } from './scenery.js';
@@ -144,6 +145,7 @@ function overlays() {
     $('homeFt').textContent = `${h.ft} ft up`;
     $('dailyBtn').disabled = !h.dailyReady;
     $('dailyInfo').textContent = h.dailyReady ? (h.streak ? `streak ${h.streak}` : 'new today') : 'done today ✓';
+    if (params.has('playtest')) showPlaytest();
   }
 
   const over = $('over');
@@ -175,6 +177,30 @@ function overlays() {
     over.hidden = true;
   }
 }
+
+// ?playtest: the local playtest log on the home screen, to lay next to the bot numbers.
+function showPlaytest() {
+  const p = playLogSummary(playLog(sess));
+  const f = (x) => (x === null || x === undefined ? '–' : `${Math.round(x * 100)}%`);
+  const band = (b) => (b ? `${f(b.firstTry)} of ${b.n}` : '–');
+  $('playtest').hidden = false;
+  $('playtestSummary').textContent = [
+    `Attempts: ${p.attempts}, levels tried: ${p.levels}`,
+    `Won first try, levels 1-20: ${band(p.early)}`,
+    `Won first try, levels 21-60: ${band(p.mid)}`,
+    `Won first try, levels 61-100: ${band(p.late)}`,
+    `Losses that were close (80%+): ${f(p.closeLosses)}`,
+    `Longest no-drain gap (median): ${p.medianGap ?? '–'} s`,
+    `First drain (median): ${p.medianFirstDrain ?? '–'} s`,
+    `Powers per attempt: ${p.powersPerAttempt === null ? '–' : p.powersPerAttempt.toFixed(2)}`,
+  ].join('\n');
+}
+$('playtestCopy').onclick = () => {
+  const text = JSON.stringify(playLog(sess));
+  if (navigator.clipboard) navigator.clipboard.writeText(text).catch(() => {});
+  $('playtestSummary').textContent += `\n\nCopied ${playLog(sess).length} attempts.`;
+};
+$('playtestClear').onclick = () => { clearPlayLog(sess); showPlaytest(); };
 
 $('meterAd').onclick = () => { unlock(); watchMeterAd(sess); };
 $('callout').onclick = () => dismissCallout(sess);

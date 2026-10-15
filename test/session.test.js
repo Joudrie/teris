@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   createSession, step, input, live, next, replay, watchRevive, watchMeterAd, openHome, closeHome,
-  startDaily, winScreen, loseScreen, dailyReady, start, safeStore, AD_TIME, MAX_DT,
+  startDaily, winScreen, loseScreen, dailyReady, start, safeStore, AD_TIME, MAX_DT, playLog, playLogSummary, clearPlayLog,
 } from '../src/session.js';
 import { emptyGrid, PIECE, GW, GH, S, placeBlock } from '../src/core.js';
 import { mulberry32 } from '../tools/bots.js';
@@ -380,4 +380,27 @@ test('safeStore never throws', () => {
   st.set('a', 1);
   assert.equal(st.get('a', 0), 1);
   assert.equal(safeStore(null).get('x', 5), 5);
+});
+
+test('playtest log: each win and loss is recorded on this device with the rig measures', () => {
+  const s = mk();
+  run(s, 1);
+  input(s, 'slam');
+  run(s, 2);
+  win(s);
+  start(s, 9);
+  s.game.drained = Math.floor(s.cfg.goal.pieces * 0.85) * PIECE;
+  lose(s);
+  const log = playLog(s);
+  assert.equal(log.length, 2);
+  assert.equal(log[0].result, 'win');
+  assert.equal(log[0].level, 1);
+  assert.ok(log[0].firstDrain !== null && log[0].time > 0);
+  assert.equal(log[1].result, 'lose');
+  assert.equal(log[1].reason, 'top');
+  const sum = playLogSummary(log);
+  assert.equal(sum.early.firstTry, 0.5);
+  assert.equal(sum.closeLosses, 1);
+  clearPlayLog(s);
+  assert.equal(playLog(s).length, 0);
 });
