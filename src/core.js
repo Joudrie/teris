@@ -112,10 +112,29 @@ export function drawMaterial(g) {
 
 // Some pieces are made of two materials (half and half), so how you rotate them decides
 // what touches what. cfg.mixed is the chance of a two-material piece.
+// The two halves never react with each other: a fire + water piece would just cancel itself
+// on landing, which is free progress. Each half has to be placed against its own counter.
+const REACTS = {
+  fire: ['water', 'wood', 'ice', 'sand'],
+  water: ['fire', 'sand', 'wood', 'ice'],
+  wood: ['fire', 'water'],
+  ice: ['fire', 'water'],
+  sand: ['fire', 'water'],
+};
+const reacts = (a, b) => (REACTS[a] || []).includes(b);
+
 function makeNext(g) {
   const shape = SHAPES[Math.floor(g.rand() * SHAPES.length)];
   const m = drawMaterial(g);
-  const m2 = g.rand() < (g.cfg.mixed || 0) ? drawMaterial(g) : m;
+  let m2 = m;
+  if (g.rand() < (g.cfg.mixed || 0)) {
+    // Try a few draws for a partner that doesn't react; put rejects back in the bag.
+    for (let tries = 0; tries < 3; tries++) {
+      const pick = drawMaterial(g);
+      if (pick !== m && !reacts(m, pick)) { m2 = pick; break; }
+      g.bag.unshift(pick);
+    }
+  }
   return { m, shape, mats: shape.map((_, i) => (i < 2 ? m : m2)) };
 }
 

@@ -419,11 +419,16 @@ test('mixed pieces start at level 4', () => {
   let mixed = 0;
   for (let i = 0; i < 40; i++) {
     const mats = pieceMats(g.piece);
-    if (new Set(mats).size > 1) mixed++;
+    if (new Set(mats).size > 1) {
+      mixed++;
+      const [a, b] = [mats[0], mats[3]];
+      const bad = [['fire', 'water'], ['fire', 'wood'], ['fire', 'ice'], ['fire', 'sand'], ['water', 'sand'], ['water', 'wood'], ['water', 'ice']];
+      assert.ok(!bad.some(([x, y]) => (a === x && b === y) || (a === y && b === x)), `${a} + ${b} would cancel itself`);
+    }
     g.grid = emptyGrid(); // keep the board empty so every drop spawns a fresh piece
     hardDrop(g);
   }
-  assert.ok(mixed >= 8 && mixed <= 32, `mixed ${mixed}/40`);
+  assert.ok(mixed >= 5 && mixed <= 32, `mixed ${mixed}/40`);
 });
 test('power needs a full meter and clears the level material', () => {
   const g = setup();
