@@ -361,7 +361,7 @@ Scores are 1–5 for **I**ntuitive, **S**atisfying and **D**ecision. The rule wa
 | Fire dries wet wood, then burns it (`wetwood`) | 3 | 3 | 3 | Steam puffs on a beat while drying; burns by 4.1 s | Accident: water then fire on the same wood | The decision: don't water wood you plan to burn |
 | Fire melts ice (`melt`) | 5 | 4 | 4 | Starts at 0.4 s, done by 1.6 s | Level 7 deals fire onto an ice block | |
 | Water touching ice freezes (`freeze`) | 4 | 3 | 5 | Ice visibly grows within 0.8–2 s | Easy to do by accident; the callout warns | A setback, but a clear one. It's the main "don't put X there" rule |
-| Water turns sand to mud, mud sinks (`mud`) | 4 | 4 | 3 | Mud at once; one water piece drains about 4 blocks over 4.5 s | Level 4 deals water onto a dune | Big payoff from one piece |
+| Water turns sand to mud, mud sinks (`mud`) | 4 | 4 | 3 | Mud at once; one water piece drains about 4 blocks within about 4 s | Level 4 deals water onto a dune | Big payoff from one piece |
 | Fire melts sand into glass (`glassmelt`) | 3 | 3 | 4 | A white pane forms within 0.3–1.5 s | Level 6 deals fire onto sand | Turns junk into a smash target: a two-step plan |
 | Slam smashes glass, drag doesn't (`slam`, `gentle`) | 4 | 5 | 4 | Smash in the same frame, with debris, shake and "SMASH!" | Level 5's tower and callout; dragging leaves the glass whole | Flick versus drag is a real choice: you sometimes want glass to stay as a floor |
 | Stone smashes glass even placed gently (`stone`) | 4 | 4 | 4 | Smash on landing (0.13 s) | Level 11 deals stone onto glass towers | |
