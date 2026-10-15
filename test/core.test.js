@@ -68,8 +68,10 @@ test('bags have fewer cancellers than troublemakers, and get harder', () => {
   const mid = buildBag(20, 'wood');
   assert.ok(cancellers(mid) < mid.length - cancellers(mid)); // fewer cancellers from level 11
   assert.equal(tally(buildBag(20, 'wood')).water, 2);
-  assert.equal(tally(buildBag(50, 'wood')).stone, 1);
-  assert.equal(tally(buildBag(80, 'wood')).brick, 1);
+  assert.equal(tally(buildBag(20, 'wood')).stone, 1);
+  assert.equal(tally(buildBag(30, 'wood')).fire, 1);
+  assert.equal(tally(buildBag(50, 'wood')).stone, 2);
+  assert.equal(tally(buildBag(50, 'wood')).brick, 1);
   assert.ok(cancellers(buildBag(80, 'wood')) / buildBag(80, 'wood').length < cancellers(early) / early.length);
 });
 
@@ -137,8 +139,8 @@ test('a splash of water turns a chunk of sand into mud, not just the surface', (
   tick(g, DT);
   let deepest = 0;
   for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) if (g.grid[y][x]?.m === 'mud') deepest = Math.max(deepest, y - (GH - 8));
-  assert.ok(count(g, 'mud') > 8, `mud ${count(g, 'mud')}`);
-  assert.ok(deepest >= S - 1, `deepest ${deepest}`);
+  assert.ok(count(g, 'mud') > 3, `mud ${count(g, 'mud')}`);
+  assert.ok(deepest >= 1, `deepest ${deepest}`);
 });
 
 test('fire melts a sand clump into one glass pane that a slam smashes whole', () => {
@@ -218,6 +220,54 @@ test('water wears stone down to sand, slowly', () => {
   assert.equal(g.grid[GH - 1][4].m, 'stone');
   run(g, 4.2);
   assert.equal(g.grid[GH - 1][4].m, 'sand');
+});
+
+test('fire against a wood piece burns the whole piece, not one column', () => {
+  const g = setup();
+  block(g, 0, GH - 4, 40, 4, 'stone');
+  block(g, 8, GH - 12, 4, 8, 'fire');
+  block(g, 12, GH - 12, 12, 8, 'wood');
+  run(g, 15);
+  assert.equal(count(g, 'wood'), 0);
+  assert.equal(count(g, 'fire'), 32);
+});
+
+test('fire against an ice piece melts the whole piece', () => {
+  const g = setup();
+  block(g, 0, GH - 4, 40, 4, 'stone');
+  block(g, 8, GH - 12, 4, 8, 'fire');
+  block(g, 12, GH - 12, 12, 8, 'ice');
+  run(g, 10);
+  assert.equal(count(g, 'ice'), 0);
+});
+
+test('fire does not jump to a different wood piece', () => {
+  const g = setup();
+  block(g, 0, GH - 4, 40, 4, 'stone');
+  block(g, 8, GH - 8, 4, 4, 'fire');
+  block(g, 12, GH - 8, 4, 4, 'wood');
+  block(g, 16, GH - 8, 4, 4, 'wood');
+  run(g, 15);
+  assert.equal(count(g, 'wood'), 16); // the second piece never caught
+});
+
+test('glass melted from both sides of a fire joins into one pane', () => {
+  const g = setup();
+  block(g, 0, GH - 4, 40, 4, 'stone');
+  for (let y = GH - 12; y < GH - 4; y++) for (let x = 4; x < 28; x++) if (x < 14 || x >= 18) put(g, x, y, 'sand');
+  block(g, 14, GH - 12, 4, 8, 'fire');
+  run(g, 4);
+  const panes = new Set(g.grid.flat().filter((c) => c && c.m === 'glass').map((c) => c.id));
+  assert.ok(count(g, 'glass') > 0);
+  assert.equal(panes.size, 1);
+});
+
+test('the combo multiplier caps at 4', () => {
+  const g = setup();
+  block(g, 0, 20, 40, 40, 'wood');
+  g.meter = 1;
+  activatePower(g);
+  assert.equal(g.mult, 4);
 });
 
 test('draining fast builds a combo', () => {

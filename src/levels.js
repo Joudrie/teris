@@ -17,14 +17,16 @@ const THEMES = [
 // Pieces come from a shuffled bag, like a deck of cards: every bag has a fixed mix, so there
 // are no long streaks of one material.
 //
-// The logic behind the mix: fire is a tool (it never runs out on its own and keeps burning
-// wood and melting ice), water is ammo (fire, wood and mud all use it up). So each bag has
-// fewer cancellers than troublemakers, and the gap widens as levels go on.
+// The logic behind the mix: fire is a tool (it never runs out on its own and burns through
+// whole wood and ice pieces), water is ammo (fire, wood and mud all use it up), and stone is
+// the hard leftover that actually clogs a board. As levels go on there is less fire and more
+// stone, so placement starts to matter. Tuned with bot playtests: random play clears early
+// levels but loses most of the time past level 40.
 export function buildBag(level, main, help = false) {
-  const bag = { fire: 2, water: level <= 10 ? 3 : 2, wood: 1, sand: 1, ice: 1, glass: 1 };
+  const bag = { fire: level > 20 ? 1 : 2, water: level <= 10 ? 3 : 2, wood: 1, sand: 1, ice: 1, glass: 1 };
   bag[main] += 1; // a little extra of the level's theme
-  if (level > 40) bag.stone = 1;
-  if (level > 70) bag.brick = 1;
+  if (level > 10) bag.stone = level > 30 ? 2 : 1;
+  if (level > 40) bag.brick = 1;
   // Helping hand: one more of each canceller, and the player is told.
   if (help) {
     bag.fire += 1;
@@ -38,7 +40,7 @@ export function levelConfig(level, { help = false } = {}) {
   const bag = buildBag(level, theme.main, help);
 
   // Drain this many four-cell pieces' worth of material to clear the level.
-  const goal = { pieces: 15 + Math.floor((level - 1) / 5) };
+  const goal = { pieces: 15 + Math.floor((level - 1) / 4) };
 
   let mode = 'normal';
   if (level >= 5 && theme.main === 'water' && level % 2 === 0) mode = 'flood';

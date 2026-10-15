@@ -11,7 +11,8 @@ export const GH = ROWS * S;
 export const TOTAL_LEVELS = 100;
 export const TICK = 1 / 30;
 export const PIECE = 4 * S * S; // particles in one four-cell piece: the unit of the drain bar
-export const METER_POINTS = 300; // drained particles (times combo) to fill the power meter
+export const METER_POINTS = 1800; // drained particles (times combo) to fill the power meter
+const MAX_MULT = 4; // combo multiplier cap
 const COMBO_WINDOW = 1.0; // seconds of quiet before a combo ends
 const QUEST_BONUS = 0.35; // meter charge for finishing the side quest
 const SLAM_DROP = 3 * S; // falling this far onto glass smashes it
@@ -30,7 +31,7 @@ const WASH_TIME = 0.5; // seconds of water contact before mud washes away
 // Reactions spread through a clump instead of stopping at the surface:
 const HOT_TIME = 0.6; // fresh glass stays hot this long and melts the sand it touches
 const GLASS_DEPTH = 2 * S; // how far a melt spreads from the fire, in particles
-const MUD_WET = S; // water turns sand into mud about one cell deep
+const MUD_WET = 2; // water turns sand into mud about half a cell deep
 const MUD_LIFE = 1.2; // mud sinks away on its own after this many seconds
 
 // The seven four-cell shapes as [x, y] cell offsets, y pointing down.
@@ -75,6 +76,7 @@ export function createGame({ level = 1, rand = Math.random, config = levelConfig
     nextId: 0,
     bag: [], // pieces left in the current shuffled bag
     falls: new Map(), // rigid block id -> rows fallen without stopping
+    panes: new Map(), // fire block id -> id of the glass pane that fire is melting
     mask: new Set(), // particles covered by the falling piece
     events: [], // drained by the renderer for effects
   };
@@ -237,18 +239,18 @@ function lock(g) {
   if (g.state === 'play') spawn(g);
 }
 
-// Smashed glass drains away: the whole connected pane that was hit.
+// Smashed glass drains away: every piece of the pane that was hit.
 function shatter(g, x, y) {
   const id = g.grid[y][x].id;
-  const stack = [[x, y]];
   const cells = [];
-  while (stack.length) {
-    const [cx, cy] = stack.pop();
-    const c = at(g, cx, cy);
-    if (!c || c.m !== 'glass' || c.id !== id) continue;
-    g.grid[cy][cx] = null;
-    cells.push([cx, cy]);
-    for (const [u, v] of N4) stack.push([cx + u, cy + v]);
+  for (let cy = 0; cy < GH; cy++) {
+    for (let cx = 0; cx < GW; cx++) {
+      const c = g.grid[cy][cx];
+      if (c && c.m === 'glass' && c.id === id) {
+        g.grid[cy][cx] = null;
+        cells.push([cx, cy]);
+      }
+    }
   }
   drain(g, cells.length);
   g.events.push({ type: 'shatter', cells });
@@ -260,13 +262,13 @@ function drain(g, n, charge = true) {
   g.drained += n;
   g.combo += n;
   g.comboTimer = COMBO_WINDOW;
-  const mult = 1 + Math.floor(g.combo / PIECE);
+  const mult = Math.min(MAX_MULT, 1 + Math.floor(g.combo / PIECE));
   if (mult > g.mult) {
     g.mult = mult;
     g.bestChain = Math.max(g.bestChain, mult);
     g.events.push({ type: 'combo', mult });
   }
-  if (charge) g.meter = Math.min(1, g.meter + (n * g.mult) / METER_POINTS);
+  if (charge) g.meter = Math.min(1, g.meter + (n * g.mult) / (g.cfg.meterPoints || METER_POINTS));
 
   const q = g.cfg.quest;
   if (!g.questDone && ((q.type === 'chain' && g.mult >= q.n) || (q.type === 'douse' && g.doused >= q.n * PIECE))) {
@@ -371,6 +373,34 @@ function meltDepth(g, x, y) {
   return best;
 }
 
+// Fresh glass joins every pane it touches, so glass melted from different sides is one pane.
+function joinGlass(g, x, y, id) {
+  for (const [u, v] of N4) {
+    const n = at(g, x + u, y + v);
+    if (!n || n.m !== 'glass' || n.id === id) continue;
+    const old = n.id;
+    const stack = [[x + u, y + v]];
+    while (stack.length) {
+      const [cx, cy] = stack.pop();
+      const c = at(g, cx, cy);
+      if (!c || c.m !== 'glass' || c.id !== old) continue;
+      c.id = id;
+      for (const [a, b] of N4) stack.push([cx + a, cy + b]);
+    }
+  }
+}
+
+// Wood and ice that have caught keep going and pass the heat through their own piece,
+// so fire against a piece eats the whole piece instead of one column.
+const SAME_BURN = { wood: 'wood', wetwood: 'wood', ice: 'ice' };
+function burningNeighbor(g, x, y, c) {
+  const fam = SAME_BURN[c.m];
+  return N4.some(([u, v]) => {
+    const n = at(g, x + u, y + v);
+    return n && n.id === c.id && SAME_BURN[n.m] === fam && n.heat >= BURN[n.m] * 0.5;
+  });
+}
+
 function mud(g, wet) {
   return { ...part(g, 'mud'), wet, life: 0 };
 }
@@ -457,7 +487,10 @@ function react(g, dt) {
 
       const limit = BURN[c.m];
       if (limit === undefined) continue;
-      const depth = c.m === 'sand' ? meltDepth(g, x, y) : (nextTo(g, x, y, 'fire') ? 0 : -1);
+      let depth = -1;
+      if (c.m === 'sand') depth = meltDepth(g, x, y);
+      else if (nextTo(g, x, y, 'fire')) depth = 0;
+      else if (SAME_BURN[c.m] && (c.heat > 0 || burningNeighbor(g, x, y, c))) depth = 0;
       if (depth < 0) {
         c.heat = 0;
         continue;
@@ -477,15 +510,25 @@ function react(g, dt) {
           break;
         case 'wetwood': // steams, then dries into wood, which then burns
           c.m = 'wood';
+          c.heat = 0.001; // still alight
           break;
         case 'ice': // melts into water
           g.grid[y][x] = part(g, 'water');
+          g.events.push({ type: 'steam', x, y });
           break;
         case 'sand': { // melts into hot glass, which melts the sand next to it: one pane
-          const glass = part(g, 'glass', joinId(g, x, y, 'glass'));
+          // Glass melted by one fire is one pane, even on opposite sides of it.
+          let paneId = joinId(g, x, y, 'glass');
+          if (depth === 0) {
+            const fire = N4.map(([u, v]) => at(g, x + u, y + v)).find((n) => n && n.m === 'fire');
+            if (!g.panes.has(fire.id)) g.panes.set(fire.id, paneId);
+            paneId = g.panes.get(fire.id);
+          }
+          const glass = part(g, 'glass', paneId);
           glass.hot = HOT_TIME;
           glass.depth = depth;
           g.grid[y][x] = glass;
+          joinGlass(g, x, y, glass.id);
           break;
         }
         case 'mud': // bakes into brick
