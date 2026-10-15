@@ -286,6 +286,11 @@ body { background-size: cover; background-position: center; background-repeat: n
 .node.lock { background: var(--slab-deep); image-rendering: pixelated; box-shadow: var(--bevel), 0 4px 0 rgba(0, 0, 0, .35); color: var(--muted); font-size: 22px; }
 .node.show { width: 64px; height: 64px; background: linear-gradient(#ffb3e6 0 48%, #ff6fc8 48%); box-shadow: inset 3px 3px 0 #ffe0f5, inset -3px -4px 0 #a32a7c, 0 4px 0 rgba(0, 0, 0, .35); color: #4a0c35; }
 .node.show.lock { background: linear-gradient(#a98aa0 0 48%, #8a6c80 48%); }
+/* Map: a cleared floor crumbles away and the next one lands. */
+.node.gone { opacity: 0; transition: opacity 120ms; }
+.node.waiting { opacity: 0; }
+.node.arrive { animation: nodeland 520ms var(--fall) both, nodepulse 1.6s ease-in-out 520ms infinite; }
+@keyframes nodeland { 0% { transform: translate(-50%, -160%); opacity: 0; } 55% { transform: translate(-50%, -50%); opacity: 1; } 70% { transform: translate(-50%, -50%) scale(1.15, .82); } 86% { transform: translate(-50%, -54%) scale(.96, 1.04); } 100% { transform: translate(-50%, -50%); } }
 @keyframes nodepulse { 50% { box-shadow: inset 4px 4px 0 rgba(255, 240, 180, .5), inset -4px -6px 0 rgba(120, 30, 0, .55), 0 0 0 7px var(--cream), 0 0 40px 16px rgba(255, 170, 60, .6); } }
 .alt { position: absolute; right: 12px; transform: translateY(-50%); font-family: var(--px); font-size: 20px; padding: 1px 7px 0; background: rgba(14, 15, 20, .6); color: var(--cream-dim); }
 .map::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 90px; z-index: 1; pointer-events: none; background: linear-gradient(180deg, rgba(14, 15, 20, .45), rgba(14, 15, 20, 0)); }
@@ -440,8 +445,10 @@ body.ov-lose .wellwrap { opacity: 0; }
 .day b { font-family: var(--px); font-weight: 400; font-size: 22px; line-height: .8; color: var(--cream); text-transform: none; }
 .day.got { opacity: .55; }
 .day.got::after { content: ''; position: absolute; inset: 0; background: center / 40% no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8' shape-rendering='crispEdges'%3E%3Cpath d='M1 4h1v1h1v1h1v-1h1v-1h1v-1h1v1h-1v1h-1v1h-1v1h-1v-1h-1v-1h-1z' fill='%239ff060'/%3E%3C/svg%3E"); }
-.day.today { background: linear-gradient(var(--gold-hi) 0 48%, var(--gold) 48%); color: var(--gold-ink); box-shadow: inset 3px 3px 0 #fff4c0, inset -3px -3px 0 var(--gold-lo), 0 0 0 3px var(--cream); animation: heart 1.4s ease-in-out infinite; }
-.day.today b { color: var(--gold-ink); }
+/* Today's gift is a wooden crate that rattles until it's broken open. */
+.day.today { background: linear-gradient(rgba(60, 30, 8, .15), rgba(60, 30, 8, .15)), var(--tex-wood) 0 0 / 24px 24px; image-rendering: pixelated; color: var(--wood-ink); box-shadow: inset 3px 3px 0 rgba(255, 230, 190, .5), inset -3px -3px 0 rgba(70, 35, 10, .6), 0 0 0 3px var(--gold), 0 0 18px rgba(255, 200, 80, .6); animation: rattle 1.6s ease-in-out infinite; }
+.day.today b { color: var(--wood-ink); }
+@keyframes rattle { 0%, 70%, 100% { transform: none; } 74% { transform: rotate(-4deg); } 78% { transform: rotate(4deg); } 82% { transform: rotate(-3deg); } 86% { transform: rotate(2deg); } 90% { transform: none; } }
 .day.big { grid-column: span 2; }
 .codex { display: flex; flex-direction: column; gap: 8px; }
 .mat { display: flex; align-items: center; gap: 12px; padding: 10px; background: var(--niche); box-shadow: inset 3px 3px 0 rgba(0, 0, 0, .4); color: var(--cream); }

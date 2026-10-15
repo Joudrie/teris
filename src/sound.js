@@ -395,20 +395,18 @@ const POWERS = {
 };
 
 const SOUNDS = {
+  // A stone block clicking into its socket.
   tap(t) {
-    bar(out({ wet: 0.06, pan: rand(-0.1, 0.1) }), vp(1150), t, 0.06, vv(0.13), 'wood');
+    const o = out({ wet: 0.06, pan: rand(-0.1, 0.1) });
+    bar(o, vp(720), t, 0.05, vv(0.12), 'wood');
+    noise(o, t, 0.012, { f: vp(2400), q: 1, a: 0.0005, vol: vv(0.05) });
   },
+  // A menu slab falling: rushing air (the landing thud is 'slab').
   open(t) {
-    swish(t, { f: vp(450), to: vp(2600), a: 0.12, dur: 0.08, vol: vv(0.06), pan: -0.3, panTo: 0.3 });
-    const o = out({ wet: 0.2 });
-    bar(o, hz(79), t + 0.06, 0.25, vv(0.08));
-    bar(o, hz(84), t + 0.11, 0.35, vv(0.09));
+    swish(t, { f: vp(2600), to: vp(500), a: 0.2, dur: 0.1, vol: vv(0.06), pan: 0.1, panTo: -0.1 });
   },
   close(t) {
-    swish(t, { f: vp(2400), to: vp(500), a: 0.05, dur: 0.15, vol: vv(0.05), pan: 0.3, panTo: -0.3 });
-    const o = out({ wet: 0.18 });
-    bar(o, hz(84), t + 0.03, 0.2, vv(0.07));
-    bar(o, hz(79), t + 0.08, 0.3, vv(0.06));
+    swish(t, { f: vp(900), to: vp(300), a: 0.03, dur: 0.12, vol: vv(0.04), pan: 0.2, panTo: -0.2 });
   },
   move(t) {
     tick = !tick;
@@ -545,6 +543,41 @@ const SOUNDS = {
     osc(o, b * 2, t + 0.07, 0.22, { vol: vv(0.03) });
     osc(o, b * 3, t + 0.07, 0.1, { vol: vv(0.012) });
   },
+  // Quarry: the interface is stone, wood and fire, and sounds like it.
+  // A stone slab landing: a deep thud with grit under it.
+  slab(t) {
+    impact(t, { vol: 0.42, f: 96, crack: 0.06 });
+    const o = out({ wet: 0.1 });
+    for (let i = 0; i < 5; i++) noise(o, t + 0.02 + Math.random() * 0.1, rand(0.004, 0.01), { f: rand(700, 1800), q: 1.2, a: 0.0005, vol: vv(rand(0.03, 0.06)) });
+  },
+  // Stone breaking up: a crack, then chunks rattling down and settling.
+  crumble(t) {
+    const o = out({ wet: 0.14 });
+    noise(o, t, 0.05, { f: vp(1400), q: 0.8, a: 0.001, vol: vv(0.16) });
+    noise(o, t, 0.35, { type: 'lowpass', f: 900, to: 200, a: 0.01, vol: vv(0.12) });
+    for (let i = 0; i < 12; i++) {
+      const s = out({ wet: 0.12, pan: rand(-0.6, 0.6) });
+      const ti = t + 0.03 + i * 0.03 + Math.random() * 0.03;
+      noise(s, ti, rand(0.006, 0.016), { f: rand(500, 1600) * (1 - i * 0.03), q: 1.3, a: 0.0008, vol: vv(0.07 * (1 - i * 0.05)) });
+    }
+  },
+  // Fire bursting into embers: a rising whoosh, a thump and a crackle.
+  ember(t) {
+    swish(t, { f: vp(300), to: vp(2200), a: 0.06, dur: 0.22, vol: vv(0.08), pan: -0.2, panTo: 0.2 });
+    impact(t + 0.02, { vol: 0.28, f: 120, crack: 0 });
+    const o = out({ wet: 0.1 });
+    for (let i = 0; i < 9; i++) noise(o, t + 0.05 + Math.random() * 0.35, rand(0.003, 0.008), { f: rand(1500, 4200), q: 1.4, a: 0.0005, vol: vv(rand(0.04, 0.09)) });
+  },
+  // A wooden crate breaking open: a knock, a crack and splinters.
+  crate(t) {
+    const o = out({ wet: 0.12 });
+    bar(o, vp(260), t, 0.12, vv(0.2), 'wood');
+    noise(o, t + 0.01, 0.07, { f: vp(1900), q: 0.7, a: 0.001, vol: vv(0.2) });
+    for (let i = 0; i < 7; i++) {
+      const s = out({ wet: 0.14, pan: rand(-0.7, 0.7) });
+      bar(s, vp(rand(500, 1100)), t + 0.05 + i * 0.035 + Math.random() * 0.02, 0.05, vv(0.06 * (1 - i * 0.08)), 'wood');
+    }
+  },
   // Major arpeggio up, a rolled marimba chord with a ringing bell, then a sparkle shower.
   win(t) {
     duck(1.4, 0.8);
@@ -607,7 +640,7 @@ const SOUNDS = {
 const GAP = {
   move: 30, rotate: 30, tap: 35, pop: 40, drain: 45, coin: 45, land: 50, burn: 55, steam: 60,
   slam: 70, shatter: 70, star: 90, combo: 110, quest: 200, power: 250, heartbeat: 300,
-  ready: 300, unlock: 300, lose: 700, win: 900,
+  ready: 300, unlock: 300, lose: 700, win: 900, slab: 200, crumble: 150, ember: 200, crate: 200,
 };
 
 export function play(name, e) {

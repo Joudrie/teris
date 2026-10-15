@@ -115,9 +115,37 @@ export function buildMap(app) {
       else app.toast(`${icon('star')} Level ${l}: ${meta.starsOf(l)} of 3 stars`, 'navy');
     };
   });
-  // Center the current floor.
-  requestAnimationFrame(() => { scroll.scrollTop = Math.max(0, nodeY(cur) - scroll.clientHeight * 0.48); });
+  // Floors cleared since the map was last seen tumble down: the old floor's keystone crumbles,
+  // the view drops to the new floor, and it lands. Otherwise just center the current floor.
+  const from = mapSeen;
+  mapSeen = cur;
+  const center = (l) => Math.max(0, nodeY(l) - scroll.clientHeight * 0.48);
+  if (!from || from >= cur) {
+    requestAnimationFrame(() => { scroll.scrollTop = center(cur); });
+    return;
+  }
+  const node = (l) => scroll.querySelector(`.node[data-level="${l}"]`);
+  requestAnimationFrame(() => {
+    scroll.scrollTop = center(from);
+    const now = node(cur);
+    if (now) now.classList.add('waiting');
+    setTimeout(() => {
+      const old = node(from);
+      if (old) { app.crumble(old.getBoundingClientRect(), 18); old.classList.add('gone'); }
+      scroll.scrollTo({ top: center(cur), behavior: 'smooth' });
+      setTimeout(() => {
+        if (!now) return;
+        now.classList.remove('waiting');
+        now.classList.add('arrive');
+        setTimeout(() => app.thud(now.getBoundingClientRect()), 300);
+      }, 650);
+    }, 450);
+  });
 }
+
+// The floor the player was on when the map was last shown (seeded at startup).
+let mapSeen = 0;
+export function seedMapLevel(l) { if (!mapSeen) mapSeen = l; }
 
 export function mapHud(app) {
   const { meta, sess } = app;
@@ -307,13 +335,19 @@ export function openRewards(app) {
     <button class="btn ${r.ready ? 'btn-green' : 'btn-navy'}" id="claimBtn" style="height:60px" ${r.ready ? '' : 'disabled'}><span class="t">${r.ready ? 'Claim' : 'Come back tomorrow'}</span></button>
     <p class="note">One gift a day. Miss a day and nothing resets.</p>`, () => {
     $('claimBtn').onclick = () => {
+      const crate = document.querySelector('.day.today');
       const gift = meta.claimReward();
       if (!gift) return;
-      app.sound('coin');
-      app.celebrateGift(gift);
-      app.toast(`${icon('gift')} ${GIFT_TEXT(gift)} claimed!`);
-      openRewards(app);
-      app.refreshMap();
+      $('claimBtn').disabled = true;
+      // Today's gift is a crate: it breaks open, then the reward flies out.
+      if (crate) { app.breakCrate(crate.getBoundingClientRect()); crate.style.visibility = 'hidden'; }
+      setTimeout(() => {
+        app.sound('coin');
+        app.celebrateGift(gift);
+        app.toast(`${icon('gift')} ${GIFT_TEXT(gift)} claimed!`);
+        openRewards(app);
+        app.refreshMap();
+      }, crate ? 380 : 0);
     };
   });
 }

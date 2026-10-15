@@ -22,7 +22,7 @@ import { css } from './render/color.js';
 import { icon, POWER_ICON, QUEST_ICON } from './ui/icons.js';
 import { createMeta, starsFor, winCoins, BOOSTERS } from './meta.js';
 import {
-  buildMap, mapHud, openPause, openSettings, openShop, openRewards, openCodex, closeSheet,
+  buildMap, mapHud, openPause, openSettings, openShop, openRewards, openCodex, closeSheet, seedMapLevel,
 } from './ui/screens.js';
 
 const BRAND = 'Tumbledown';
@@ -709,8 +709,10 @@ const app = {
   restart() { start(sess, sess.level, { daily: sess.daily }); },
   sheetOpen(v) { view.paused = v; if (v) play('open'); },
   // Menus are stone slabs: they land with a thud and break up when closed.
-  slabLanded(r) { fx.dust(r.left + r.width * 0.25, r.bottom, 5, true); fx.dust(r.left + r.width * 0.75, r.bottom, 5, true); play('land'); buzz(12); },
-  crumble(r) { if (r.width) fx.rubble(r.left, r.top, r.width, r.height, ['#8f96a4', '#6e7480', '#b4bac6', '#a87a4a'], 34, 14); },
+  slabLanded(r) { fx.dust(r.left + r.width * 0.25, r.bottom, 5, true); fx.dust(r.left + r.width * 0.75, r.bottom, 5, true); play('slab'); buzz(12); },
+  crumble(r, n = 34) { if (r.width) { fx.rubble(r.left, r.top, r.width, r.height, ['#8f96a4', '#6e7480', '#b4bac6', '#a87a4a'], n, 14); play('crumble'); } },
+  breakCrate(r) { fx.rubble(r.left, r.top, r.width, r.height, ['#c98a4b', '#8a5528', '#eab275', '#ffcf3a'], 22, 11); fx.dust(r.left + r.width / 2, r.bottom, 5, true); play('crate'); buzz([15, 30, 20]); },
+  thud(r) { fx.dust(r.left + r.width / 2, r.bottom, 6, true); play('slab'); buzz(15); },
   isMuted: () => isMuted(),
   toggleMute() {
     unlock();
@@ -752,7 +754,7 @@ $('shopIc').innerHTML = icon('shop');
 $('codexIc').innerHTML = icon('book');
 $('homeBtn').onclick = () => { unlock(); sw = null; if (sess.phase === 'play' && !sess.home) openPause(app); };
 $('playBtn').onclick = () => {
-  unlock(); play('tap');
+  unlock(); play('ember');
   // The Play block bursts into embers as the level drops in.
   const r = $('playBtn').getBoundingClientRect();
   fx.rubble(r.left, r.top, r.width, r.height, ['#ff7b1c', '#ffc35a', '#b8460c', '#ffe08a'], 30, 12);
@@ -1053,5 +1055,6 @@ function drawBoard(ts, dt) {
   }
 }
 
+seedMapLevel(sess.level);
 requestAnimationFrame(frame);
 document.title = BRAND;

@@ -26,3 +26,9 @@ Tokens live at the top of [`style.css`](../../style.css). The block textures (`-
 - **Play** bursts into fire embers as the level drops in.
 - **Stars** land one by one, each with dust and the star sound.
 - **Praise words** on the board use Jersey 10 with a carved brown edge (`drawText` in `fx.js`).
+- **Daily gift** is a wooden crate that rattles; claiming breaks it into splinters (`app.breakCrate`, sound `crate`) before the reward flies out.
+- **The tower map** remembers the floor you were on. Come back after clearing floors and that floor's keystone crumbles, the view drops down the tower, and the new floor lands with a thud (`buildMap` in `screens.js`).
+
+## Sound
+
+Interface sounds match the materials (`src/sound.js`): `tap` is a stone block clicking into its socket, `open` is rushing air as a slab falls, `slab` is the landing thud with grit, `crumble` is stone breaking up, `ember` is the Play block bursting, and `crate` is wood cracking open.
