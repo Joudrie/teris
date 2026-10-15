@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101218">
+  <title>Material Blocks</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="wrap">
+    <div class="hud">
+      <b id="lvl">Level 1</b>
+      <span class="next">Next <b id="nextName">Water</b> <canvas id="nx" width="56" height="42"></canvas></span>
+    </div>
+    <div class="goal" id="goal"></div>
+    <canvas id="cv" width="300" height="450" aria-label="Game board"></canvas>
+    <p class="hint">Swipe left or right to move, drag down to drop faster, flick down to slam, tap to rotate.</p>
+    <div class="legend" id="legend"></div>
+  </div>
+
+  <div class="over" id="over" hidden>
+    <h2 id="ovT"></h2>
+    <div id="ovS"></div>
+    <button id="ovA"></button>
+    <button id="ovB"></button>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

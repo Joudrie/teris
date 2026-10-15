@@ -1,0 +1,11 @@
+{
+  "name": "material-blocks",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Falling-block puzzle where every piece is a material with its own physics.",
+  "scripts": {
+    "test": "node --test test/core.test.js",
+    "start": "python3 -m http.server 8000"
+  }
+}
