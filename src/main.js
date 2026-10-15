@@ -1,6 +1,6 @@
 import {
   createGame, update, move, softDrop, hardDrop, rotate, landingY, activatePower, revive, progress,
-  piecesDrained, COLS, GW, GH, S, TOTAL_LEVELS, altitude,
+  piecesDrained, pieceMats, COLS, GW, GH, S, TOTAL_LEVELS, altitude,
 } from './core.js';
 import { levelConfig, POWERS } from './levels.js';
 import { drawScenery } from './scenery.js';
@@ -14,7 +14,6 @@ const NAME = {
   water: 'Water', wood: 'Wood', wetwood: 'Wet wood', ice: 'Ice', sand: 'Sand', stone: 'Stone',
   mud: 'Mud', glass: 'Glass', brick: 'Brick', fire: 'Fire',
 };
-// How each material breaks down.
 // How each material goes away, short enough to fit two columns on a phone.
 const LEGEND = [
   ['fire', 'Fire: water'],
@@ -46,7 +45,9 @@ const cv = $('cv');
 const ctx = cv.getContext('2d');
 const nxCv = $('nx');
 const nctx = nxCv.getContext('2d');
-const PX = cv.width / GW; // screen pixels per particle (8)
+const PX = 8; // canvas pixels per particle
+cv.width = GW * PX;
+cv.height = GH * PX;
 
 // Particle layer: one pixel per particle, scaled up without smoothing.
 const layer = document.createElement('canvas');
@@ -61,6 +62,38 @@ const SHADES = Object.fromEntries(Object.entries(BASE).map(([m, h]) => {
   const [r, g, b] = hexRGB(h);
   return [m, [0.82, 0.92, 1, 1.08].map((f) => [r, g, b].map((v) => Math.min(255, Math.round(v * f))))];
 }));
+const RIGID = new Set(['stone', 'ice', 'glass', 'brick', 'wood', 'wetwood', 'fire']);
+const lighten = (h, k) => `rgb(${hexRGB(h).map((v) => Math.min(255, Math.round(v + (255 - v) * k))).join(',')})`;
+
+// Stable pseudo-random 0..1 for a pixel, so a falling piece's texture doesn't flicker.
+const hash = (x, y) => {
+  const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+  return n - Math.floor(n);
+};
+
+// Colour of one particle: each material has its own texture so glass, ice and the rest
+// can't be confused even before the full art pass.
+function pixelColor(m, x, y, shade, ts) {
+  let k = Math.floor(shade * 4);
+  if (m === 'wood' || m === 'wetwood') k = y % S === 0 ? 0 : 2 + (shade > 0.7 ? 1 : 0); // plank grain
+  let [r, g, b] = SHADES[m][k];
+  let a = 255;
+  if (m === 'fire') {
+    const f = 0.75 + 0.35 * Math.sin(ts / 70 + x * 1.3 + y * 2.1);
+    r = Math.min(255, r * f + 40); g = Math.min(255, g * f + 30 * f); b *= f;
+  } else if (m === 'glass') {
+    // Clear with diagonal glints.
+    a = 150;
+    if ((x + y) % 6 === 0) { r = 255; g = 255; b = 255; a = 230; }
+  } else if (m === 'ice') {
+    // Solid and frosty: pale with a crackle pattern.
+    if ((x * 3 + y * 2) % 7 === 0) { r = 240; g = 252; b = 255; }
+  } else if (m === 'water') {
+    const w = 0.92 + 0.1 * Math.sin(ts / 300 + x * 0.7 + y * 0.4);
+    r *= w; g *= w; b = Math.min(255, b * w + 10);
+  }
+  return [r, g, b, a];
+}
 
 // ---------- persistence ----------
 
@@ -233,18 +266,17 @@ function drawParticles(ts) {
     for (let x = 0; x < GW; x++) {
       const c = game.grid[y][x];
       if (!c) continue;
-      // Wood gets horizontal grain lines so it reads as planks, not dirt.
-      const shade = c.m === 'wood' || c.m === 'wetwood'
-        ? (y % S === 0 ? 0 : 2 + (c.shade > 0.7 ? 1 : 0))
-        : Math.floor(c.shade * 4);
-      let [r, g, b] = SHADES[c.m][shade];
-      if (c.m === 'fire') {
-        const f = 0.75 + 0.35 * Math.sin(ts / 70 + x * 1.3 + y * 2.1);
-        r = Math.min(255, r * f + 40); g = Math.min(255, g * f + 30 * f); b *= f;
+      let [r, g, b, a] = pixelColor(c.m, x, y, c.shade, ts);
+      // Light edge around each solid piece so you can see where one ends and the next begins.
+      if (RIGID.has(c.m)) {
+        const edge = [[0, 1], [1, 0], [-1, 0], [0, -1]].some(([u, v]) => {
+          const n = game.grid[y + v]?.[x + u];
+          return !n || n.id !== c.id;
+        });
+        if (edge) { r = r + (255 - r) * 0.45; g = g + (255 - g) * 0.45; b = b + (255 - b) * 0.45; a = 255; }
       }
       const i = (y * GW + x) * 4;
-      d[i] = r; d[i + 1] = g; d[i + 2] = b;
-      d[i + 3] = c.m === 'glass' ? 190 : 255;
+      d[i] = r; d[i + 1] = g; d[i + 2] = b; d[i + 3] = a;
     }
   }
   lctx.putImageData(img, 0, 0);
@@ -252,26 +284,36 @@ function drawParticles(ts) {
   ctx.drawImage(layer, 0, 0, cv.width, cv.height);
 }
 
+// The falling piece shows its real texture, with each block outlined in its material's colour.
 function drawPiece(ts) {
   const p = game.piece;
   if (!p) return;
   const cell = S * PX;
+  const mats = pieceMats(p);
   const gy = landingY(game);
-  ctx.globalAlpha = 0.22;
-  ctx.fillStyle = BASE[p.m];
-  for (const [a, b] of p.cells) ctx.fillRect((p.x + a) * cell + 1, (gy + b * S) * PX + 1, cell - 2, cell - 2);
-  ctx.globalAlpha = 1;
-  for (const [a, b] of p.cells) {
-    const x = (p.x + a) * cell;
-    const y = (p.y + b * S) * PX;
-    ctx.fillStyle = BASE[p.m];
-    ctx.fillRect(x + 1, y + 1, cell - 2, cell - 2);
-    if (p.m === 'fire') {
-      const f = 0.55 + 0.45 * Math.sin(ts / 90 + a * 1.7 + b * 2.3);
-      ctx.fillStyle = `rgba(255,220,90,${0.35 + 0.5 * f})`;
-      ctx.fillRect(x + 7, y + 7, cell - 14, cell - 14);
+  ctx.lineWidth = 2;
+  p.cells.forEach(([a, b], i) => {
+    // Ghost: where it will land, outline only.
+    ctx.globalAlpha = 0.45;
+    ctx.strokeStyle = lighten(BASE[mats[i]], 0.3);
+    ctx.strokeRect((p.x + a) * cell + 2, (gy + b * S) * PX + 2, cell - 4, cell - 4);
+    ctx.globalAlpha = 1;
+  });
+  p.cells.forEach(([a, b], i) => {
+    const m = mats[i];
+    const x0 = (p.x + a) * S;
+    const y0 = p.y + b * S;
+    for (let y = y0; y < y0 + S; y++) {
+      if (y < 0) continue;
+      for (let x = x0; x < x0 + S; x++) {
+        const [r, g, bl, al] = pixelColor(m, x, y, hash(x, y - p.y), ts);
+        ctx.fillStyle = `rgba(${r | 0},${g | 0},${bl | 0},${al / 255})`;
+        ctx.fillRect(x * PX, y * PX, PX, PX);
+      }
     }
-  }
+    ctx.strokeStyle = lighten(BASE[m], 0.45);
+    ctx.strokeRect(x0 * PX + 1, y0 * PX + 1, cell - 2, cell - 2);
+  });
 }
 
 function drawFx() {
@@ -340,20 +382,31 @@ function draw(ts) {
 
 function drawNext() {
   nctx.clearRect(0, 0, nxCv.width, nxCv.height);
-  const { m, shape } = game.next;
+  const { shape } = game.next;
+  const mats = pieceMats({ cells: shape, mats: game.next.mats, m: game.next.m });
   const s = 12;
   const w = Math.max(...shape.map(([a]) => a)) + 1;
   const h = Math.max(...shape.map(([, b]) => b)) + 1;
   const ox = (nxCv.width - w * s) / 2;
   const oy = (nxCv.height - h * s) / 2;
-  nctx.fillStyle = BASE[m];
-  for (const [a, b] of shape) nctx.fillRect(ox + a * s + 1, oy + b * s + 1, s - 2, s - 2);
+  nctx.lineWidth = 1.5;
+  shape.forEach(([a, b], i) => {
+    nctx.fillStyle = BASE[mats[i]];
+    nctx.fillRect(ox + a * s + 1, oy + b * s + 1, s - 2, s - 2);
+    nctx.strokeStyle = lighten(BASE[mats[i]], 0.5);
+    nctx.strokeRect(ox + a * s + 1.5, oy + b * s + 1.5, s - 3, s - 3);
+  });
 }
+
+// "Fire + Wood" for a two-material piece, "Glass" for a plain one.
+const label = (mats) => [...new Set(mats)].map((m) => NAME[m]).join(' + ');
 
 function hud() {
   const cfg = game.cfg;
   const drained = piecesDrained(game);
-  const key = [level, drained, game.next.m, game.next.shape, game.meter.toFixed(2), game.questDone, phase, meterAdUsed].join('|');
+  const nowMats = game.piece ? pieceMats(game.piece) : [];
+  const nextMats = game.next.mats || [game.next.m];
+  const key = [level, drained, nowMats, nextMats, game.next.shape, game.meter.toFixed(2), game.questDone, phase, meterAdUsed].join('|');
   if (key === lastHud) return;
   if (drained > lastDrained) {
     const el = document.querySelector('.drain');
@@ -364,8 +417,7 @@ function hud() {
   lastDrained = drained;
   lastHud = key;
 
-  $('lvl').textContent = `Level ${level} · ${altitude(level)} ft`;
-  $('goal').textContent = `Drain ${cfg.goal.pieces} blocks to clear the level`;
+  $('lvl').textContent = `Lv ${level} · ${altitude(level)} ft`;
   $('drainNum').textContent = String(drained);
   $('drainGoal').textContent = `/${cfg.goal.pieces}`;
   $('drainBar').style.height = `${progress(game) * 100}%`;
@@ -380,8 +432,9 @@ function hud() {
   $('quest').textContent = `${game.questDone ? '✓ ' : ''}Side quest: ${q.type === 'chain' ? `hit a ×${q.n} combo` : `put out ${q.n} blocks of fire`} (+power)`;
   $('quest').classList.toggle('done', game.questDone);
 
-  $('nextName').textContent = NAME[game.next.m];
-  $('tip').textContent = `Next: ${NAME[game.next.m].toLowerCase()}, ${TIP[game.next.m]}.`;
+  $('nowName').textContent = nowMats.length ? label(nowMats) : '–';
+  $('nextName').textContent = label(nextMats);
+  $('tip').textContent = [...new Set(nextMats)].map((m) => `${NAME[m]}: ${TIP[m]}`).join(' · ');
   drawNext();
 }
 
@@ -462,7 +515,20 @@ function celebrate() {
   store.set(`mb_losses_${level}`, 0);
 }
 
+// The board takes all the height the phone gives it.
+function fit() {
+  const stage = document.querySelector('.stage');
+  const top = stage.getBoundingClientRect().top;
+  const room = window.innerHeight - top - 30; // leave a line for the side quest
+  const maxW = stage.clientWidth - 30; // the drain bar sits to the right
+  const h = Math.max(260, Math.min(room, maxW * (GH / GW)));
+  cv.style.height = `${Math.floor(h)}px`;
+  cv.style.width = `${Math.floor(h * (GW / GH))}px`;
+}
+window.addEventListener('resize', fit);
+
 startLevel(level);
+fit();
 
 // ?debug in the URL exposes the live game for testing in the browser console.
 if (new URLSearchParams(location.search).has('debug')) {

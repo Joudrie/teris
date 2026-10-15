@@ -24,7 +24,7 @@ body {
 }
 
 .wrap {
-  max-width: 360px;
+  max-width: 520px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -239,3 +239,30 @@ canvas#cv {
   gap: 3px 10px;
   font-size: 10.5px;
 }
+
+/* ---------- bigger board, now label ---------- */
+
+.hud { font-size: 15px; }
+.now { font-size: 13px; color: var(--muted); }
+.now b { color: var(--fg); font-size: 15px; }
+
+.stage { justify-content: center; }
+.stage canvas#cv { flex: none; width: auto; aspect-ratio: auto; }
+
+/* ---------- tighter header so the board gets the height ---------- */
+
+.hud { white-space: nowrap; gap: 10px; }
+.hud > b { font-size: 14px; }
+.now { overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; }
+.wrap { gap: 6px; }
+.meter { flex-direction: row; align-items: center; gap: 8px; }
+.meter-row { min-height: 0; gap: 6px; white-space: nowrap; }
+.meter-bar { flex: 1; }
+.banner { font-size: 11px; padding: 3px 8px; }
+
+/* ---------- slimmer gutters and drain bar: more board ---------- */
+
+body { padding-left: max(10px, env(safe-area-inset-left, 0px)); padding-right: max(10px, env(safe-area-inset-right, 0px)); }
+.stage { gap: 6px; }
+.drain { width: 24px; }
+.drain-bar { width: 12px; }

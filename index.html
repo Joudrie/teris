@@ -11,9 +11,9 @@
   <div class="wrap">
     <div class="hud">
       <b id="lvl">Level 1</b>
+      <span class="now">Now <b id="nowName">–</b></span>
       <span class="next">Next <b id="nextName">Water</b> <canvas id="nx" width="56" height="42"></canvas></span>
     </div>
-    <div class="goal" id="goal"></div>
     <div class="tip" id="tip"></div>
     <div class="meter">
       <div class="meter-row"><span id="meterLabel">Power</span><button id="meterAd" hidden>Fill with ad</button></div>
@@ -21,7 +21,7 @@
     </div>
     <div class="banner" id="banner" hidden></div>
     <div class="stage">
-      <canvas id="cv" width="320" height="480" aria-label="Game board"></canvas>
+      <canvas id="cv" aria-label="Game board"></canvas>
       <div class="drain" aria-label="Drain progress">
         <b id="drainNum">0</b>
         <div class="drain-bar"><i id="drainBar"></i></div>

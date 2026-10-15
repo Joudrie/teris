@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  createGame, tick, hardDrop, softDrop, activatePower, revive, progress, piecesDrained, emptyGrid, drawMaterial,
+  createGame, tick, hardDrop, softDrop, rotate, pieceMats, activatePower, revive, progress, piecesDrained, emptyGrid, drawMaterial,
   altitude, fallSpeed, GW, GH, S, PIECE,
 } from '../src/core.js';
 import { levelConfig, buildBag } from '../src/levels.js';
@@ -41,8 +41,8 @@ const count = (g, m) => g.grid.flat().filter((c) => c && c.m === m).length;
 test('altitude and fall speed follow the spec', () => {
   assert.equal(altitude(1), 100);
   assert.equal(altitude(100), 1);
-  assert.ok(Math.abs(fallSpeed(1) - 0.695) < 1e-9);
-  assert.equal(fallSpeed(200), 0.15);
+  assert.ok(Math.abs(fallSpeed(1) - 0.446) < 1e-9);
+  assert.equal(fallSpeed(200), 0.12);
 });
 
 test('levels rotate themes and every pool has fire and water to cancel', () => {
@@ -394,6 +394,37 @@ test('a block landing on glass that is itself part of a falling block does not c
   assert.doesNotThrow(() => run(g, 4));
 });
 
+test('two-material pieces keep each half as its own material, even after rotating', () => {
+  const g = setup();
+  block(g, 0, GH - 4, GW, 4, 'stone');
+  g.piece = { m: 'fire', mats: ['fire', 'fire', 'wood', 'wood'], cells: [[0, 0], [1, 0], [2, 0], [3, 0]], x: 2, y: 0 };
+  rotate(g);
+  assert.deepEqual(pieceMats(g.piece), ['fire', 'fire', 'wood', 'wood']);
+  hardDrop(g);
+  const mats = new Set(g.grid.flat().filter((c) => c && c.m !== 'stone').map((c) => c.m));
+  assert.ok(mats.has('fire') && mats.has('wood'));
+});
+
+test('mixed pieces start at level 4', () => {
+  assert.equal(levelConfig(3).mixed, 0);
+  assert.ok(levelConfig(4).mixed > 0);
+  let seed = 12345; // mulberry32, a small seeded generator with no short cycles
+  const rand = () => {
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const g = createGame({ level: 30, rand, config: { ...levelConfig(30), mode: 'normal' } });
+  let mixed = 0;
+  for (let i = 0; i < 40; i++) {
+    const mats = pieceMats(g.piece);
+    if (new Set(mats).size > 1) mixed++;
+    g.grid = emptyGrid(); // keep the board empty so every drop spawns a fresh piece
+    hardDrop(g);
+  }
+  assert.ok(mixed >= 8 && mixed <= 32, `mixed ${mixed}/40`);
+});
 test('power needs a full meter and clears the level material', () => {
   const g = setup();
   block(g, 0, GH - 8, 8, 8, 'wood');

@@ -48,5 +48,8 @@ export function levelConfig(level, { help = false } = {}) {
 
   const quest = level % 2 ? { type: 'chain', n: 3 } : { type: 'douse', n: 2 };
 
-  return { main: theme.main, power: theme.power, bag, goal, mode, quest, help };
+  // Two-material pieces start at level 4 and get more common.
+  const mixed = level < 4 ? 0 : level <= 20 ? 0.3 : 0.5;
+
+  return { main: theme.main, power: theme.power, bag, goal, mode, quest, help, mixed };
 }

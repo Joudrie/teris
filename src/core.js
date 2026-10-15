@@ -3,8 +3,8 @@
 
 import { levelConfig, POWERS } from './levels.js';
 
-export const COLS = 10;
-export const ROWS = 15;
+export const COLS = 12;
+export const ROWS = 20;
 export const S = 4; // particles per cell side
 export const GW = COLS * S;
 export const GH = ROWS * S;
@@ -49,7 +49,8 @@ const N4 = [[0, 1], [1, 0], [-1, 0], [0, -1]];
 
 // Altitude is 101 - level: level 1 is 100 ft, level 100 is ground.
 export const altitude = (level) => 101 - level;
-export const fallSpeed = (level) => Math.max(0.15, 0.7 - level * 0.005); // seconds per cell
+export const fallSpeed = (level) => Math.max(0.12, 0.45 - level * 0.004); // seconds per cell
+const SPAWN_X = Math.floor((COLS - 4) / 2);
 
 export function createGame({ level = 1, rand = Math.random, config = levelConfig(level) } = {}) {
   const g = {
@@ -109,9 +110,17 @@ export function drawMaterial(g) {
   return g.bag.pop();
 }
 
+// Some pieces are made of two materials (half and half), so how you rotate them decides
+// what touches what. cfg.mixed is the chance of a two-material piece.
 function makeNext(g) {
-  return { m: drawMaterial(g), shape: SHAPES[Math.floor(g.rand() * SHAPES.length)] };
+  const shape = SHAPES[Math.floor(g.rand() * SHAPES.length)];
+  const m = drawMaterial(g);
+  const m2 = g.rand() < (g.cfg.mixed || 0) ? drawMaterial(g) : m;
+  return { m, shape, mats: shape.map((_, i) => (i < 2 ? m : m2)) };
 }
+
+// Material of each cell of a piece, in the same order as its cells.
+export const pieceMats = (p) => p.mats || p.cells.map(() => p.m);
 
 // Bottom two rows of the main material with one gap column, one block per column.
 function prefill(g) {
@@ -126,11 +135,11 @@ function prefill(g) {
 }
 
 function spawn(g) {
-  const { m, shape } = g.next;
+  const { m, shape, mats } = g.next;
   g.next = makeNext(g);
-  g.piece = { m, cells: shape, x: 3, y: 0 };
+  g.piece = { m, mats, cells: shape, x: SPAWN_X, y: 0 };
   g.slam = false;
-  if (collide(g, shape, 3, 0)) lose(g);
+  if (collide(g, shape, SPAWN_X, 0)) lose(g);
 }
 
 function lose(g) {
@@ -212,27 +221,27 @@ export function landingY(g) {
 }
 
 function lock(g) {
-  const { m, cells, x, y } = g.piece;
+  const { cells, x, y } = g.piece;
+  const mats = pieceMats(g.piece);
   g.piece = null;
   const id = ++g.nextId; // one id per piece so solid pieces stay together
   let overflow = false;
-  for (const [a, b] of cells) {
+  cells.forEach(([a, b], i) => {
     for (let fy = y + b * S; fy < y + b * S + S; fy++) {
       for (let fx = (x + a) * S; fx < (x + a) * S + S; fx++) {
         if (fy < 0) overflow = true;
-        else g.grid[fy][fx] = part(g, m, id);
+        else g.grid[fy][fx] = part(g, mats[i], id);
       }
     }
-  }
+  });
   if (overflow) return lose(g);
   // A slam smashes glass underneath; stone shatters glass even when placed gently.
-  if (g.slam || m === 'stone') {
-    for (const [a, b] of cells) {
-      const fy = y + b * S + S;
-      for (let fx = (x + a) * S; fx < (x + a) * S + S; fx++) {
-        const below = at(g, fx, fy);
-        if (below && below.m === 'glass' && below.id !== id) shatter(g, fx, fy);
-      }
+  for (const [i, [a, b]] of cells.entries()) {
+    if (!g.slam && mats[i] !== 'stone') continue;
+    const fy = y + b * S + S;
+    for (let fx = (x + a) * S; fx < (x + a) * S + S; fx++) {
+      const below = at(g, fx, fy);
+      if (below && below.m === 'glass' && below.id !== id) shatter(g, fx, fy);
     }
   }
   checkGoal(g);
