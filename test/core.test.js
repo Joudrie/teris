@@ -553,3 +553,17 @@ test('topping out says so, and the revive clears the top instead', () => {
   hardDrop(g);
   assert.equal(g.loseReason, 'top');
 });
+
+test('combos count extra toward the bar when the level says so', () => {
+  const plain = setup();
+  const combo = setup({ comboBar: 0.5 });
+  for (const g of [plain, combo]) {
+    block(g, 0, GH - 8, 48, 8, 'fire');
+    for (let y = GH - 16; y < GH - 8; y++) for (let x = 0; x < 48; x++) put(g, x, y, 'water');
+    run(g, 3);
+  }
+  assert.equal(plain.drained, combo.drained); // same reaction
+  assert.equal(plain.bonus, 0);
+  assert.ok(combo.bonus > combo.drained * 0.5, `bonus ${combo.bonus} for ${combo.drained}`); // a ×3-×4 combo
+  assert.ok(piecesDrained(combo) > piecesDrained(plain));
+});

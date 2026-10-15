@@ -19,6 +19,8 @@ export const POWERS = {
 
 import { BUDGETS } from './budgets.js';
 
+export const COMBO_BAR = 0.5; // extra bar credit per combo step
+
 // ---------- target win rates ----------
 // The sawtooth, as the share of casual players (the rig's human-ish bot) who should clear
 // a level on the first try. tools/calibrate.js plays every level and sets its piece
@@ -73,97 +75,97 @@ const HAND = [
   null,
   { // 1. Fire and water. A bed of fire is already burning and the first pieces are water,
     // so the first reaction happens wherever the piece lands.
-    name: 'Put it out', power: 'rain', bag: B({ fire: 2, water: 2 }), goal: 15,
+    name: 'Put it out', power: 'rain', bag: B({ fire: 2, water: 2 }), goal: 30,
     start: [bed('fire', 1)], first: ['water', 'water'],
     intro: 'Drop WATER on the FIRE to put it out!', quest: { type: 'douse', n: 4 }, speed: 0.42,
   },
   { // 2. Same two materials, nothing pre-placed: now the player sets up their own reactions.
-    name: 'Fire and water', tag: 'No fire bed this time: set up your own reactions.', power: 'rain', bag: B({ fire: 3, water: 3 }), goal: 18,
+    name: 'Fire and water', tag: 'No fire bed this time: set up your own reactions.', power: 'rain', bag: B({ fire: 3, water: 3 }), goal: 36,
     start: [bed('fire', 1, 0, 3), bed('fire', 1, 8, 11)], first: ['water', 'fire'],
     quest: { type: 'chain', n: 2 }, speed: 0.48,
   },
   { // 3. Wood. A woodpile sits in the middle and the first piece is fire.
-    name: 'Woodpile', power: 'blaze', bag: B({ fire: 2, water: 2, wood: 2 }), goal: 18,
+    name: 'Woodpile', power: 'blaze', bag: B({ fire: 2, water: 2, wood: 2 }), goal: 36,
     start: [{ m: 'wood', x: 4, y: 18, w: 4, h: 2 }], first: ['fire'],
     intro: 'New: WOOD. Put FIRE next to it and it burns away!', quest: { type: 'burn', n: 3 }, speed: 0.48,
   },
   { // 4. Sand. A dune and two water pieces: sand + water = mud, which sinks away.
-    name: 'Dunes', power: 'sweep', bag: B({ fire: 1, water: 3, wood: 1, sand: 2 }), goal: 20,
+    name: 'Dunes', power: 'sweep', bag: B({ fire: 1, water: 3, wood: 1, sand: 2 }), goal: 40,
     start: [{ m: 'sand', x: 0, y: 18, w: 12, h: 2, loose: true }], first: ['water', 'water'],
     intro: 'New: SAND. WATER turns it to mud, and mud sinks away!', quest: { type: 'chain', n: 3 }, speed: 0.46,
   },
   { // 5. SHOWCASE: a glass tower. Flicking a piece onto glass smashes the whole pane.
-    name: 'Glass tower', power: 'hammer', bag: B({ fire: 2, water: 2, wood: 1, sand: 1, glass: 2 }), goal: 21,
+    name: 'Glass tower', power: 'hammer', bag: B({ fire: 2, water: 2, wood: 1, sand: 1, glass: 2 }), goal: 42,
     start: [...tower(4, 2, 6), ...tower(6, 2, 6)], first: ['wood'], showcase: true,
     intro: 'New: GLASS. Flick down to SLAM a piece and smash it!', quest: { type: 'smash', n: 6 }, speed: 0.46,
   },
   { // 6. Fire melts sand into glass: combine level 4 and 5.
-    name: 'Glassworks', power: 'hammer', bag: B({ fire: 3, water: 2, wood: 1, sand: 2, glass: 1 }), goal: 22,
+    name: 'Glassworks', power: 'hammer', bag: B({ fire: 3, water: 2, wood: 1, sand: 2, glass: 1 }), goal: 44,
     start: [{ m: 'sand', x: 3, y: 17, w: 6, h: 3, loose: true }], first: ['fire'],
     intro: 'FIRE melts SAND into GLASS. Then slam it!', quest: { type: 'smash', n: 3 }, speed: 0.44,
   },
   { // 7. Ice. An ice block and a fire piece. Water touching ice freezes, which is the catch.
-    name: 'Ice block', power: 'freeze', bag: B({ fire: 3, water: 2, wood: 1, sand: 1, ice: 2 }), goal: 22,
+    name: 'Ice block', power: 'freeze', bag: B({ fire: 3, water: 2, wood: 1, sand: 1, ice: 2 }), goal: 44,
     start: [{ m: 'ice', x: 3, y: 18, w: 6, h: 2 }], first: ['fire'],
     intro: 'New: ICE. FIRE melts it. Water that touches ice freezes!', quest: { type: 'melt', n: 3 }, speed: 0.44,
   },
   { // 8. Two-material pieces. A fire bed so either half of the first piece has something to do.
-    name: 'Halves', power: 'blaze', bag: B({ fire: 3, water: 3, wood: 2, sand: 1, ice: 1, glass: 1 }), goal: 22, mixed: 0.5,
+    name: 'Halves', power: 'blaze', bag: B({ fire: 3, water: 3, wood: 2, sand: 1, ice: 1, glass: 1 }), goal: 44, mixed: 0.5,
     start: [bed('fire', 1, 0, 4), bed('water', 1, 7, 11)], first: [['wood', 'ice']],
     intro: 'New: TWO-MATERIAL pieces. Tap to turn them!', quest: { type: 'chain', n: 3 }, speed: 0.42,
   },
   { // 9. Everything so far, faster: the first real test.
-    name: 'Mixed bag', tag: 'Everything so far, a bit faster. Plan your pieces!', power: 'freeze', bag: B({ fire: 3, water: 3, wood: 1, sand: 2, ice: 2, glass: 1 }), goal: 27, mixed: 0.35,
+    name: 'Mixed bag', tag: 'Everything so far, a bit faster. Plan your pieces!', power: 'freeze', bag: B({ fire: 3, water: 3, wood: 1, sand: 2, ice: 2, glass: 1 }), goal: 54, mixed: 0.35,
     quest: { type: 'douse', n: 5 }, speed: 0.4,
   },
   { // 10. SHOWCASE: a wood wall and a part-charged Fire Mode.
-    name: 'Firebreak', power: 'blaze', bag: B({ fire: 3, water: 3, wood: 2, sand: 1, ice: 1 }), goal: 27, mixed: 0.25,
+    name: 'Firebreak', power: 'blaze', bag: B({ fire: 3, water: 3, wood: 2, sand: 1, ice: 1 }), goal: 54, mixed: 0.25,
     start: wall('wood', 3, 5), meter: 0.6, showcase: true, first: ['fire'],
     intro: 'Fill the meter, then SWIPE UP for FIRE MODE!', quest: { type: 'burn', n: 8 }, speed: 0.42,
   },
   { // 11. Stone: heavy, smashes glass even when placed gently. Breather after the showcase.
-    name: 'Stone', power: 'hammer', bag: B({ fire: 2, water: 3, wood: 1, sand: 1, glass: 2, stone: 1 }), goal: 22, mixed: 0.25,
+    name: 'Stone', power: 'hammer', bag: B({ fire: 2, water: 3, wood: 1, sand: 1, glass: 2, stone: 1 }), goal: 44, mixed: 0.25,
     start: [...tower(2, 2, 3), ...tower(8, 2, 3)], first: ['stone'],
     intro: 'New: STONE. Heavy! It smashes glass. Water wears it down.', quest: { type: 'smash', n: 4 }, speed: 0.42,
   },
   { // 12. Flood mode.
-    name: 'Flood', power: 'freeze', mode: 'flood', bag: B({ fire: 3, water: 1, wood: 2, sand: 2, ice: 1, stone: 1 }), goal: 26, mixed: 0.3,
+    name: 'Flood', power: 'freeze', mode: 'flood', bag: B({ fire: 3, water: 1, wood: 2, sand: 2, ice: 1, stone: 1 }), goal: 52, mixed: 0.3,
     intro: 'FLOOD! Water keeps rising. Fire, sand and wood soak it up.', quest: { type: 'douse', n: 4 }, speed: 0.4,
   },
   { // 13. Brick: the hard block. Water wears it into sand.
-    name: 'Brickworks', power: 'hammer', bag: B({ fire: 3, water: 3, wood: 1, sand: 1, ice: 1, glass: 1, brick: 1 }), goal: 27, mixed: 0.3,
+    name: 'Brickworks', power: 'hammer', bag: B({ fire: 3, water: 3, wood: 1, sand: 1, ice: 1, glass: 1, brick: 1 }), goal: 54, mixed: 0.3,
     start: [{ m: 'brick', x: 2, y: 18, w: 8, h: 2 }], first: ['water', 'water'],
     intro: 'New: BRICK. WATER wears it down into sand.', quest: { type: 'chain', n: 3 }, speed: 0.4,
   },
   { // 14. Breather: wood theme, friendly bag.
-    name: 'Kindling', tag: 'A breather: lots of wood and fire.', power: 'blaze', bag: B({ fire: 3, water: 3, wood: 3, sand: 1, ice: 1 }), goal: 26, mixed: 0.3,
+    name: 'Kindling', tag: 'A breather: lots of wood and fire.', power: 'blaze', bag: B({ fire: 3, water: 3, wood: 3, sand: 1, ice: 1 }), goal: 52, mixed: 0.3,
     quest: { type: 'burn', n: 6 }, speed: 0.4,
   },
   { // 15. SHOWCASE: a tall glass tower and stone to drop on it.
-    name: 'Skyscraper', power: 'hammer', bag: B({ fire: 2, water: 3, wood: 1, sand: 1, glass: 2, stone: 2 }), goal: 30, mixed: 0.3,
+    name: 'Skyscraper', power: 'hammer', bag: B({ fire: 2, water: 3, wood: 1, sand: 1, glass: 2, stone: 2 }), goal: 60, mixed: 0.3,
     start: tower(5, 2, 9), first: ['stone'], meter: 0.4, showcase: true,
     intro: 'Drop STONE on the tower and watch it fall!', quest: { type: 'smash', n: 8 }, speed: 0.4,
   },
   { // 16. Burn through the wall (prefill mode).
-    name: 'The wall', tag: 'Burn through a wooden wall.', power: 'blaze', mode: 'prefill', bag: B({ fire: 3, water: 2, wood: 1, sand: 1, ice: 1, stone: 1 }), goal: 28, mixed: 0.35,
+    name: 'The wall', tag: 'Burn through a wooden wall.', power: 'blaze', mode: 'prefill', bag: B({ fire: 3, water: 2, wood: 1, sand: 1, ice: 1, stone: 1 }), goal: 56, mixed: 0.35,
     start: wall('wood', 2, 2), quest: { type: 'burn', n: 6 }, speed: 0.38,
   },
   { // 17. Breather.
-    name: 'Thaw', tag: 'A breather: melt the ice at the edges.', power: 'freeze', bag: B({ fire: 3, water: 3, wood: 1, sand: 1, ice: 2, glass: 1 }), goal: 27, mixed: 0.35,
+    name: 'Thaw', tag: 'A breather: melt the ice at the edges.', power: 'freeze', bag: B({ fire: 3, water: 3, wood: 1, sand: 1, ice: 2, glass: 1 }), goal: 54, mixed: 0.35,
     start: [{ m: 'ice', x: 0, y: 19, w: 4, h: 1 }, { m: 'ice', x: 8, y: 19, w: 4, h: 1 }],
     quest: { type: 'melt', n: 4 }, speed: 0.38,
   },
   { // 18. Flood with stone: harder.
-    name: 'High water', tag: 'Flood again, now with stone in the mix.', power: 'freeze', mode: 'flood', bag: B({ fire: 3, water: 1, wood: 2, sand: 2, ice: 1, stone: 1, glass: 1 }), goal: 28, mixed: 0.4,
+    name: 'High water', tag: 'Flood again, now with stone in the mix.', power: 'freeze', mode: 'flood', bag: B({ fire: 3, water: 1, wood: 2, sand: 2, ice: 1, stone: 1, glass: 1 }), goal: 56, mixed: 0.4,
     quest: { type: 'douse', n: 5 }, speed: 0.37,
   },
   { // 19. Breather before the showcase.
-    name: 'Sandbox', tag: 'A breather: sand dunes and plenty of water.', power: 'sweep', bag: B({ fire: 2, water: 4, wood: 1, sand: 3, ice: 1 }), goal: 27, mixed: 0.4,
+    name: 'Sandbox', tag: 'A breather: sand dunes and plenty of water.', power: 'sweep', bag: B({ fire: 2, water: 4, wood: 1, sand: 3, ice: 1 }), goal: 54, mixed: 0.4,
     start: [{ m: 'sand', x: 0, y: 17, w: 3, h: 3, loose: true }, { m: 'sand', x: 9, y: 17, w: 3, h: 3, loose: true }],
     quest: { type: 'chain', n: 3 }, speed: 0.37,
   },
   { // 20. SHOWCASE: an ice wall and a part-charged Deep Freeze.
-    name: 'Glacier', power: 'freeze', bag: B({ fire: 4, water: 2, wood: 1, sand: 1, ice: 2, stone: 1 }), goal: 32, mixed: 0.4,
+    name: 'Glacier', power: 'freeze', bag: B({ fire: 4, water: 2, wood: 1, sand: 1, ice: 2, stone: 1 }), goal: 64, mixed: 0.4,
     start: wall('ice', 3, 6), meter: 0.5, showcase: true, first: ['fire'],
     intro: 'A glacier! Melt it with fire, then DEEP FREEZE the water.', quest: { type: 'melt', n: 8 }, speed: 0.38,
   },
@@ -207,7 +209,7 @@ function generated(level) {
     power: theme.power,
     main: theme.main,
     bag: buildBag(d, theme.main),
-    goal: Math.round(24 + d * 1.6),
+    goal: Math.round(2 * (24 + d * 1.6)),
     mixed: Math.min(0.55, 0.35 + d * 0.015),
     speed: Math.max(0.16, 0.42 - d * 0.018),
     quest: { type: theme.quest, n: theme.quest === 'chain' ? (d > 9 ? 4 : 3) : Math.round(4 + d / 3) },
@@ -248,6 +250,9 @@ export function levelConfig(level, { help = false } = {}) {
   return {
     mode: 'normal',
     mixed: 0,
+    // Combos count toward the bar: at ×3, each particle drained is worth 2 (1 + 2 × 0.5).
+    // Setting up one big reaction beats a string of small ones: a real decision.
+    comboBar: COMBO_BAR,
     start: [],
     first: [],
     meter: 0,

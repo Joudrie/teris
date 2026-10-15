@@ -212,6 +212,7 @@ function handleEvents() {
     if (DEBUG && eventLog.length < 5000 && e.type !== 'steam' && e.type !== 'burn') eventLog.push({ t: performance.now(), type: e.type, mult: e.mult, slam: e.slam, power: e.power });
     if (e.type === 'combo') {
       popup(cv.width / 2, cv.height * 0.25, `COMBO ×${e.mult}`, '#ffd34d', 18 + e.mult * 4, 'combo');
+      if (game().cfg.comboBar) popup(cv.width / 2, cv.height * 0.25 + 26, `bar fills ×${1 + (e.mult - 1) * game().cfg.comboBar} faster`, '#fff3c4', 14, 'combo2');
       fx.shake = Math.max(fx.shake, 3 + e.mult * 2);
       if (e.mult >= 3) fx.flash = { color: '#ffd34d', life: 0.25 };
       play('combo', e);

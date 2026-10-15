@@ -67,6 +67,7 @@ export function createGame({ level = 1, rand = Math.random, config = levelConfig
     next: null,
     state: 'play', // 'play' | 'win' | 'lose'
     drained: 0, // particles destroyed by reactions and powers: the level goal
+    bonus: 0, // extra bar credit from combos (only when cfg.comboBar is set)
     doused: 0, // fire particles put out by water
     burned: 0, // wood particles burned away
     melted: 0, // ice particles melted
@@ -340,6 +341,7 @@ function drain(g, n, charge = true) {
     g.bestChain = Math.max(g.bestChain, mult);
     g.events.push({ type: 'combo', mult });
   }
+  if (g.cfg.comboBar && g.mult > 1) g.bonus += n * (g.mult - 1) * g.cfg.comboBar;
   if (charge) g.meter = Math.min(1, g.meter + (n * g.mult) / (g.cfg.meterPoints || METER_POINTS));
 
   checkQuest(g);
@@ -368,7 +370,7 @@ function checkQuest(g) {
 }
 
 // Whole pieces drained so far, and 0..1 progress toward the level goal.
-export const piecesDrained = (g) => Math.floor(g.drained / PIECE);
+export const piecesDrained = (g) => Math.floor((g.drained + g.bonus) / PIECE);
 export function progress(g) {
   return Math.min(1, piecesDrained(g) / g.cfg.goal.pieces);
 }

@@ -8,6 +8,7 @@
 import {
   emptyGrid, placeBlock, SHAPES, S, PIECE, GW, GH, questCount,
 } from './core.js';
+import { levelConfig } from './levels.js';
 import {
   start, input, step, openHome, watchRevive, watchMeterAd, next, startDaily,
 } from './session.js';
@@ -271,7 +272,7 @@ export const SCENES = {
   lose: {
     title: 'Loss shows real progress and the one revive', kind: 'ui',
     setup: (s) => {
-      const g = stage(s, { level: 9, drained: Math.floor(27 * 0.92) * PIECE + 5, board: [{ m: 'stone', x: 0, y: 2, w: 12, h: 18 }], piece: { mats: mats('stone'), x: 4, shape: 1, y: 0 } });
+      const g = stage(s, { level: 9, drained: Math.floor(levelConfig(9).goal.pieces * 0.92) * PIECE + 5, board: [{ m: 'stone', x: 0, y: 2, w: 12, h: 18 }], piece: { mats: mats('stone'), x: 4, shape: 1, y: 0 } });
       for (let y = 0; y < 2 * S; y++) for (let x = 0; x < GW; x++) if (x < 4 * S || x >= 8 * S) g.grid[y][x] = null;
     },
     actions: ['slam'], wait: 0.5, watch: (g, s) => (s.phase === 'lost' ? 1 : 0),

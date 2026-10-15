@@ -189,7 +189,7 @@ function lookahead(g, options, k = 5, secs = 1.6) {
     const c = cloneGame(g, 7);
     c.piece.cells = o.cells;
     c.piece.x = o.x;
-    const before = c.drained;
+    const before = c.drained + c.bonus;
     hardDrop(c);
     for (let t = 0; t < secs && c.state === 'play'; t += 1 / 15) {
       if (c.piece) c.piece.y = Math.min(c.piece.y, 0); // hold the next piece at the top
@@ -198,7 +198,7 @@ function lookahead(g, options, k = 5, secs = 1.6) {
     let top2 = GH;
     for (let y = 0; y < GH && top2 === GH; y++) for (let x = 0; x < GW; x++) if (c.grid[y][x]) { top2 = y; break; }
     const fill = 1 - top2 / GH;
-    const v = (c.state === 'lose' ? -1e6 : 0) + ((c.drained - before) / PIECE) * 30 + o.score * 0.5 - fill * fill * 80;
+    const v = (c.state === 'lose' ? -1e6 : 0) + ((c.drained + c.bonus - before) / PIECE) * 30 + o.score * 0.5 - fill * fill * 80;
     if (!best || v > best.v) best = { ...o, v };
   }
   return best;
