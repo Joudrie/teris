@@ -7,11 +7,11 @@ import { drawScenery } from './scenery.js';
 const COL = {
   water: '#3f8ee3', wood: '#a8743f', wetwood: '#5f4a33', ice: '#b5ecfa',
   sand: '#dcb66b', stone: '#8d93a1', mud: '#6e4c30',
-  glass: '#cdeee6', brick: '#a8453a',
+  glass: '#cdeee6', brick: '#a8453a', fire: '#ff6a1f',
 };
 const NAME = {
   water: 'Water', wood: 'Wood', wetwood: 'Wet wood', ice: 'Ice',
-  sand: 'Sand', stone: 'Stone', mud: 'Mud', glass: 'Glass', brick: 'Brick',
+  sand: 'Sand', stone: 'Stone', mud: 'Mud', glass: 'Glass', brick: 'Brick', fire: 'Fire',
 };
 const LEGEND = [
   ['water', 'Water: flows, soaks into wood'],
@@ -21,8 +21,9 @@ const LEGEND = [
   ['sand', 'Sand: slides, turns water to mud'],
   ['stone', 'Stone: no reaction'],
   ['mud', 'Mud: sand + water, stays put'],
-  ['glass', 'Glass: stone shatters it to sand'],
+  ['glass', 'Glass: melted sand, stone shatters it'],
   ['brick', 'Brick: baked mud'],
+  ['fire', 'Fire: burns wood, melts ice and sand, dries water'],
 ];
 
 const $ = (id) => document.getElementById(id);
@@ -88,7 +89,14 @@ function drawCell(x, y, color, alpha = 1) {
   ctx.globalAlpha = 1;
 }
 
-function draw() {
+// Flickering core so fire reads as flame, not a flat orange block.
+function drawFire(x, y, ts) {
+  const f = 0.55 + 0.45 * Math.sin(ts / 90 + x * 1.7 + y * 2.3);
+  ctx.fillStyle = `rgba(255,220,90,${0.35 + 0.5 * f})`;
+  ctx.fillRect(x * C + 6, y * C + 6 + (1 - f) * 4, C - 12, C - 12 - (1 - f) * 4);
+}
+
+function draw(ts) {
   drawScenery(ctx, altitude(level), cv.width, cv.height);
   ctx.fillStyle = 'rgba(20,22,30,.35)';
   ctx.fillRect(0, 0, cv.width, cv.height);
@@ -105,6 +113,7 @@ function draw() {
       const c = game.grid[y][x];
       if (!c) continue;
       drawCell(x, y, COL[c.m]);
+      if (c.m === 'fire') drawFire(x, y, ts);
       if (c.m === 'wood' || c.m === 'wetwood') {
         ctx.strokeStyle = 'rgba(0,0,0,.25)';
         ctx.beginPath();
@@ -122,7 +131,9 @@ function draw() {
     const gy = landingY(game);
     for (const [a, b] of p.cells) drawCell(p.x + a, gy + b, COL[p.m], 0.25);
     for (const [a, b] of p.cells) {
-      if (p.y + b >= 0) drawCell(p.x + a, p.y + b, COL[p.m]);
+      if (p.y + b < 0) continue;
+      drawCell(p.x + a, p.y + b, COL[p.m]);
+      if (p.m === 'fire') drawFire(p.x + a, p.y + b, ts);
     }
   }
 }
@@ -215,7 +226,7 @@ function frame(ts) {
     shown = game.state;
     if (shown !== 'play') showOverlay(shown);
   }
-  draw();
+  draw(ts);
   hud();
   requestAnimationFrame(frame);
 }

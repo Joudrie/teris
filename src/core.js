@@ -6,7 +6,12 @@ export const TOTAL_LEVELS = 100;
 export const PHYS_STEP = 0.12;
 
 // Piece materials and their relative spawn weights.
-const WEIGHTS = { water: 30, wood: 20, ice: 15, sand: 15, stone: 20, glass: 5, brick: 5 };
+const WEIGHTS = { water: 30, wood: 20, ice: 15, sand: 15, stone: 20, glass: 5, brick: 5, fire: 5 };
+
+// Solid materials keep their piece together and fall as one rigid block.
+// Water and sand flow cell by cell; mud stays put.
+const RIGID = new Set(['stone', 'ice', 'glass', 'brick', 'wood', 'wetwood', 'fire']);
+const FLOATS = new Set(['wood', 'wetwood']);
 
 // The seven standard tetrominoes as [x, y] offsets, y pointing down.
 const SHAPES = [
@@ -25,6 +30,7 @@ const N4 = [[0, 1], [1, 0], [-1, 0], [0, -1]];
 export const altitude = (level) => 101 - level;
 export const fallSpeed = (level) => Math.max(0.15, 0.7 - level * 0.005);
 export const targetLines = (level) => 3 + Math.floor(level / 10);
+export const evapTime = (level) => Math.max(4, 12 - (level - 1) * 0.08);
 
 export function createGame({ level = 1, rand = Math.random } = {}) {
   const g = {
@@ -37,7 +43,7 @@ export function createGame({ level = 1, rand = Math.random } = {}) {
     state: 'play', // 'play' | 'win' | 'lose'
     fallAcc: 0,
     physAcc: 0,
-    fire: null, // Set<"x,y"> of fire cells; null while the fire base is parked
+    nextId: 0,
   };
   spawn(g);
   return g;
@@ -46,6 +52,8 @@ export function createGame({ level = 1, rand = Math.random } = {}) {
 export function emptyGrid() {
   return Array.from({ length: H }, () => Array(W).fill(null));
 }
+
+const newCell = (g, m) => ({ m, frz: 0, heat: 0, id: ++g.nextId });
 
 // Weighted pick. Weights are relative, so they don't need to sum to 100.
 export function pickMaterial(rand) {
@@ -131,11 +139,12 @@ export function landingY(g) {
 function lock(g) {
   const { m, cells, x, y } = g.piece;
   g.piece = null;
+  const id = ++g.nextId; // all four cells share an id so solid pieces stay together
   let overflow = false;
   for (const [a, b] of cells) {
     const cy = y + b;
     if (cy < 0) overflow = true;
-    else g.grid[cy][x + a] = { m, frz: 0 };
+    else g.grid[cy][x + a] = { m, frz: 0, heat: 0, id };
   }
   if (overflow) return lose(g);
   resolveRows(g);
@@ -169,11 +178,136 @@ export function update(g, dt) {
   }
 }
 
-// Fire cells are set by the parked fire base. None exist yet, so sand never melts to glass
-// and mud never bakes to brick until that feature returns.
-const hot = (g, x, y) => !!g.fire && g.fire.has(`${x},${y}`);
-
 const at = (g, x, y) => (x >= 0 && x < W && y >= 0 && y < H ? g.grid[y][x] : undefined);
+
+const nextToFire = (g, x, y) => N4.some(([u, v]) => at(g, x + u, y + v)?.m === 'fire');
+
+// One physics tick: fire heats its neighbours, solid blocks move as whole pieces,
+// then water and sand flow cell by cell.
+export function physics(g, dt) {
+  burn(g, dt);
+  rigid(g);
+  loose(g, dt);
+  resolveRows(g);
+}
+
+// Fire blocks never spread. They only change the cells touching them.
+function burn(g, dt) {
+  const evap = evapTime(g.level);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const c = g.grid[y][x];
+      if (!c || c.m === 'fire') continue;
+      if (!nextToFire(g, x, y)) {
+        c.heat = 0;
+        continue;
+      }
+      c.heat += dt;
+      switch (c.m) {
+        case 'water': // evaporates after a few seconds
+          if (c.heat >= evap) g.grid[y][x] = null;
+          break;
+        case 'wood': // burns away
+          if (c.heat >= 3) g.grid[y][x] = null;
+          break;
+        case 'wetwood': // holds the fire off longer, then dries into wood and burns
+          if (c.heat >= evap * 1.8) { c.m = 'wood'; c.heat = 0; }
+          break;
+        case 'ice': // melts into water
+          if (c.heat >= 1.5) { c.m = 'water'; c.heat = 0; c.frz = 0; }
+          break;
+        case 'sand': // melts into glass
+          if (c.heat >= 2) { c.m = 'glass'; c.heat = 0; }
+          break;
+        case 'mud': // bakes into brick
+          if (c.heat >= 3) { c.m = 'brick'; c.heat = 0; }
+          break;
+        default: // stone, glass, brick: no reaction
+          break;
+      }
+    }
+  }
+}
+
+// Connected cells of the same piece and a solid material form one block.
+function rigidGroups(g) {
+  const seen = emptyGrid();
+  const groups = [];
+  for (let y = H - 1; y >= 0; y--) {
+    for (let x = 0; x < W; x++) {
+      const c = g.grid[y][x];
+      if (!c || seen[y][x] || !RIGID.has(c.m)) continue;
+      const cells = [];
+      const stack = [[x, y]];
+      seen[y][x] = true;
+      while (stack.length) {
+        const [cx, cy] = stack.pop();
+        cells.push([cx, cy]);
+        for (const [u, v] of N4) {
+          const nx = cx + u;
+          const ny = cy + v;
+          const n = at(g, nx, ny);
+          if (n && !seen[ny][nx] && RIGID.has(n.m) && n.id === c.id) {
+            seen[ny][nx] = true;
+            stack.push([nx, ny]);
+          }
+        }
+      }
+      groups.push(cells);
+    }
+  }
+  // Lowest blocks first so a stack settles in one pass.
+  groups.sort((a, b) => Math.max(...b.map(([, y]) => y)) - Math.max(...a.map(([, y]) => y)));
+  return groups;
+}
+
+function rigid(g) {
+  for (const cells of rigidGroups(g)) {
+    const inGroup = new Set(cells.map(([x, y]) => `${x},${y}`));
+    const mine = (x, y) => inGroup.has(`${x},${y}`);
+
+    // Stone landing on glass shatters it back into sand.
+    for (const [x, y] of cells) {
+      const b = at(g, x, y + 1);
+      if (g.grid[y][x].m === 'stone' && b && b.m === 'glass' && !mine(x, y + 1)) b.m = 'sand';
+    }
+
+    // Wood floats up through water when every cell above the block is water.
+    if (cells.every(([x, y]) => FLOATS.has(g.grid[y][x].m))) {
+      const above = cells.filter(([x, y]) => !mine(x, y - 1)).map(([x, y]) => [x, y - 1]);
+      if (above.every(([x, y]) => at(g, x, y)?.m === 'water')) {
+        shift(g, cells, -1, mine);
+        continue;
+      }
+    }
+
+    // Falls as one piece when nothing outside the block is directly underneath.
+    if (cells.every(([x, y]) => mine(x, y + 1) || at(g, x, y + 1) === null)) {
+      shift(g, cells, 1, mine);
+    }
+  }
+}
+
+// Moves a block one row up or down. Whatever it displaces (water when floating)
+// drops into the cells it leaves behind, column by column.
+function shift(g, cells, dy, mine) {
+  const lifted = cells.map(([x, y]) => [x, y, g.grid[y][x]]);
+  const displaced = new Map(); // column -> displaced cells
+  for (const [x, y] of cells) {
+    if (!mine(x, y + dy)) {
+      if (!displaced.has(x)) displaced.set(x, []);
+      displaced.get(x).push(g.grid[y + dy][x]);
+    }
+  }
+  for (const [x, y] of cells) g.grid[y][x] = null;
+  for (const [x, y, c] of lifted) g.grid[y + dy][x] = c;
+  for (const [x, y] of cells) {
+    if (!mine(x, y - dy)) {
+      const list = displaced.get(x);
+      if (list && list.length) g.grid[y][x] = list.shift();
+    }
+  }
+}
 
 function mv(g, moved, x, y, nx, ny) {
   g.grid[ny][nx] = g.grid[y][x];
@@ -189,109 +323,60 @@ function fall(g, moved, x, y) {
   return false;
 }
 
-// One physics tick. Rows are processed bottom-up; `moved` stops a cell from acting twice.
-export function physics(g, dt) {
-  const moved = Array.from({ length: H }, () => Array(W).fill(false));
+// Water and sand, cell by cell, bottom-up. `moved` stops a cell from acting twice.
+function loose(g, dt) {
+  const moved = emptyGrid();
   const dir = g.rand() < 0.5 ? 1 : -1;
   for (let y = H - 1; y >= 0; y--) {
     for (let k = 0; k < W; k++) {
       const x = dir > 0 ? k : W - 1 - k;
-      if (!g.grid[y][x] || moved[y][x]) continue;
-      react(g, moved, x, y, dt);
+      const c = g.grid[y][x];
+      if (!c || moved[y][x]) continue;
+      if (c.m === 'sand') sand(g, moved, x, y);
+      else if (c.m === 'water') water(g, moved, x, y, c, dt);
     }
   }
-  resolveRows(g);
 }
 
-function react(g, moved, x, y, dt) {
-  const c = g.grid[y][x];
-  switch (c.m) {
-    case 'stone': {
-      // Stone landing on glass shatters it back into sand.
-      const below = at(g, x, y + 1);
-      if (below && below.m === 'glass') below.m = 'sand';
-      fall(g, moved, x, y);
+function sand(g, moved, x, y) {
+  const below = at(g, x, y + 1);
+  if (below && below.m === 'water') {
+    g.grid[y + 1][x] = newCell(g, 'mud');
+    g.grid[y][x] = null;
+    return;
+  }
+  if (fall(g, moved, x, y)) return;
+  const s = g.rand() < 0.5 ? 1 : -1;
+  for (const d of [s, -s]) {
+    if (at(g, x + d, y + 1) === null && at(g, x + d, y) === null) {
+      mv(g, moved, x, y, x + d, y + 1);
       return;
     }
+  }
+}
 
-    case 'ice':
-    case 'glass':
-    case 'brick':
-      fall(g, moved, x, y);
-      return;
-
-    case 'sand': {
-      if (hot(g, x, y)) {
-        c.m = 'glass';
-        return;
-      }
-      const below = at(g, x, y + 1);
-      if (below && below.m === 'water') {
-        g.grid[y + 1][x] = { m: 'mud', frz: 0 };
-        g.grid[y][x] = null;
-        return;
-      }
-      if (fall(g, moved, x, y)) return;
-      const s = g.rand() < 0.5 ? 1 : -1;
-      for (const d of [s, -s]) {
-        if (at(g, x + d, y + 1) === null && at(g, x + d, y) === null) {
-          mv(g, moved, x, y, x + d, y + 1);
-          return;
-        }
-      }
+function water(g, moved, x, y, c, dt) {
+  const wood = N4.map(([u, v]) => at(g, x + u, y + v)).find((n) => n && n.m === 'wood');
+  if (wood) {
+    wood.m = 'wetwood';
+    g.grid[y][x] = null;
+    return;
+  }
+  if (N4.some(([u, v]) => at(g, x + u, y + v)?.m === 'ice')) {
+    c.frz += dt;
+    if (c.frz >= 3) {
+      g.grid[y][x] = newCell(g, 'ice');
       return;
     }
-
-    case 'water': {
-      const wood = N4.map(([u, v]) => at(g, x + u, y + v)).find((n) => n && n.m === 'wood');
-      if (wood) {
-        wood.m = 'wetwood';
-        g.grid[y][x] = null;
-        return;
-      }
-      const iceNear = N4.some(([u, v]) => {
-        const n = at(g, x + u, y + v);
-        return !!n && n.m === 'ice';
-      });
-      if (iceNear) {
-        c.frz += dt;
-        if (c.frz >= 3) {
-          g.grid[y][x] = { m: 'ice', frz: 0 };
-          return;
-        }
-      } else {
-        c.frz = 0;
-      }
-      if (fall(g, moved, x, y)) return;
-      const s = g.rand() < 0.5 ? 1 : -1;
-      for (const d of [s, -s]) {
-        if (at(g, x + d, y) === null) {
-          mv(g, moved, x, y, x + d, y);
-          return;
-        }
-      }
+  } else {
+    c.frz = 0;
+  }
+  if (fall(g, moved, x, y)) return;
+  const s = g.rand() < 0.5 ? 1 : -1;
+  for (const d of [s, -s]) {
+    if (at(g, x + d, y) === null) {
+      mv(g, moved, x, y, x + d, y);
       return;
     }
-
-    case 'wood':
-    case 'wetwood': {
-      const up = at(g, x, y - 1);
-      if (up && up.m === 'water' && !moved[y - 1][x]) {
-        g.grid[y - 1][x] = c;
-        g.grid[y][x] = up;
-        moved[y - 1][x] = true;
-        return;
-      }
-      fall(g, moved, x, y);
-      return;
-    }
-
-    case 'mud':
-      // Mud stays put, unless it is in fire.
-      if (hot(g, x, y)) c.m = 'brick';
-      return;
-
-    default:
-      return;
   }
 }
