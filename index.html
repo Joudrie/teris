@@ -13,9 +13,18 @@
       <b id="lvl">Level 1</b>
       <span class="next">Next <b id="nextName">Water</b> <canvas id="nx" width="56" height="42"></canvas></span>
     </div>
-    <div class="goal" id="goal"></div>
-    <canvas id="cv" width="300" height="450" aria-label="Game board"></canvas>
-    <p class="hint">Swipe left or right to move, drag down to drop faster, flick down to slam, tap to rotate.</p>
+    <div class="goal">
+      <div id="goal"></div>
+      <div class="bar"><i id="goalBar"></i></div>
+    </div>
+    <div class="meter">
+      <div class="meter-row"><span id="meterLabel">Power</span><button id="meterAd" hidden>Fill with ad</button></div>
+      <div class="bar meter-bar"><i id="meterBar"></i></div>
+    </div>
+    <div class="banner" id="banner" hidden></div>
+    <canvas id="cv" width="320" height="480" aria-label="Game board"></canvas>
+    <div class="quest" id="quest"></div>
+    <p class="hint">Swipe to move, drag down to drop, flick down to slam, tap to rotate, swipe up to use your power. Connect one material wall to wall to break it.</p>
     <div class="legend" id="legend"></div>
   </div>
 
@@ -24,6 +33,12 @@
     <div id="ovS"></div>
     <button id="ovA"></button>
     <button id="ovB"></button>
+  </div>
+
+  <div class="over ad" id="ad" hidden>
+    <div class="ad-label"></div>
+    <div class="ad-count"></div>
+    <small>No ad network connected yet.</small>
   </div>
 
   <script type="module" src="src/main.js"></script>
