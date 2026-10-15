@@ -7,12 +7,18 @@ Phase 5 (mechanics, progression, instant hook) and Phase 6 (bug overhaul) are do
 **What changed in the game**
 
 - **A piece budget per level** ("fill the bar in N pieces"). This is the biggest change. In this ruleset nearly everything reacts with everything, so before this even random play filled the bar before the board topped out: the random bot won 100% of levels 1–30. Placement still makes a real difference to *efficiency* (about 15% more drain per piece for a sensible player than a random one), and a budget turns that into wins and losses. It also makes near misses honest and common ("So close! 92%"). The board topping out is still a loss too.
-- **Budgets are set by playing.** `tools/calibrate.js` plays every level with the human-ish bot and sets the budget so the share who clear it first time follows a sawtooth target (harder, harder, breather, hardest, showcase).
+- **Combos count toward the drain bar** (second pass). At ×3, each particle drained counts as 2 on the bar (1 + 2 × 0.5). This adds the "build up, then cash in" decision the first pass lacked.
+  - In a rig experiment (`docs/data/combo-experiment-*.txt`, 30 pieces × 8 seeds × 7 levels), it widened the expert's edge over the casual bot from **3.5% to 17%** more bar per piece. The casual bot's edge over random stayed at 1.25×.
+  - Goals were doubled to keep levels the same length, then budgets were recalibrated.
+  - The combo popup says how much faster the bar fills, and the home screen explains it.
+- **Budgets are set by playing.** `tools/calibrate.js` plays every level with the human-ish bot and sets the budget so the share who clear it first time follows a sawtooth target (harder, harder, breather, hardest, showcase). A verification run with fresh seeds then finds levels still more than 20 points off target. `tools/correct.js` retries each one with the budget a piece tighter or looser on yet another set of seeds and keeps the closer one (`docs/data/correction.txt`).
 - **A new teaching progression.** There are 20 hand-made levels with one new idea each and a first-time callout on the board. Each is set up so the lesson can't be missed. There is a showcase every 5 levels, then generated levels 21–100 on a sawtooth.
 - **An instant hook.** The game opens straight into play with a piece already falling and the first reaction landing at about 7 s with no input. There are generated WebAudio sounds with a mute button, a +N popup and a bar bump on every drain, a slam thud, and a win screen that previews what's new next level and plays on in one tap. There's also a daily challenge with a streak.
 - **Mechanics fixed or cut after their test cards.**
   - *Cut:* wood floating, which was dead code because water always dissolved the wood first. Also cut: mud baking into brick, which punished the player with no warning.
   - *Fixed:* stone and brick erosion was invisible (8 s per layer). Erosion now spreads through the piece and crumbles it to sand in about 2 s, and the clouds behind the board no longer look like rubble.
+- **Readability.** Glass and ice looked almost the same. Glass is now see-through with long glints, and ice is opaque, bluer and frosted (`docs/shots/materials-before.jpg` and `materials-after.jpg`).
+- **Playtest log, ready for real players.** Every attempt is logged on the device with the same measures the rig uses. `?playtest` shows a summary on the home screen and can copy the raw data. `docs/PLAYTEST.md` is the script for a five-player session.
 - **Session layer.** `src/session.js` now holds the screens, ad pacing, revive, helping hand, callouts and daily challenge, outside `main.js`. It has no DOM, so it can be unit-tested and fuzzed.
 
 **Final win rates (all three bots, every level)**
@@ -37,7 +43,7 @@ Reading the table:
 - The human-ish bot's first-try rate follows the targets within a few points per band. Mid levels (21–60) come out at 56% against an aim of 40–55%, one point over.
 - Per level, 10 of 100 levels land more than 20 points from their target. Needs cluster on a few piece counts, so one piece of budget can move a level's win rate by 30 points, and 30 games per level carries about ±9 points of noise.
 
-**Bugs fixed: 10** (see the [bug log](#bug-log)).
+**Bugs fixed: 11** (see the [bug log](#bug-log)).
 
 **Final fuzz: 5,500 games** (1,375 per level band, 3.1 million frames) through the whole session with hostile input: **0 crashes, 0 invariant breaks**. On top of that come 6,000 rig games and about 4,000 campaign games, all with the validator on every tick, also with 0 breaks.
 
@@ -45,11 +51,14 @@ Reading the table:
 
 **Top 5 next steps**
 
-1. **Playtest with real people.** All tuning so far is against bots. Put levels 1–10 in front of five new players and compare time to first drain, the win rate and where they hesitate against the newbie and human-ish bots. Then re-run `tools/calibrate.js` with the human-ish bot adjusted to match them.
-2. **Deepen decisions.** The expert bot (which simulates its options) only beats the human-ish bot by a few points. Placement mostly matters through efficiency. Three ideas to test with the rig: combos that count toward the bar (rewarding set-ups), more materials that *punish* a wrong neighbour (like ice freezing water) and two-material pieces where the halves *do* react.
-3. **Real art and audio pass.** The textures and generated sounds work as hooks but are placeholders. Material identity at 4×4 particles is the main readability risk. Glass and ice are the closest pair.
-4. **Connect the real ad SDK and store.** `src/session.js` (`AD_TIME`, `next`, `watchRevive`, `watchMeterAd`) and `src/ads.js` are the seams. Pacing rules are already enforced and tested.
-5. **Retention beyond the session.** Daily challenge results could feed a weekly ladder, the streak could earn a cosmetic, and an analytics hook could log the same proxies the rig measures from real devices.
+1. **Run the five-player playtest** in `docs/PLAYTEST.md` (the `?playtest` log is built for it). All tuning so far is against bots. Compare players with the newbie and human-ish bots, retune the human-ish profile to match them, then re-run `tools/calibrate.js` and `tools/correct.js`.
+2. **Keep deepening decisions.** Combos on the bar opened a 17% gap between expert and casual play. Two more ideas to test in the rig the same way (expert ÷ casual ratio): more materials that *punish* a wrong neighbour (as ice freezes water), and two-material pieces whose halves *do* react, which makes rotation matter more.
+3. **Real art and audio pass.** Glass and ice are now distinct, but textures are still 4×4-particle placeholders and the sounds are generated beeps. Wet wood and mud are the next closest pair.
+4. **Connect the real ad SDK and store.** The seams are in `src/session.js` (`AD_TIME`, `next`, `watchRevive`, `watchMeterAd`) and `src/ads.js`. Pacing rules are already enforced and tested.
+5. **Retention beyond the session.**
+   - Daily challenge results could feed a weekly ladder.
+   - The streak could earn a cosmetic.
+   - The local playtest log could become opt-in analytics with the same fields.
 
 ---
 
@@ -394,8 +403,8 @@ Scores are 1–5 for **I**ntuitive, **S**atisfying and **D**ecision. The rule wa
 | Two-material pieces (`mixed`) | 3 | 3 | 5 | The halves never react with each other. Rotation decides which half touches what. Level 8 callout: "Tap to turn them!" |
 | Ghost outline (`ghost`) | 5 | 3 | 4 | Shows the landing spot, in each half's own colour |
 | Piece budget (`budget`) | 4 | 3 | 5 | **New.** The "N left" counter pulses red at 3. Reactions finish after the last piece before the level is called |
-| Drain bar (`bar`) | 5 | 4 | 3 | Bumps, plus a "+N" popup by the bar on every block |
-| Combo (`combo`) | 4 | 5 | 3 | A big douse gives ×3 in under half a second |
+| Drain bar (`bar`) | 5 | 4 | 3 | Bumps, plus a "+N" popup by the bar on every block. Combos add bonus credit, shown under the combo popup ("bar fills ×2 faster") |
+| Combo (`combo`) | 4 | 5 | 4 | A big douse gives ×3 in under half a second. **Now counts on the bar** (+50% per step), so saving a fire bed for one big douse beats dousing piece by piece: D rose from 3 to 4 |
 | Side quest (`quest`) | 4 | 3 | 4 | The progress count is in the line ("(2/4)"). Done gives +30% meter |
 
 ### Screens and UI elements
@@ -547,6 +556,7 @@ Notes:
 | 8 | The background cloud layer was drawn as opaque grey blobs that looked like smoke or rubble and hid materials | Card screenshots | levels 1–45, any board | b1f694b | visual: `docs/shots/card-*.jpg` |
 | 9 | The canvas "LEVEL CLEARED" text bled through the win-screen overlay behind the next-level preview | Hook screenshot | win any level | b1f694b | visual: `docs/shots/hook-06-win-screen.jpg` |
 | 10 | The daily challenge said "same level for everyone today" but dealt pieces from `Math.random`, so every player got a different game | Code review | Start the daily on two devices on the same day | de3d652 | `regression: the daily challenge deals the same pieces to everyone that day` |
+| 11 | Glass and ice were nearly indistinguishable at 4×4 particles (both pale with white flecks) | Side-by-side material render | `docs/shots/materials-before.jpg` | 49ce93e | visual: `docs/shots/materials-after.jpg` |
 
 Not bugs, but found and fixed on the way:
 - Level 2's first piece reacted with nothing, so a newbie's first drain came at 17 s; it's now 5 s.
