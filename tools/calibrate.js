@@ -7,7 +7,7 @@
 
 import fs from 'node:fs';
 import { runParallel } from './rig.js';
-import { targetWinRate, levelConfig } from '../src/levels.js';
+import { calibrationFor, levelConfig } from '../src/levels.js';
 import { TOTAL_LEVELS } from '../src/core.js';
 
 const a = process.argv.slice(2);
@@ -20,7 +20,7 @@ const to = +(o.to || TOTAL_LEVELS);
 const jobs = [];
 for (let level = from; level <= to; level++) {
   const n = level <= 20 ? Math.round(games * 1.5) : games;
-  for (let i = 0; i < n; i++) jobs.push({ level, bot: 'human', seed: 900001 + level * 7919 + i * 31 });
+  for (let i = 0; i < n; i++) jobs.push({ level, bot: calibrationFor(level).bot, seed: 900001 + level * 7919 + i * 31 });
 }
 const t0 = Date.now();
 const res = await runParallel(jobs, 'need');
@@ -32,11 +32,11 @@ for (const r of res) {
 const file = 'src/budgets.js';
 const old = fs.existsSync(file) ? (await import(`../${file}?t=${Date.now()}`)).BUDGETS : {};
 const budgets = { ...old };
-const raw = {};
+const raw = fs.existsSync('docs/data/calibration.json') ? JSON.parse(fs.readFileSync('docs/data/calibration.json', 'utf8')) : {};
 console.log('lvl goal target  need(p25/p50/p75)  topped  budget');
 for (const [level, needs] of [...by.entries()].sort((x, y) => x[0] - y[0])) {
   const sorted = needs.sort((x, y) => x - y);
-  const target = targetWinRate(level);
+  const { target } = calibrationFor(level);
   const finite = sorted.filter(Number.isFinite);
   // Needs bunch up on a few values, so a plain percentile can land on a big tie (target
   // 40%, but 65% of players need that number or fewer). Pick the budget whose share of

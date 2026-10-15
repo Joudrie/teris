@@ -255,6 +255,12 @@ function afterGame(s) {
   }
   g.events.length = 0;
   if (s.phase !== 'play') return;
+  // The first time a meter fills, say how to use it. Once ever.
+  if (g.state === 'play' && g.meter >= 1 && !s.callout && !s.store.get('mb_seen_power', false)) {
+    s.store.set('mb_seen_power', true);
+    s.callout = { text: `${POWERS[g.cfg.power].label} ready! SWIPE UP to use it (or press F).`, left: CALLOUT_TIME };
+    s.events.push({ type: 'callout' });
+  }
   if (g.state === 'win') {
     s.phase = 'celebrate';
     s.celebrateT = 0;

@@ -33,6 +33,14 @@ export function targetWinRate(level) {
   return SAW_TARGET[(level - 1) % 5] - drift;
 }
 
+// The teaching levels are for someone on their first session, so their budgets are set
+// from the newbie bot (slow, mostly lets pieces fall) rather than the casual player.
+// Everything after level 8 assumes the player has learned the controls.
+export const NEWBIE_TARGET = { 1: 0.97, 2: 0.97, 3: 0.95, 4: 0.75, 5: 0.7, 6: 0.65, 7: 0.65, 8: 0.6 };
+export function calibrationFor(level) {
+  return NEWBIE_TARGET[level] ? { bot: 'newbie', target: NEWBIE_TARGET[level] } : { bot: 'human', target: targetWinRate(level) };
+}
+
 // ---------- starting boards ----------
 // Blocks are in cell units, y counted from the top (0) to the bottom (19).
 // Each block is one solid piece (one id) unless `each` splits it into cell-sized pieces.
@@ -75,42 +83,42 @@ const HAND = [
   null,
   { // 1. Fire and water. A bed of fire is already burning and the first pieces are water,
     // so the first reaction happens wherever the piece lands.
-    name: 'Put it out', power: 'rain', bag: B({ fire: 2, water: 2 }), goal: 30,
+    name: 'Put it out', power: 'rain', bag: B({ fire: 2, water: 2 }), goal: 20,
     start: [bed('fire', 1)], first: ['water', 'water'],
     intro: 'Drop WATER on the FIRE to put it out!', quest: { type: 'douse', n: 4 }, speed: 0.42,
   },
   { // 2. Same two materials, nothing pre-placed: now the player sets up their own reactions.
-    name: 'Fire and water', tag: 'No fire bed this time: set up your own reactions.', power: 'rain', bag: B({ fire: 3, water: 3 }), goal: 36,
+    name: 'Fire and water', tag: 'No fire bed this time: set up your own reactions.', power: 'rain', bag: B({ fire: 3, water: 3 }), goal: 24,
     start: [bed('fire', 1, 0, 3), bed('fire', 1, 8, 11)], first: ['water', 'fire'],
     quest: { type: 'chain', n: 2 }, speed: 0.48,
   },
   { // 3. Wood. A woodpile sits in the middle and the first piece is fire.
-    name: 'Woodpile', power: 'blaze', bag: B({ fire: 2, water: 2, wood: 2 }), goal: 36,
+    name: 'Woodpile', power: 'blaze', bag: B({ fire: 2, water: 2, wood: 2 }), goal: 24,
     start: [{ m: 'wood', x: 4, y: 18, w: 4, h: 2 }], first: ['fire'],
-    intro: 'New: WOOD. Put FIRE next to it and it burns away!', quest: { type: 'burn', n: 3 }, speed: 0.48,
+    intro: 'New: WOOD. Put FIRE next to it and it burns away!', quest: { type: 'burn', n: 3 }, speed: 0.48, meter: 0.5,
   },
   { // 4. Sand. A dune and two water pieces: sand + water = mud, which sinks away.
-    name: 'Dunes', power: 'sweep', bag: B({ fire: 1, water: 3, wood: 1, sand: 2 }), goal: 40,
+    name: 'Dunes', power: 'sweep', bag: B({ fire: 1, water: 3, wood: 1, sand: 2 }), goal: 28,
     start: [{ m: 'sand', x: 0, y: 18, w: 12, h: 2, loose: true }], first: ['water', 'water'],
     intro: 'New: SAND. WATER turns it to mud, and mud sinks away!', quest: { type: 'chain', n: 3 }, speed: 0.46,
   },
   { // 5. SHOWCASE: a glass tower. Flicking a piece onto glass smashes the whole pane.
-    name: 'Glass tower', power: 'hammer', bag: B({ fire: 2, water: 2, wood: 1, sand: 1, glass: 2 }), goal: 42,
+    name: 'Glass tower', power: 'hammer', bag: B({ fire: 2, water: 2, wood: 1, sand: 1, glass: 2 }), goal: 30,
     start: [...tower(4, 2, 6), ...tower(6, 2, 6)], first: ['wood'], showcase: true,
     intro: 'New: GLASS. Flick down to SLAM a piece and smash it!', quest: { type: 'smash', n: 6 }, speed: 0.46,
   },
   { // 6. Fire melts sand into glass: combine level 4 and 5.
-    name: 'Glassworks', power: 'hammer', bag: B({ fire: 3, water: 2, wood: 1, sand: 2, glass: 1 }), goal: 44,
+    name: 'Glassworks', power: 'hammer', bag: B({ fire: 3, water: 2, wood: 1, sand: 2, glass: 1 }), goal: 30,
     start: [{ m: 'sand', x: 3, y: 17, w: 6, h: 3, loose: true }], first: ['fire'],
     intro: 'FIRE melts SAND into GLASS. Then slam it!', quest: { type: 'smash', n: 3 }, speed: 0.44,
   },
   { // 7. Ice. An ice block and a fire piece. Water touching ice freezes, which is the catch.
-    name: 'Ice block', power: 'freeze', bag: B({ fire: 3, water: 2, wood: 1, sand: 1, ice: 2 }), goal: 44,
+    name: 'Ice block', power: 'freeze', bag: B({ fire: 3, water: 2, wood: 1, sand: 1, ice: 2 }), goal: 30,
     start: [{ m: 'ice', x: 3, y: 18, w: 6, h: 2 }], first: ['fire'],
     intro: 'New: ICE. FIRE melts it. Water that touches ice freezes!', quest: { type: 'melt', n: 3 }, speed: 0.44,
   },
   { // 8. Two-material pieces. A fire bed so either half of the first piece has something to do.
-    name: 'Halves', power: 'blaze', bag: B({ fire: 3, water: 3, wood: 2, sand: 1, ice: 1, glass: 1 }), goal: 44, mixed: 0.5,
+    name: 'Halves', power: 'blaze', bag: B({ fire: 3, water: 3, wood: 2, sand: 1, ice: 1, glass: 1 }), goal: 30, mixed: 0.5,
     start: [bed('fire', 1, 0, 4), bed('water', 1, 7, 11)], first: [['wood', 'ice']],
     intro: 'New: TWO-MATERIAL pieces. Tap to turn them!', quest: { type: 'chain', n: 3 }, speed: 0.42,
   },

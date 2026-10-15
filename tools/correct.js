@@ -7,13 +7,13 @@
 
 import fs from 'node:fs';
 import { runParallel } from './rig.js';
-import { targetWinRate, levelConfig } from '../src/levels.js';
+import { targetWinRate, levelConfig, NEWBIE_TARGET } from '../src/levels.js';
 import { BUDGETS } from '../src/budgets.js';
 
 const a = process.argv.slice(2);
 const games = +(a[a.indexOf('--games') + 1] || 40);
 const human = JSON.parse(fs.readFileSync('docs/data/rig-human.json', 'utf8')).human;
-const off = human.filter((r) => Math.abs(r.win - targetWinRate(r.level)) > 0.2);
+const off = human.filter((r) => !NEWBIE_TARGET[r.level] && Math.abs(r.win - targetWinRate(r.level)) > 0.2);
 console.log(`${off.length} levels more than 20 points off target`);
 
 // Candidate budgets: current, and one step in the direction that should help.

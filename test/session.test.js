@@ -404,3 +404,18 @@ test('playtest log: each win and loss is recorded on this device with the rig me
   clearPlayLog(s);
   assert.equal(playLog(s).length, 0);
 });
+
+test('the first full meter explains the power, once ever', () => {
+  const storage = memStorage();
+  const s = mk({ storage });
+  s.callout = null;
+  s.game.meter = 1;
+  run(s, 0.1);
+  assert.match(s.callout.text, /SWIPE UP/);
+  input(s, 'power');
+  start(s, 2);
+  s.callout = null;
+  s.game.meter = 1;
+  run(s, 0.1);
+  assert.equal(s.callout, null);
+});

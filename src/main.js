@@ -280,6 +280,8 @@ function handleEvents() {
     } else if (e.type === 'win') {
       celebrate();
       play('win');
+    } else if (e.type === 'callout') {
+      play('callout');
     } else if (e.type === 'lose') {
       play('lose');
     } else if (e.type === 'start') {
