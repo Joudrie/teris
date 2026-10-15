@@ -10,6 +10,7 @@
 <body>
   <div class="wrap">
     <div class="hud">
+      <button id="homeBtn" class="home-btn" aria-label="Home">&#8962;</button>
       <b id="lvl">Level 1</b>
       <span class="now">Now <b id="nowName">–</b></span>
       <span class="next">Next <b id="nextName">Water</b> <canvas id="nx" width="56" height="42"></canvas></span>
@@ -29,8 +30,39 @@
       </div>
     </div>
     <div class="quest" id="quest"></div>
-    <p class="hint">Cancel materials against each other to drain them. Fill the bar to clear the level. Swipe to move, drag down to drop, flick down to slam, tap to rotate, swipe up to use your power.</p>
-    <div class="legend" id="legend"></div>
+  </div>
+
+  <div class="home" id="home" hidden>
+    <h1>Material Blocks</h1>
+    <button class="play" id="playBtn">
+      <span>Play</span>
+      <b id="homeLevel">Level 1</b>
+      <small id="homeFt">100 ft up</small>
+    </button>
+    <section>
+      <h2>How to play</h2>
+      <p>Pieces made of different materials fall from the top. Put materials next to the ones that cancel them out. Whatever cancels drains away and fills the bar beside the board. Fill the bar to clear the level and drop 1 ft down the tower. If the board fills to the top, you lose.</p>
+      <ul class="controls">
+        <li><b>Swipe left or right</b> to move</li>
+        <li><b>Drag down</b> to drop faster</li>
+        <li><b>Flick down</b> to slam (smashes glass)</li>
+        <li><b>Tap</b> to rotate</li>
+        <li><b>Swipe up</b> to use your power when the meter is full</li>
+      </ul>
+    </section>
+    <section>
+      <h2>What cancels what</h2>
+      <ul class="legend" id="legend"></ul>
+    </section>
+    <section>
+      <h2>Powers</h2>
+      <p>Draining a lot quickly builds a combo and fills your power meter faster. Each level has one power.</p>
+      <ul id="powers"></ul>
+    </section>
+    <section>
+      <h2>Two-material pieces</h2>
+      <p>From level 4 some pieces are half one material and half another. Rotate them so each half lands next to what cancels it.</p>
+    </section>
   </div>
 
   <div class="over" id="over" hidden>

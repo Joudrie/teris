@@ -266,3 +266,73 @@ body { padding-left: max(10px, env(safe-area-inset-left, 0px)); padding-right: m
 .stage { gap: 6px; }
 .drain { width: 24px; }
 .drain-bar { width: 12px; }
+
+/* ---------- home button and home screen ---------- */
+
+.home-btn {
+  background: var(--panel);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  width: 34px;
+  height: 34px;
+  font-size: 20px;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+  flex: none;
+}
+
+.home {
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  background: var(--bg);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+  padding: 24px max(16px, env(safe-area-inset-left, 0px)) 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+.home[hidden] { display: none; }
+.home h1 { margin: 8px 0 0; font-size: 28px; letter-spacing: 0.5px; }
+
+.play {
+  width: min(72vw, 280px);
+  aspect-ratio: 1 / 1;
+  flex: none;
+  border: none;
+  border-radius: 28px;
+  background: linear-gradient(160deg, #ff8a3d, #e0452b 55%, #3f8ee3);
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  box-shadow: 0 12px 40px rgba(255, 106, 31, 0.35);
+}
+.play span { font-size: 44px; font-weight: 800; letter-spacing: 1px; }
+.play b { font-size: 20px; }
+.play small { font-size: 14px; opacity: 0.85; }
+.play:active { transform: scale(0.97); }
+
+.home section { width: 100%; max-width: 520px; }
+.home h2 { font-size: 17px; margin: 0 0 8px; }
+.home p { font-size: 14px; line-height: 1.5; color: var(--muted); margin: 0 0 8px; }
+.home ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; font-size: 14px; line-height: 1.4; color: var(--muted); }
+.home ul b { color: var(--fg); }
+.home .legend { display: flex; }
+.home .legend li { display: flex; gap: 10px; align-items: flex-start; }
+.home .legend i { width: 14px; height: 14px; border-radius: 3px; flex: none; margin-top: 3px; }
+
+/* The game page is exactly one screen tall; only the home screen scrolls. */
+html, body { overflow: hidden; }
+body { box-sizing: border-box; }
+.home .legend li span { display: block; }

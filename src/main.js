@@ -107,6 +107,7 @@ const store = {
 let level = Math.min(TOTAL_LEVELS, Math.max(1, store.get('mb_level', 1)));
 let game;
 let phase = 'play'; // 'play' | 'celebrate' | 'won' | 'lost'
+let paused = true; // the home screen is open; the game waits behind it
 let celebrateT = 0;
 let meterAdUsed = false;
 let lastHud = '';
@@ -447,13 +448,13 @@ function usePower() {
 // Swipes count anywhere on the screen except on buttons.
 let sw = null;
 window.addEventListener('pointerdown', (e) => {
-  if (e.target.closest('button')) return;
+  if (paused || e.target.closest('button')) return;
   const step = (cv.getBoundingClientRect().width / COLS) * 0.75;
   sw = { id: e.pointerId, sx: e.clientX, sy: e.clientY, ax: e.clientX, ay: e.clientY, t: performance.now(), step, moved: false };
 });
 
 window.addEventListener('pointermove', (e) => {
-  if (!sw || e.pointerId !== sw.id || phase !== 'play') return;
+  if (!sw || e.pointerId !== sw.id || phase !== 'play' || paused) return;
   e.preventDefault();
   let dx = e.clientX - sw.ax;
   let dy = e.clientY - sw.ay;
@@ -469,7 +470,7 @@ window.addEventListener('pointerup', (e) => {
   const tx = e.clientX - sw.sx;
   const ty = e.clientY - sw.sy;
   sw = null;
-  if (phase !== 'play') return;
+  if (phase !== 'play' || paused) return;
   if (dt < 300 && ty < -50 && -ty > Math.abs(tx) * 1.5) usePower();
   else if (dt < 250 && ty > 50 && ty > Math.abs(tx) * 1.5) hardDrop(game);
   else if (Math.hypot(tx, ty) < 12) rotate(game);
@@ -487,17 +488,55 @@ const KEYS = {
   Enter: usePower,
 };
 window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') return paused ? closeHome() : openHome();
   const k = KEYS[e.key];
-  if (!k || phase !== 'play') return;
+  if (!k || phase !== 'play' || paused) return;
   e.preventDefault();
   k();
 });
 
 // ---------- loop ----------
 
-$('legend').innerHTML = LEGEND
-  .map(([k, label]) => `<span><i style="background:${BASE[k]}"></i>${label}</span>`)
+// ---------- home screen ----------
+
+// Full sentences here: the home screen scrolls, so there is room to explain.
+const HOW_IT_GOES = [
+  ['fire', 'Fire never goes out on its own. Water puts it out, and both drain away.'],
+  ['water', 'Water puts out fire, turns sand to mud, and soaks wood.'],
+  ['wood', 'Wood burns away next to fire. Soak it with water twice and it dissolves.'],
+  ['wetwood', 'Wet wood steams next to fire, then dries and burns. More water dissolves it.'],
+  ['ice', 'Fire melts ice into water. Water sitting next to ice freezes into it.'],
+  ['sand', 'Water turns sand into mud. Fire melts sand into glass.'],
+  ['mud', 'Mud sinks away on its own. Fire bakes it into brick.'],
+  ['glass', 'Slam a piece onto glass, or drop stone on it, and the whole pane smashes.'],
+  ['brick', 'Brick is heavy. Water wears it down to sand.'],
+  ['stone', 'Stone is the hardest to clear. Water wears it down, very slowly.'],
+];
+
+$('legend').innerHTML = HOW_IT_GOES
+  .map(([k, text]) => `<li><i style="background:${BASE[k]}"></i><span><b>${NAME[k]}</b> ${text}</span></li>`)
   .join('');
+$('powers').innerHTML = Object.values(POWERS)
+  .map((p) => `<li><b>${p.label}</b> clears all ${p.clears.map((m) => NAME[m].toLowerCase()).join(', ')}.</li>`)
+  .join('');
+
+function openHome() {
+  paused = true;
+  sw = null;
+  $('homeLevel').textContent = `Level ${level}`;
+  $('homeFt').textContent = `${altitude(level)} ft up`;
+  $('home').hidden = false;
+  $('home').scrollTop = 0;
+}
+
+function closeHome() {
+  paused = false;
+  $('home').hidden = true;
+  fit();
+}
+
+$('homeBtn').onclick = openHome;
+$('playBtn').onclick = closeHome;
 
 function celebrate() {
   // Everything left on the board shatters and falls away.
@@ -529,6 +568,9 @@ window.addEventListener('resize', fit);
 
 startLevel(level);
 fit();
+// ?debug skips the home screen so tests land straight in the game.
+if (new URLSearchParams(location.search).has('debug')) closeHome();
+else openHome();
 
 // ?debug in the URL exposes the live game for testing in the browser console.
 if (new URLSearchParams(location.search).has('debug')) {
@@ -539,7 +581,9 @@ let last = performance.now();
 function frame(ts) {
   const dt = Math.min(0.1, (ts - last) / 1000);
   last = ts;
-  if (phase === 'play') {
+  if (paused) {
+    // Waiting behind the home screen.
+  } else if (phase === 'play') {
     update(game, dt);
     handleEvents();
     if (game.state === 'win') celebrate();
