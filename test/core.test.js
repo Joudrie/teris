@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   createGame, physics, hardDrop, rotate, landingY, emptyGrid,
-  altitude, fallSpeed, targetLines, H, W,
+  altitude, fallSpeed, targetLines, pickMaterial, H, W,
 } from '../src/core.js';
 
 // Fixed random source so every test is deterministic. 0.9 always picks stone for spawns
@@ -139,4 +139,11 @@ test('rotate keeps the piece in bounds and on the board', () => {
   rotate(g);
   assert.equal(g.piece.cells.length, 4);
   for (const [a] of g.piece.cells) assert.ok(g.piece.x + a >= 0 && g.piece.x + a < W);
+});
+
+test('glass and brick are in the spawn pool', () => {
+  const seen = new Set();
+  for (let i = 0; i < 1000; i++) seen.add(pickMaterial(() => i / 1000));
+  assert.ok(seen.has('glass'));
+  assert.ok(seen.has('brick'));
 });

@@ -5,8 +5,8 @@ export const H = 15;
 export const TOTAL_LEVELS = 100;
 export const PHYS_STEP = 0.12;
 
-// Piece materials and their spawn weights (percent).
-const WEIGHTS = { water: 30, wood: 20, ice: 15, sand: 15, stone: 20 };
+// Piece materials and their relative spawn weights.
+const WEIGHTS = { water: 30, wood: 20, ice: 15, sand: 15, stone: 20, glass: 5, brick: 5 };
 
 // The seven standard tetrominoes as [x, y] offsets, y pointing down.
 const SHAPES = [
@@ -47,8 +47,10 @@ export function emptyGrid() {
   return Array.from({ length: H }, () => Array(W).fill(null));
 }
 
-function pickMaterial(rand) {
-  let r = rand() * 100;
+// Weighted pick. Weights are relative, so they don't need to sum to 100.
+export function pickMaterial(rand) {
+  const total = Object.values(WEIGHTS).reduce((a, b) => a + b, 0);
+  let r = rand() * total;
   for (const m of Object.keys(WEIGHTS)) {
     r -= WEIGHTS[m];
     if (r < 0) return m;
