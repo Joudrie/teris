@@ -22,11 +22,16 @@ const RIGID = new Set(['stone', 'ice', 'glass', 'brick', 'wood', 'wetwood', 'fir
 const FLOATS = new Set(['wood', 'wetwood']);
 
 // Seconds a particle must touch fire before it changes. A cell is 4 particles deep.
-const BURN = { wood: 0.75, wetwood: 0.75, ice: 0.375, sand: 0.5, mud: 0.75 };
+const BURN = { wood: 0.75, wetwood: 0.75, ice: 0.375, sand: 0.25, mud: 0.75 };
 // Seconds a particle must touch water before it erodes into sand. Stone is meant to be hard.
 const ERODE = { brick: 3, stone: 8 };
 const FREEZE_TIME = 0.75;
 const WASH_TIME = 0.5; // seconds of water contact before mud washes away
+// Reactions spread through a clump instead of stopping at the surface:
+const HOT_TIME = 0.6; // fresh glass stays hot this long and melts the sand it touches
+const GLASS_DEPTH = 2 * S; // how far a melt spreads from the fire, in particles
+const MUD_WET = S; // water turns sand into mud about one cell deep
+const MUD_LIFE = 1.2; // mud sinks away on its own after this many seconds
 
 // The seven four-cell shapes as [x, y] cell offsets, y pointing down.
 const SHAPES = [
@@ -344,6 +349,32 @@ function flood(g, dt) {
   }
 }
 
+// Id of a touching particle of the same material, so new particles join that block.
+function joinId(g, x, y, m) {
+  for (const [u, v] of N4) {
+    const n = at(g, x + u, y + v);
+    if (n && n.m === m) return n.id;
+  }
+  return ++g.nextId;
+}
+
+// What is melting this sand: 0 for fire, otherwise one more than the hot glass next to it.
+// -1 when nothing hot is touching it or the melt has spread as far as it goes.
+function meltDepth(g, x, y) {
+  let best = -1;
+  for (const [u, v] of N4) {
+    const n = at(g, x + u, y + v);
+    if (!n) continue;
+    if (n.m === 'fire') return 0;
+    if (n.m === 'glass' && n.hot > 0 && n.depth < GLASS_DEPTH && (best < 0 || n.depth + 1 < best)) best = n.depth + 1;
+  }
+  return best;
+}
+
+function mud(g, wet) {
+  return { ...part(g, 'mud'), wet, life: 0 };
+}
+
 // Fire, ice and water reactions. Fire never spreads and never burns out; only water puts it out.
 function react(g, dt) {
   for (let y = 0; y < GH; y++) {
@@ -367,11 +398,33 @@ function react(g, dt) {
       if (c.m === 'water') {
         if (nextTo(g, x, y, 'ice')) {
           c.frz += dt;
-          if (c.frz >= FREEZE_TIME) g.grid[y][x] = part(g, 'ice');
+          if (c.frz >= FREEZE_TIME) g.grid[y][x] = part(g, 'ice', joinId(g, x, y, 'ice'));
         } else {
           c.frz = 0;
         }
         continue;
+      }
+
+      if (c.m === 'glass') {
+        if (c.hot > 0) c.hot -= dt;
+        continue;
+      }
+
+      if (c.m === 'mud') {
+        // Fresh mud soaks into the sand it touches, so a splash turns a chunk to mud.
+        if (c.wet > 0) {
+          for (const [u, v] of N4) {
+            if (at(g, x + u, y + v)?.m === 'sand') g.grid[y + v][x + u] = mud(g, c.wet - 1);
+          }
+          c.wet = 0;
+        }
+        // Mud sinks away on its own.
+        c.life = (c.life || 0) + dt;
+        if (c.life >= MUD_LIFE) {
+          g.grid[y][x] = null;
+          drain(g, 1);
+          continue;
+        }
       }
 
       // Water washes mud away: both drain.
@@ -404,7 +457,8 @@ function react(g, dt) {
 
       const limit = BURN[c.m];
       if (limit === undefined) continue;
-      if (!nextTo(g, x, y, 'fire')) {
+      const depth = c.m === 'sand' ? meltDepth(g, x, y) : (nextTo(g, x, y, 'fire') ? 0 : -1);
+      if (depth < 0) {
         c.heat = 0;
         continue;
       }
@@ -427,9 +481,13 @@ function react(g, dt) {
         case 'ice': // melts into water
           g.grid[y][x] = part(g, 'water');
           break;
-        case 'sand': // melts into glass
-          g.grid[y][x] = part(g, 'glass');
+        case 'sand': { // melts into hot glass, which melts the sand next to it: one pane
+          const glass = part(g, 'glass', joinId(g, x, y, 'glass'));
+          glass.hot = HOT_TIME;
+          glass.depth = depth;
+          g.grid[y][x] = glass;
           break;
+        }
         case 'mud': // bakes into brick
           g.grid[y][x] = part(g, 'brick');
           break;
@@ -554,7 +612,7 @@ function sand(g, moved, x, y) {
   const below = at(g, x, y + 1);
   if (below && below.m === 'water') {
     // Sand and water pack down into one particle of mud; the sand drains.
-    g.grid[y + 1][x] = part(g, 'mud');
+    g.grid[y + 1][x] = mud(g, MUD_WET);
     g.grid[y][x] = null;
     drain(g, 1);
     return;
@@ -582,6 +640,14 @@ function water(g, moved, x, y) {
       g.grid[n[1]][n[0]] = null;
       drain(g, 2);
     }
+    return;
+  }
+  // Water touching sand from any side turns it to mud and is used up.
+  const sandAt = N4.map(([u, v]) => [x + u, y + v]).find(([nx, ny]) => at(g, nx, ny)?.m === 'sand');
+  if (sandAt) {
+    g.grid[sandAt[1]][sandAt[0]] = mud(g, MUD_WET);
+    g.grid[y][x] = null;
+    drain(g, 1);
     return;
   }
   if (free(g, x, y + 1)) return mv(g, moved, x, y, x, y + 1);

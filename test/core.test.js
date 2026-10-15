@@ -115,17 +115,58 @@ test('water washes mud away', () => {
   assert.equal(g.drained, 2);
 });
 
-test('sand landing on water turns into mud', () => {
+test('sand meeting water turns into mud, and the mud sinks away', () => {
   const g = setup();
   put(g, 5, GH - 1, 'water');
   put(g, 4, GH - 1, 'stone');
   put(g, 6, GH - 1, 'stone');
   put(g, 5, GH - 2, 'sand');
   tick(g, DT);
-  assert.equal(g.grid[GH - 1][5].m, 'mud');
-  assert.equal(g.grid[GH - 2][5], null);
+  assert.equal(count(g, 'sand') + count(g, 'water'), 0);
+  assert.equal(count(g, 'mud'), 1);
+  run(g, 1.5);
+  assert.equal(count(g, 'mud'), 0);
+  assert.equal(g.drained, 2);
 });
 
+test('a splash of water turns a chunk of sand into mud, not just the surface', () => {
+  const g = setup();
+  for (let y = GH - 8; y < GH; y++) for (let x = 0; x < GW; x++) put(g, x, y, 'sand');
+  put(g, 20, GH - 9, 'water');
+  tick(g, DT);
+  tick(g, DT);
+  let deepest = 0;
+  for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) if (g.grid[y][x]?.m === 'mud') deepest = Math.max(deepest, y - (GH - 8));
+  assert.ok(count(g, 'mud') > 8, `mud ${count(g, 'mud')}`);
+  assert.ok(deepest >= S - 1, `deepest ${deepest}`);
+});
+
+test('fire melts a sand clump into one glass pane that a slam smashes whole', () => {
+  const g = setup();
+  for (let y = GH - 8; y < GH; y++) for (let x = 0; x < 12; x++) put(g, x, y, 'sand');
+  for (let y = GH - 8; y < GH; y++) put(g, 12, y, 'fire');
+  block(g, 13, GH - 8, 27, 8, 'stone'); // the right side stays out of it
+  run(g, 4);
+  const glass = g.grid.flat().filter((c) => c && c.m === 'glass');
+  assert.ok(glass.length >= 8 * 8, `glass ${glass.length}`);
+  assert.equal(new Set(glass.map((c) => c.id)).size, 1, 'one pane');
+  // Slam a piece onto the pane.
+  for (let y = 0; y < GH - 8; y++) for (let x = 0; x < 16; x++) g.grid[y][x] = null;
+  g.piece = { m: 'brick', cells: [[0, 0], [1, 0]], x: 0, y: 0 };
+  const before = g.drained;
+  hardDrop(g);
+  assert.ok(g.drained - before >= glass.length - 16, `smashed ${g.drained - before} of ${glass.length}`);
+});
+
+test('water that freezes joins the ice block it touches', () => {
+  const g = setup();
+  const id = block(g, 0, GH - 1, 4, 1, 'ice');
+  put(g, 4, GH - 1, 'water');
+  put(g, 5, GH - 1, 'stone');
+  run(g, 1);
+  assert.equal(g.grid[GH - 1][4].m, 'ice');
+  assert.equal(g.grid[GH - 1][4].id, id);
+});
 test('water soaks into wood and drains', () => {
   const g = setup();
   put(g, 4, GH - 1, 'wood');

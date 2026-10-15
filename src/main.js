@@ -21,9 +21,9 @@ const LEGEND = [
   ['wood', 'Wood: burns in fire, soak it twice to dissolve'],
   ['wetwood', 'Wet wood: more water dissolves it, fire steams then burns it'],
   ['ice', 'Ice: fire melts it to water'],
-  ['sand', 'Sand: fire makes glass, water makes mud'],
-  ['glass', 'Glass: slam it to smash it away'],
-  ['mud', 'Mud: water washes it away, fire bakes it to brick'],
+  ['sand', 'Sand: water turns a chunk to mud, fire melts a chunk to glass'],
+  ['glass', 'Glass: slam it and the whole pane smashes away'],
+  ['mud', 'Mud: sinks away by itself, fire bakes it to brick'],
   ['brick', 'Brick: water wears it to sand'],
   ['stone', 'Stone: water wears it down, slowly'],
 ];
