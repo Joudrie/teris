@@ -10,10 +10,11 @@
 <body>
   <div class="wrap">
     <div class="hud">
-      <button id="homeBtn" class="home-btn" aria-label="Home">&#8962;</button>
+      <button id="homeBtn" class="icon-btn" aria-label="Home">&#8962;</button>
       <b id="lvl">Level 1</b>
       <span class="now">Now <b id="nowName">–</b></span>
       <span class="next">Next <b id="nextName">Water</b> <canvas id="nx" width="56" height="42"></canvas></span>
+      <button id="muteBtn" class="icon-btn" aria-label="Mute sound">&#128266;</button>
     </div>
     <div class="tip" id="tip"></div>
     <div class="meter">
@@ -22,7 +23,10 @@
     </div>
     <div class="banner" id="banner" hidden></div>
     <div class="stage">
-      <canvas id="cv" aria-label="Game board"></canvas>
+      <div class="board">
+        <canvas id="cv" aria-label="Game board"></canvas>
+        <button class="callout" id="callout" hidden></button>
+      </div>
       <div class="drain" aria-label="Drain progress">
         <b id="drainNum">0</b>
         <div class="drain-bar"><i id="drainBar"></i></div>
@@ -39,6 +43,7 @@
       <b id="homeLevel">Level 1</b>
       <small id="homeFt">100 ft up</small>
     </button>
+    <button class="daily" id="dailyBtn">Daily challenge <small id="dailyInfo"></small></button>
     <section>
       <h2>How to play</h2>
       <p>Pieces made of different materials fall from the top. Put materials next to the ones that cancel them out. Whatever cancels drains away and fills the bar beside the board. Fill the bar to clear the level and drop 1 ft down the tower. If the board fills to the top, you lose.</p>
@@ -61,15 +66,17 @@
     </section>
     <section>
       <h2>Two-material pieces</h2>
-      <p>From level 4 some pieces are half one material and half another. Rotate them so each half lands next to what cancels it.</p>
+      <p>From level 8 some pieces are half one material and half another. Rotate them so each half lands next to what cancels it.</p>
     </section>
   </div>
 
   <div class="over" id="over" hidden>
     <h2 id="ovT"></h2>
     <div id="ovS"></div>
-    <button id="ovA"></button>
+    <div class="ov-next" id="ovN"></div>
+    <button id="ovA" class="primary"></button>
     <button id="ovB"></button>
+    <button id="ovC" class="link"></button>
   </div>
 
   <div class="over ad" id="ad" hidden>

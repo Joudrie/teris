@@ -20,12 +20,13 @@ const SLAM_DROP = 3 * S; // falling this far onto glass smashes it
 // Solid materials keep their piece together and move as one rigid block.
 // Water and sand are loose particles; mud stays put.
 const RIGID = new Set(['stone', 'ice', 'glass', 'brick', 'wood', 'wetwood', 'fire']);
-const FLOATS = new Set(['wood', 'wetwood']);
 
 // Seconds a particle must touch fire before it changes. A cell is 4 particles deep.
-const BURN = { wood: 0.75, wetwood: 0.75, ice: 0.375, sand: 0.25, mud: 0.75 };
-// Seconds a particle must touch water before it erodes into sand. Stone is meant to be hard.
-const ERODE = { brick: 3, stone: 8 };
+const BURN = { wood: 0.75, wetwood: 0.75, ice: 0.375, sand: 0.25 };
+// Seconds a particle must touch water before it erodes into sand. Like burning, erosion
+// passes through the rest of the piece, so a soaked stone crumbles into a heap of sand,
+// which the next water turns to mud.
+const ERODE = { brick: 0.6, stone: 1.2 };
 const FREEZE_TIME = 0.75;
 const WASH_TIME = 0.5; // seconds of water contact before mud washes away
 // Reactions spread through a clump instead of stopping at the surface:
@@ -35,7 +36,7 @@ const MUD_WET = 2; // water turns sand into mud about half a cell deep
 const MUD_LIFE = 1.2; // mud sinks away on its own after this many seconds
 
 // The seven four-cell shapes as [x, y] cell offsets, y pointing down.
-const SHAPES = [
+export const SHAPES = [
   [[0, 0], [1, 0], [2, 0], [3, 0]],
   [[0, 0], [1, 0], [0, 1], [1, 1]],
   [[0, 0], [1, 0], [2, 0], [1, 1]],
@@ -50,6 +51,7 @@ const N4 = [[0, 1], [1, 0], [-1, 0], [0, -1]];
 // Altitude is 101 - level: level 1 is 100 ft, level 100 is ground.
 export const altitude = (level) => 101 - level;
 export const fallSpeed = (level) => Math.max(0.12, 0.45 - level * 0.004); // seconds per cell
+const speedOf = (g) => g.cfg.speed || fallSpeed(g.level);
 const SPAWN_X = Math.floor((COLS - 4) / 2);
 
 export function createGame({ level = 1, rand = Math.random, config = levelConfig(level) } = {}) {
@@ -63,7 +65,11 @@ export function createGame({ level = 1, rand = Math.random, config = levelConfig
     state: 'play', // 'play' | 'win' | 'lose'
     drained: 0, // particles destroyed by reactions and powers: the level goal
     doused: 0, // fire particles put out by water
-    meter: 0, // 0..1, full fires the level's power
+    burned: 0, // wood particles burned away
+    melted: 0, // ice particles melted
+    smashed: 0, // glass panes smashed
+    powers: 0, // powers fired this level
+    meter: Math.min(1, Math.max(0, config.meter || 0)), // 0..1, full fires the level's power
     combo: 0, // particles drained in the current combo
     comboTimer: 0,
     mult: 1,
@@ -76,12 +82,12 @@ export function createGame({ level = 1, rand = Math.random, config = levelConfig
     riseAcc: 0,
     nextId: 0,
     bag: [], // pieces left in the current shuffled bag
-    falls: new Map(), // rigid block id -> rows fallen without stopping
+    queue: [...(config.first || [])], // set pieces dealt before the bag (a level's lesson)
     panes: new Map(), // fire block id -> id of the glass pane that fire is melting
     mask: new Set(), // particles covered by the falling piece
     events: [], // drained by the renderer for effects
   };
-  if (config.mode === 'prefill') prefill(g);
+  for (const b of config.start || []) placeBlock(g, b);
   g.next = makeNext(g);
   spawn(g);
   return g;
@@ -121,10 +127,15 @@ const REACTS = {
   ice: ['fire', 'water'],
   sand: ['fire', 'water'],
 };
-const reacts = (a, b) => (REACTS[a] || []).includes(b);
+export const reacts = (a, b) => (REACTS[a] || []).includes(b);
 
 function makeNext(g) {
   const shape = SHAPES[Math.floor(g.rand() * SHAPES.length)];
+  if (g.queue.length) {
+    const q = g.queue.shift();
+    const [a, b] = Array.isArray(q) ? q : [q, q];
+    return { m: a, shape, mats: shape.map((_, i) => (i < 2 ? a : b)) };
+  }
   const m = drawMaterial(g);
   let m2 = m;
   if (g.rand() < (g.cfg.mixed || 0)) {
@@ -141,14 +152,14 @@ function makeNext(g) {
 // Material of each cell of a piece, in the same order as its cells.
 export const pieceMats = (p) => p.mats || p.cells.map(() => p.m);
 
-// Bottom two rows of the main material with one gap column, one block per column.
-function prefill(g) {
-  const gap = Math.floor(g.rand() * COLS);
-  for (let cx = 0; cx < COLS; cx++) {
-    if (cx === gap) continue;
-    const id = ++g.nextId;
-    for (let y = GH - 2 * S; y < GH; y++) {
-      for (let x = cx * S; x < cx * S + S; x++) g.grid[y][x] = part(g, g.cfg.main, id);
+// A starting-board block in cell units (y from the top). Solid blocks are one piece each;
+// sand and water are poured in loose.
+export function placeBlock(g, { m, x, y, w, h }) {
+  const id = ++g.nextId;
+  for (let py = y * S; py < (y + h) * S; py++) {
+    for (let px = x * S; px < (x + w) * S; px++) {
+      if (px < 0 || px >= GW || py < 0 || py >= GH) continue;
+      g.grid[py][px] = RIGID.has(m) ? part(g, m, id) : part(g, m);
     }
   }
 }
@@ -171,7 +182,7 @@ const at = (g, x, y) => (inb(x, y) ? g.grid[y][x] : undefined);
 const free = (g, x, y) => inb(x, y) && g.grid[y][x] === null && !g.mask.has(y * GW + x);
 const nextTo = (g, x, y, m) => N4.some(([u, v]) => at(g, x + u, y + v)?.m === m);
 
-function collide(g, cells, x, y) {
+export function collide(g, cells, x, y) {
   for (const [a, b] of cells) {
     const cx = x + a;
     if (cx < 0 || cx >= COLS) return true;
@@ -254,6 +265,7 @@ function lock(g) {
     }
   });
   if (overflow) return lose(g);
+  g.events.push({ type: 'land', slam: g.slam, cells: cells.map(([a, b]) => [x + a, y + b]) });
   // A slam smashes glass underneath; stone shatters glass even when placed gently.
   for (const [i, [a, b]] of cells.entries()) {
     if (!g.slam && mats[i] !== 'stone') continue;
@@ -280,6 +292,7 @@ function shatter(g, x, y) {
       }
     }
   }
+  g.smashed++;
   drain(g, cells.length);
   g.events.push({ type: 'shatter', cells });
 }
@@ -298,12 +311,29 @@ function drain(g, n, charge = true) {
   }
   if (charge) g.meter = Math.min(1, g.meter + (n * g.mult) / (g.cfg.meterPoints || METER_POINTS));
 
+  checkQuest(g);
+}
+
+// Side quest: one extra target per level. Done once, it tops up the power meter.
+export function questCount(g) {
   const q = g.cfg.quest;
-  if (!g.questDone && ((q.type === 'chain' && g.mult >= q.n) || (q.type === 'douse' && g.doused >= q.n * PIECE))) {
-    g.questDone = true;
-    g.meter = Math.min(1, g.meter + QUEST_BONUS);
-    g.events.push({ type: 'quest' });
+  if (!q) return 0;
+  switch (q.type) {
+    case 'chain': return g.bestChain;
+    case 'douse': return Math.floor(g.doused / PIECE);
+    case 'burn': return Math.floor(g.burned / PIECE);
+    case 'melt': return Math.floor(g.melted / PIECE);
+    case 'smash': return g.smashed;
+    default: return 0;
   }
+}
+
+function checkQuest(g) {
+  const q = g.cfg.quest;
+  if (!q || g.questDone || questCount(g) < q.n) return;
+  g.questDone = true;
+  g.meter = Math.min(1, g.meter + QUEST_BONUS);
+  g.events.push({ type: 'quest' });
 }
 
 // Whole pieces drained so far, and 0..1 progress toward the level goal.
@@ -323,7 +353,7 @@ function checkGoal(g) {
 export function update(g, dt) {
   if (g.state !== 'play') return;
   g.fallAcc += dt;
-  const step = fallSpeed(g.level) / S;
+  const step = speedOf(g) / S;
   while (g.fallAcc >= step && g.state === 'play') {
     g.fallAcc -= step;
     if (g.piece && !stepDown(g)) lock(g);
@@ -429,6 +459,14 @@ function burningNeighbor(g, x, y, c) {
   });
 }
 
+// A brick or stone particle next to one of its own piece that is well on the way to sand.
+function crumbling(g, x, y, c, limit) {
+  return N4.some(([u, v]) => {
+    const n = at(g, x + u, y + v);
+    return n && n.id === c.id && n.m === c.m && n.heat >= limit * 0.2;
+  });
+}
+
 function mud(g, wet) {
   return { ...part(g, 'mud'), wet, life: 0 };
 }
@@ -501,15 +539,15 @@ function react(g, dt) {
         }
       }
 
-      // Water slowly wears brick and stone down into sand.
+      // Water wears brick and stone down into sand, and the wear spreads through the piece.
       const erode = ERODE[c.m];
       if (erode !== undefined) {
-        if (!nextTo(g, x, y, 'water')) {
-          c.heat = 0;
-          continue;
-        }
+        if (!(c.heat > 0) && !nextTo(g, x, y, 'water') && !crumbling(g, x, y, c, erode)) continue;
         c.heat += dt;
-        if (c.heat >= erode) g.grid[y][x] = part(g, 'sand');
+        if (c.heat >= erode) {
+          g.grid[y][x] = part(g, 'sand');
+          g.events.push({ type: 'crumble', x, y });
+        }
         continue;
       }
 
@@ -533,6 +571,7 @@ function react(g, dt) {
       switch (c.m) {
         case 'wood': // burns away
           g.grid[y][x] = null;
+          g.burned++;
           drain(g, 1);
           g.events.push({ type: 'burn', x, y });
           break;
@@ -542,6 +581,8 @@ function react(g, dt) {
           break;
         case 'ice': // melts into water
           g.grid[y][x] = part(g, 'water');
+          g.melted++;
+          checkQuest(g);
           g.events.push({ type: 'steam', x, y });
           break;
         case 'sand': { // melts into hot glass, which melts the sand next to it: one pane
@@ -559,9 +600,6 @@ function react(g, dt) {
           joinGlass(g, x, y, glass.id);
           break;
         }
-        case 'mud': // bakes into brick
-          g.grid[y][x] = part(g, 'brick');
-          break;
         default:
           break;
       }
@@ -611,25 +649,22 @@ function rigid(g) {
     const own = new Set(cells.map(([x, y]) => y * GW + x));
     const mine = (x, y) => own.has(y * GW + x);
 
-    // Wood floats up through water when water covers its whole top.
-    if (cells.every(([x, y]) => FLOATS.has(g.grid[y][x].m))) {
-      const top = cells.filter(([x, y]) => !mine(x, y - 1));
-      if (top.every(([x, y]) => at(g, x, y - 1)?.m === 'water' && !g.mask.has((y - 1) * GW + x))) {
-        shift(g, cells, -1, mine);
-        continue;
-      }
-    }
-
     if (cells.every(([x, y]) => mine(x, y + 1) || free(g, x, y + 1))) {
       shift(g, cells, 1, mine);
-      g.falls.set(id, (g.falls.get(id) || 0) + 1);
+      // Each particle remembers how far it has fallen, so a piece that split in two
+      // tracks each half on its own, and nothing is left behind when a block is destroyed.
+      for (const [x, y] of cells) {
+        const c = g.grid[y + 1][x];
+        c.fall = (c.fall || 0) + 1;
+      }
       continue;
     }
 
     // Just landed: a long fall smashes glass, and stone always does.
-    const dropped = g.falls.get(id) || 0;
+    let dropped = 0;
+    for (const [x, y] of cells) dropped = Math.max(dropped, g.grid[y][x].fall || 0);
     if (dropped > 0) {
-      g.falls.delete(id);
+      for (const [x, y] of cells) g.grid[y][x].fall = 0;
       const stone = cells.some(([x, y]) => g.grid[y][x].m === 'stone');
       if (dropped >= SLAM_DROP || stone) {
         for (const [x, y] of cells) {
@@ -736,6 +771,7 @@ function water(g, moved, x, y) {
 export function activatePower(g) {
   if (g.state !== 'play' || g.meter < 1) return false;
   g.meter = 0;
+  g.powers++;
   const clears = new Set(POWERS[g.cfg.power].clears);
   const cells = [];
   for (let y = 0; y < GH; y++) {

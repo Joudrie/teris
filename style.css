@@ -269,7 +269,7 @@ body { padding-left: max(10px, env(safe-area-inset-left, 0px)); padding-right: m
 
 /* ---------- home button and home screen ---------- */
 
-.home-btn {
+.icon-btn {
   background: var(--panel);
   color: var(--fg);
   border: 1px solid var(--line);
@@ -336,3 +336,72 @@ body { padding-left: max(10px, env(safe-area-inset-left, 0px)); padding-right: m
 html, body { overflow: hidden; }
 body { box-sizing: border-box; }
 .home .legend li span { display: block; }
+
+/* ---------- callout, mute, daily, win preview ---------- */
+
+.board { position: relative; flex: none; }
+.callout {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 18%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 2px solid #ffd34d;
+  background: rgba(16, 18, 24, 0.86);
+  color: #fff;
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.3;
+  text-align: center;
+  cursor: pointer;
+  animation: callin 0.35s ease-out;
+}
+.callout[hidden] { display: none; }
+.callout b { color: #ffd34d; }
+.callout small { color: var(--muted); font-size: 11px; }
+@keyframes callin { from { transform: scale(0.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+.over .ov-next {
+  max-width: 300px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: #9fe6ff;
+  background: rgba(159, 230, 255, 0.08);
+  border: 1px solid rgba(159, 230, 255, 0.25);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+.over .ov-next:empty, .over .ov-next[hidden] { display: none; }
+.over h2 { font-size: 28px; }
+.over button.primary {
+  background: linear-gradient(160deg, #ff8a3d, #e0452b);
+  border: none;
+  color: #fff;
+  font-weight: 700;
+  font-size: 18px;
+  padding: 16px 24px;
+}
+.over button.link { background: none; border: 1px solid #ffd34d; color: #ffd34d; }
+
+.daily {
+  background: var(--panel);
+  color: #ffd34d;
+  border: 1px solid #ffd34d;
+  border-radius: 10px;
+  padding: 12px 20px;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.daily small { color: var(--muted); font-weight: 400; font-size: 12px; }
+.daily:disabled { opacity: 0.5; cursor: default; }

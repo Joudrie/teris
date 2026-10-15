@@ -1,5 +1,5 @@
-// Placeholder ad layer. No ad network is connected yet, so every ad is a short screen
-// clearly labeled as a test. Swap these functions for the real SDK calls later.
+// Placeholder ad layer. No ad network is connected yet: the session shows a short screen
+// clearly labelled as a test ad (see session.js, AD_TIME). Swap in the real SDK here later.
 
 const NOADS_KEY = 'mb_noads';
 
@@ -11,26 +11,3 @@ export function adsRemoved() {
     return false;
   }
 }
-
-function testAd(label, seconds) {
-  return new Promise((resolve) => {
-    const el = document.getElementById('ad');
-    const count = el.querySelector('.ad-count');
-    el.querySelector('.ad-label').textContent = label;
-    let left = seconds;
-    count.textContent = String(left);
-    el.hidden = false;
-    const timer = setInterval(() => {
-      left--;
-      count.textContent = String(left);
-      if (left <= 0) {
-        clearInterval(timer);
-        el.hidden = true;
-        resolve(true); // a real SDK reports whether the reward was earned
-      }
-    }, 1000);
-  });
-}
-
-export const showRewarded = (placement) => testAd(`Test rewarded ad: ${placement}`, 2);
-export const showInterstitial = () => testAd('Test interstitial ad', 2);

@@ -4,7 +4,7 @@ import {
   createGame, tick, hardDrop, softDrop, rotate, pieceMats, activatePower, revive, progress, piecesDrained, emptyGrid, drawMaterial,
   altitude, fallSpeed, GW, GH, S, PIECE,
 } from '../src/core.js';
-import { levelConfig, buildBag } from '../src/levels.js';
+import { levelConfig, buildBag, difficulty, HAND_LEVELS, POWERS } from '../src/levels.js';
 
 // Deterministic random source. 0.9 makes sideways moves try the left side first.
 const fixed = () => 0.9;
@@ -45,44 +45,60 @@ test('altitude and fall speed follow the spec', () => {
   assert.equal(fallSpeed(200), 0.12);
 });
 
-test('levels rotate themes and every pool has fire and water to cancel', () => {
-  assert.equal(levelConfig(1).power, 'blaze');
-  assert.equal(levelConfig(2).power, 'freeze');
-  assert.equal(levelConfig(1).goal.pieces, 15);
-  assert.ok(levelConfig(100).goal.pieces > 15);
-  for (let l = 1; l <= 4; l++) {
-    const bag = levelConfig(l).bag;
-    assert.ok(bag.includes('fire') && bag.includes('water'), `level ${l}`);
+test('every level can be cleared: fire and water in every bag, a known power', () => {
+  for (let l = 1; l <= 100; l++) {
+    const c = levelConfig(l);
+    assert.ok(c.bag.includes('fire') && c.bag.includes('water'), `level ${l}`);
+    assert.ok(POWERS[c.power], `level ${l} power`);
+    assert.ok(c.goal.pieces >= 10, `level ${l} goal`);
   }
-  const late = [...levelConfig(97).bag, ...levelConfig(98).bag, ...levelConfig(99).bag, ...levelConfig(100).bag];
-  for (const m of ['glass', 'brick', 'fire', 'wood', 'water', 'ice', 'sand', 'stone']) assert.ok(late.includes(m), m);
 });
 
+test('the first levels teach one material at a time', () => {
+  const firstSeen = {};
+  for (let l = 1; l <= HAND_LEVELS; l++) {
+    const c = levelConfig(l);
+    const mats = new Set([...c.bag, ...c.start.map((b) => b.m)]);
+    for (const m of mats) if (!(m in firstSeen)) firstSeen[m] = l;
+  }
+  assert.deepEqual(firstSeen, { fire: 1, water: 1, wood: 3, sand: 4, glass: 5, ice: 7, stone: 11, brick: 13 });
+  // Every level that brings in something new says so on the board.
+  for (const l of Object.values(firstSeen)) assert.ok(levelConfig(l).intro, `level ${l} has a callout`);
+  assert.ok(levelConfig(8).intro.includes('TWO-MATERIAL'));
+  assert.equal(levelConfig(7).mixed, 0);
+});
+
+test('no level is a copy of the one before it', () => {
+  const sig = (c) => JSON.stringify([c.bag.slice().sort(), c.start, c.mode, c.quest, c.power, c.goal]);
+  for (let l = 2; l <= 100; l++) assert.notEqual(sig(levelConfig(l)), sig(levelConfig(l - 1)), `level ${l}`);
+});
+
+test('showcase levels come every five levels from 5', () => {
+  for (let l = 5; l <= 100; l += 5) assert.ok(levelConfig(l).showcase, `level ${l}`);
+});
 const tally = (bag) => bag.reduce((t, m) => ({ ...t, [m]: (t[m] || 0) + 1 }), {});
 
-test('bags have fewer cancellers than troublemakers, and get harder', () => {
-  const cancellers = (bag) => bag.filter((m) => m === 'fire' || m === 'water').length;
-  const early = buildBag(1, 'wood');
-  assert.deepEqual(tally(early), { fire: 2, water: 3, wood: 2, sand: 1, ice: 1, glass: 1 });
-  assert.ok(cancellers(early) <= early.length - cancellers(early)); // even split while learning
-  const mid = buildBag(20, 'wood');
-  assert.ok(cancellers(mid) < mid.length - cancellers(mid)); // fewer cancellers from level 11
-  assert.equal(tally(buildBag(20, 'wood')).water, 2);
-  assert.equal(tally(buildBag(20, 'wood')).stone, 1);
-  assert.equal(tally(buildBag(20, 'wood')).fire, 1);
-  assert.equal(tally(buildBag(50, 'wood')).stone, 2);
-  assert.equal(tally(buildBag(60, 'wood')).brick, 1);
-  assert.ok(cancellers(buildBag(80, 'wood')) / buildBag(80, 'wood').length < cancellers(early) / early.length);
+test('generated bags get harder: fewer cancellers, more stone', () => {
+  const ratio = (bag) => bag.filter((m) => m === 'fire' || m === 'water').length / bag.length;
+  assert.ok(ratio(buildBag(12, 'wood')) < ratio(buildBag(5, 'wood')));
+  assert.ok(buildBag(12, 'wood').filter((m) => m === 'stone').length === 2);
+  assert.ok(buildBag(12, 'wood').includes('brick'));
+  // Difficulty climbs in a sawtooth: every block of five has a breather.
+  for (let l = 25; l < 95; l += 5) {
+    const d = [0, 1, 2, 3, 4].map((k) => difficulty(l + 1 + k));
+    assert.ok(d[2] < d[1], `breather at ${l + 3}`);
+    assert.ok(difficulty(l + 5 + 1) > difficulty(l + 1) - 1e-9, `rising from ${l + 1}`);
+  }
 });
-
 test('helping hand adds one fire and one water to the bag', () => {
-  const base = tally(buildBag(1, 'wood'));
-  const help = tally(buildBag(1, 'wood', true));
-  assert.equal(help.fire, base.fire + 1);
-  assert.equal(help.water, base.water + 1);
-  assert.equal(help.wood, base.wood);
+  for (const l of [1, 9, 40]) {
+    const base = tally(levelConfig(l).bag);
+    const help = tally(levelConfig(l, { help: true }).bag);
+    assert.equal(help.fire, base.fire + 1);
+    assert.equal(help.water, base.water + 1);
+    assert.equal(help.wood, base.wood);
+  }
 });
-
 test('pieces come out of the bag with the exact mix every time', () => {
   let r = 0.37;
   const rand = () => (r = ((r * 9301 + 49297) % 233280) / 233280);
@@ -193,7 +209,7 @@ test('a piece of fire and a piece of water drain two blocks on the bar', () => {
   const g = setup();
   block(g, 0, GH - 8, 8, 8, 'fire');
   for (let y = GH - 8; y < GH; y++) for (let x = 8; x < 16; x++) put(g, x, y, 'water');
-  block(g, 16, GH - 8, 4, 8, 'stone'); // wall so the water can't run off
+  block(g, 16, GH - 8, 4, 8, 'glass'); // wall so the water can't run off
   run(g, 10);
   assert.equal(count(g, 'fire'), 0);
   assert.equal(count(g, 'water'), 0);
@@ -210,18 +226,17 @@ test('sand landing on water drains into mud', () => {
   assert.equal(g.drained, 1);
 });
 
-test('water wears stone down to sand, slowly', () => {
+test('water wears stone down to sand, and the wear spreads through the piece', () => {
   const g = setup();
-  put(g, 3, GH - 1, 'stone');
-  put(g, 4, GH - 1, 'stone');
-  put(g, 5, GH - 1, 'water');
-  put(g, 6, GH - 1, 'stone');
+  block(g, 0, GH - 4, 8, 4, 'stone');
+  put(g, 8, GH - 1, 'water');
+  block(g, 9, GH - 4, 2, 4, 'glass');
+  run(g, 0.9);
+  assert.equal(count(g, 'stone'), 32);
   run(g, 4);
-  assert.equal(g.grid[GH - 1][4].m, 'stone');
-  run(g, 4.2);
-  assert.equal(g.grid[GH - 1][4].m, 'sand');
+  assert.equal(count(g, 'stone'), 0); // the whole piece crumbled, not just the wet face
+  assert.ok(count(g, 'sand') + count(g, 'mud') > 0);
 });
-
 test('fire against a wood piece burns the whole piece, not one column', () => {
   const g = setup();
   block(g, 0, GH - 4, 40, 4, 'stone');
@@ -291,21 +306,20 @@ test('fire never burns out on its own and does not spread', () => {
   assert.equal(g.grid[GH - 1][7].m, 'wood'); // wood not touching fire is untouched
 });
 
-test('fire melts sand to glass, bakes mud to brick, melts ice', () => {
+test('fire melts sand to glass and melts ice, and leaves mud alone', () => {
   const g = setup();
   put(g, 10, GH - 1, 'sand');
   put(g, 11, GH - 1, 'fire');
   put(g, 12, GH - 1, 'mud');
-  put(g, 19, GH - 1, 'stone');
+  put(g, 19, GH - 1, 'glass');
   put(g, 20, GH - 1, 'ice');
   put(g, 21, GH - 1, 'fire');
-  put(g, 22, GH - 1, 'stone');
-  run(g, 1);
+  put(g, 22, GH - 1, 'glass');
+  run(g, 0.9);
   assert.equal(g.grid[GH - 1][10].m, 'glass');
-  assert.equal(g.grid[GH - 1][12].m, 'brick');
+  assert.equal(g.grid[GH - 1][12].m, 'mud');
   assert.notEqual(g.grid[GH - 1][20]?.m, 'ice');
 });
-
 test('wet wood steams first, then dries and burns', () => {
   const g = setup();
   put(g, 4, GH - 1, 'fire');
@@ -405,9 +419,9 @@ test('two-material pieces keep each half as its own material, even after rotatin
   assert.ok(mats.has('fire') && mats.has('wood'));
 });
 
-test('mixed pieces start at level 4', () => {
-  assert.equal(levelConfig(3).mixed, 0);
-  assert.ok(levelConfig(4).mixed > 0);
+test('mixed pieces start at level 8', () => {
+  assert.equal(levelConfig(7).mixed, 0);
+  assert.ok(levelConfig(8).mixed > 0);
   let seed = 12345; // mulberry32, a small seeded generator with no short cycles
   const rand = () => {
     seed = (seed + 0x6d2b79f5) | 0;
@@ -445,7 +459,7 @@ test('side quest gives meter charge once', () => {
   const g = setup({ quest: { type: 'douse', n: 1 } });
   block(g, 0, GH - 8, 8, 8, 'fire');
   for (let y = GH - 8; y < GH; y++) for (let x = 8; x < 16; x++) put(g, x, y, 'water');
-  block(g, 16, GH - 8, 4, 8, 'stone');
+  block(g, 16, GH - 8, 4, 8, 'glass');
   run(g, 10);
   assert.ok(g.questDone);
   assert.ok(g.meter >= 0.35);

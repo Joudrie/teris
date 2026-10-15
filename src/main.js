@@ -1,10 +1,17 @@
+// The view: draws the session and turns touches into inputs. All game and screen logic
+// lives in session.js and core.js.
+
+import { pieceMats, landingY, progress, piecesDrained, COLS, GW, GH, S, altitude } from './core.js';
+import { POWERS, questText } from './levels.js';
 import {
-  createGame, update, move, softDrop, hardDrop, rotate, landingY, activatePower, revive, progress,
-  piecesDrained, pieceMats, COLS, GW, GH, S, TOTAL_LEVELS, altitude,
-} from './core.js';
-import { levelConfig, POWERS } from './levels.js';
+  createSession, step, input, live, next, replay, watchRevive, watchMeterAd, meterAdAvailable, openHome,
+  closeHome, startDaily, dismissCallout, winScreen, loseScreen, homeInfo, dailyReady, start, CELEBRATE_TIME,
+} from './session.js';
+import { questCount } from './core.js';
 import { drawScenery } from './scenery.js';
-import { showRewarded, showInterstitial, adsRemoved } from './ads.js';
+import { adsRemoved } from './ads.js';
+import { initSound, setMuted, isMuted, unlock, play } from './sound.js';
+import { validate, createValidator } from './validate.js';
 
 const BASE = {
   water: '#3f8ee3', wood: '#c0813f', wetwood: '#5f4a33', ice: '#b5ecfa', sand: '#dcb66b',
@@ -14,19 +21,6 @@ const NAME = {
   water: 'Water', wood: 'Wood', wetwood: 'Wet wood', ice: 'Ice', sand: 'Sand', stone: 'Stone',
   mud: 'Mud', glass: 'Glass', brick: 'Brick', fire: 'Fire',
 };
-// How each material goes away, short enough to fit two columns on a phone.
-const LEGEND = [
-  ['fire', 'Fire: water'],
-  ['water', 'Water: fire, sand, wood'],
-  ['wood', 'Wood: fire, or water twice'],
-  ['wetwood', 'Wet wood: water or fire'],
-  ['ice', 'Ice: fire melts it'],
-  ['sand', 'Sand: water or fire'],
-  ['glass', 'Glass: slam it'],
-  ['mud', 'Mud: sinks by itself'],
-  ['brick', 'Brick: water, slowly'],
-  ['stone', 'Stone: water, very slowly'],
-];
 // One-line tip for the next piece.
 const TIP = {
   fire: 'drop water on it to put it out, or set it by wood and ice',
@@ -35,10 +29,13 @@ const TIP = {
   ice: 'put it next to fire to melt it',
   sand: 'wet it to make mud, or melt it with fire into glass',
   glass: 'slam a piece onto it to smash it',
-  stone: 'hard to clear: water wears it down slowly',
-  brick: 'hard to clear: water wears it down',
+  stone: 'heavy: smashes glass. Water wears it down',
+  brick: 'water wears it down into sand',
 };
-const POWER_COLOR = { blaze: '#ff7a1a', freeze: '#9fe6ff', sweep: '#f0c060', hammer: '#ffffff' };
+const POWER_COLOR = { rain: '#7fc4ff', blaze: '#ff7a1a', freeze: '#9fe6ff', sweep: '#f0c060', hammer: '#ffffff' };
+
+const params = new URLSearchParams(location.search);
+const DEBUG = params.has('debug');
 
 const $ = (id) => document.getElementById(id);
 const cv = $('cv');
@@ -95,102 +92,92 @@ function pixelColor(m, x, y, shade, ts) {
   return [r, g, b, a];
 }
 
-// ---------- persistence ----------
+// ---------- session ----------
 
-const store = {
-  get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
-  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* storage blocked */ } },
-};
+let storage = null;
+try { storage = window.localStorage; } catch (e) { storage = null; }
+const sess = createSession({ storage, adsRemoved });
+initSound(sess.store.get('mb_muted', false));
+if (params.has('level')) start(sess, +params.get('level'));
 
-// ---------- game state ----------
-
-let level = Math.min(TOTAL_LEVELS, Math.max(1, store.get('mb_level', 1)));
-let game;
-let phase = 'play'; // 'play' | 'celebrate' | 'won' | 'lost'
-let paused = true; // the home screen is open; the game waits behind it
-let celebrateT = 0;
-let meterAdUsed = false;
+let fx = { debris: [], puffs: [], popups: [], flash: null, shake: 0 };
 let lastHud = '';
 let lastDrained = 0;
-let fx = { debris: [], puffs: [], popups: [], flash: null, shake: 0 };
+let lastOverlay = '';
+let shownGame = null;
 
-function startLevel(l) {
-  level = l;
-  store.set('mb_level', l);
-  const losses = store.get(`mb_losses_${l}`, 0);
-  const cfg = levelConfig(l, { help: losses >= 3 });
-  game = createGame({ level: l, config: cfg });
-  phase = 'play';
-  meterAdUsed = false;
-  lastHud = '';
-  lastDrained = 0;
-  fx = { debris: [], puffs: [], popups: [], flash: null, shake: 0 };
-  $('over').hidden = true;
-
-  const notes = [];
-  if (cfg.help) notes.push('Helping hand: an extra fire and water in every bag this round.');
-  if (cfg.mode === 'flood') notes.push('Flood: water keeps rising. Freeze it, soak it up, or mud it.');
-  if (cfg.mode === 'prefill') notes.push('Burn through the wall.');
-  $('banner').textContent = notes.join(' ');
-  $('banner').hidden = notes.length === 0;
-}
+const game = () => sess.game;
 
 // ---------- overlays ----------
 
-function overlay(title, sub, a, b) {
-  $('ovT').textContent = title;
-  $('ovS').textContent = sub;
-  for (const [el, opt] of [[$('ovA'), a], [$('ovB'), b]]) {
+function setButtons(list) {
+  ['ovA', 'ovB', 'ovC'].forEach((id, i) => {
+    const el = $(id);
+    const opt = list[i];
     el.hidden = !opt;
-    if (opt) { el.textContent = opt[0]; el.onclick = opt[1]; }
-  }
-  $('over').hidden = false;
+    if (opt) {
+      el.textContent = opt[0];
+      el.onclick = () => { unlock(); play('tap'); opt[1](); };
+    }
+  });
 }
 
-function showWin() {
-  const last = level >= TOTAL_LEVELS;
-  overlay(
-    last ? 'You reached the ground' : 'Level cleared',
-    last ? 'All 100 levels cleared.' : `Drained ${piecesDrained(game)} blocks. Descending to ${altitude(level) - 1} ft.`,
-    [last ? 'Play again' : 'Next level', () => nextLevel(last ? 1 : level + 1)],
-    ['Replay this level', () => startLevel(level)],
-  );
-}
-
-// Interstitials: never in the first 5 levels, at most one every 2 levels, always after the celebration.
-async function nextLevel(l) {
-  $('over').hidden = true;
-  const since = store.get('mb_since_ad', 0) + 1;
-  if (level > 5 && since >= 2 && !adsRemoved()) {
-    await showInterstitial();
-    store.set('mb_since_ad', 0);
+// Shows whichever screen the session is on. Only touches the DOM when that changes.
+function overlays() {
+  const key = [sess.phase, sess.home, sess.ad && sess.ad.kind, sess.game.revived, game() === shownGame].join('|');
+  const adEl = $('ad');
+  if (sess.ad) {
+    adEl.hidden = false;
+    adEl.querySelector('.ad-label').textContent = sess.ad.kind === 'interstitial' ? 'Test interstitial ad' : `Test rewarded ad: ${sess.ad.kind === 'revive' ? 'revive' : 'fill power meter'}`;
+    adEl.querySelector('.ad-count').textContent = String(Math.max(1, Math.ceil(sess.ad.left)));
   } else {
-    store.set('mb_since_ad', since);
+    adEl.hidden = true;
   }
-  startLevel(l);
+  if (key === lastOverlay) return;
+  lastOverlay = key;
+  shownGame = game();
+
+  $('home').hidden = !sess.home;
+  if (sess.home) {
+    const h = homeInfo(sess);
+    $('homeLevel').textContent = `Level ${h.level}`;
+    $('homeFt').textContent = `${h.ft} ft up`;
+    $('dailyBtn').disabled = !h.dailyReady;
+    $('dailyInfo').textContent = h.dailyReady ? (h.streak ? `streak ${h.streak}` : 'new today') : 'done today ✓';
+  }
+
+  const over = $('over');
+  if (sess.phase === 'won') {
+    const w = winScreen(sess);
+    $('ovT').textContent = w.title;
+    $('ovS').textContent = `${w.drained} blocks drained. ${w.sub}`;
+    $('ovN').textContent = w.next;
+    $('ovN').hidden = false;
+    setButtons([
+      [w.nextLabel, () => next(sess)],
+      ['Replay this level', () => replay(sess)],
+      w.dailyReady && !sess.daily ? ['★ Daily challenge ready', () => startDaily(sess)] : null,
+    ]);
+    over.hidden = false;
+  } else if (sess.phase === 'lost') {
+    const l = loseScreen(sess);
+    $('ovT').textContent = l.title;
+    $('ovS').textContent = l.sub;
+    $('ovN').textContent = l.help ? 'Helping hand next try: an extra fire and water in every bag.' : '';
+    $('ovN').hidden = !l.help;
+    setButtons([
+      l.canRevive ? ['Watch ad: clear the top 4 rows', () => watchRevive(sess)] : null,
+      ['Retry level', () => replay(sess)],
+      null,
+    ]);
+    over.hidden = false;
+  } else {
+    over.hidden = true;
+  }
 }
 
-// Near-miss screen: shows the player's real progress, then offers the one revive.
-function showLose() {
-  const pct = Math.floor(progress(game) * 100);
-  store.set(`mb_losses_${level}`, store.get(`mb_losses_${level}`, 0) + 1);
-  overlay(
-    pct >= 70 ? 'So close!' : 'Tower topped out',
-    `You got ${pct}% of the goal.`,
-    game.revived ? null : ['Watch ad: clear the top 4 rows', async () => {
-      $('over').hidden = true;
-      if (await showRewarded('revive') && revive(game)) phase = 'play';
-      else showLose();
-    }],
-    ['Retry level', () => startLevel(level)],
-  );
-}
-
-$('meterAd').onclick = async () => {
-  if (meterAdUsed || phase !== 'play') return;
-  meterAdUsed = true;
-  if (await showRewarded('fill power meter')) game.meter = 1;
-};
+$('meterAd').onclick = () => { unlock(); watchMeterAd(sess); };
+$('callout').onclick = () => dismissCallout(sess);
 
 // ---------- effects ----------
 
@@ -214,44 +201,93 @@ function burst(cells, color, speed, max) {
   }
 }
 
-function popup(x, y, text, color = '#fff', size = 18) {
-  fx.popups.push({ x, y, text, color, size, life: 1, combo: text.startsWith('COMBO') });
+function popup(x, y, text, color = '#fff', size = 18, kind = '') {
+  if (kind) fx.popups = fx.popups.filter((p) => p.kind !== kind); // the newest of a kind replaces the last
+  fx.popups.push({ x, y, text, color, size, life: 1, kind });
 }
 
 function handleEvents() {
-  for (const e of game.events) {
+  for (const e of sess.events) {
     if (e.type === 'combo') {
-      fx.popups = fx.popups.filter((p) => !p.combo); // the newest combo replaces the last one
-      popup(cv.width / 2, cv.height * 0.25, `COMBO ×${e.mult}`, '#ffd34d', 18 + e.mult * 4);
+      popup(cv.width / 2, cv.height * 0.25, `COMBO ×${e.mult}`, '#ffd34d', 18 + e.mult * 4, 'combo');
       fx.shake = Math.max(fx.shake, 3 + e.mult * 2);
       if (e.mult >= 3) fx.flash = { color: '#ffd34d', life: 0.25 };
+      play('combo', e);
     } else if (e.type === 'shatter') {
       burst(e.cells.map(([x, y]) => [x, y, 'glass']), '#e8fffa', 220, 120);
       fx.shake = Math.max(fx.shake, 8);
       const [x, y] = cellsCenter(e.cells);
-      popup(x, y, 'SMASH!', '#e8fffa', 22);
+      popup(x, y, 'SMASH!', '#e8fffa', 24, 'smash');
+      play('shatter');
     } else if (e.type === 'steam') {
       fx.puffs.push({ x: (e.x + 0.5) * PX, y: e.y * PX, life: 1, smoke: false });
+      play('steam');
     } else if (e.type === 'burn') {
       fx.puffs.push({ x: (e.x + 0.5) * PX, y: e.y * PX, life: 1, smoke: true });
+      play('burn');
+    } else if (e.type === 'land') {
+      const cell = S * PX;
+      const [cx, cy] = e.cells.reduce(([a, b], [x, y]) => [a + x, Math.max(b, y)], [0, 0]);
+      const px = ((cx / e.cells.length) + 0.5) * cell;
+      const py = (cy / S + 1) * cell;
+      if (e.slam) {
+        fx.shake = Math.max(fx.shake, 5);
+        for (let i = 0; i < 10; i++) fx.puffs.push({ x: px + (Math.random() - 0.5) * cell * 2, y: py, life: 0.6, smoke: true });
+        popup(px, py - cell, 'SLAM', '#ffffff', 15, 'slam');
+        play('slam');
+      } else {
+        play('land');
+      }
     } else if (e.type === 'power') {
       const color = POWER_COLOR[e.power];
       burst(e.cells, color, 260, 700);
       fx.flash = { color, life: 0.6 };
       fx.shake = 16;
-      popup(cv.width / 2, cv.height / 2, `${POWERS[e.power].label.toUpperCase()}!  +${e.points}`, color, 30);
+      popup(cv.width / 2, cv.height / 2, `${POWERS[e.power].label.toUpperCase()}!  +${Math.floor(e.points / 64)}`, color, 30, 'power');
+      play('power');
     } else if (e.type === 'quest') {
-      popup(cv.width / 2, cv.height * 0.3, 'Side quest done! +power', '#7fdc8f', 18);
+      popup(cv.width / 2, cv.height * 0.32, 'Side quest done! +power', '#7fdc8f', 20, 'quest');
+      play('quest');
+    } else if (e.type === 'win') {
+      celebrate();
+      play('win');
+    } else if (e.type === 'lose') {
+      play('lose');
+    } else if (e.type === 'start') {
+      fx = { debris: [], puffs: [], popups: [], flash: null, shake: 0 };
+      lastDrained = 0;
+      lastHud = '';
+      if (sess.callout) play('callout');
     }
   }
-  game.events.length = 0;
+  sess.events.length = 0;
+}
+
+// Everything left on the board shatters and falls away.
+function celebrate() {
+  const g = game();
+  const cells = [];
+  for (let y = 0; y < GH; y++) {
+    for (let x = 0; x < GW; x++) {
+      if (g.grid[y][x]) { cells.push([x, y, g.grid[y][x].m]); g.grid[y][x] = null; }
+    }
+  }
+  burst(cells, null, 200, 900);
+  // Confetti in the theme colours.
+  const conf = [];
+  for (let i = 0; i < 160; i++) conf.push([Math.floor(Math.random() * GW), Math.floor(Math.random() * GH * 0.5), Object.keys(BASE)[i % 10]]);
+  burst(conf, null, 260, 160);
+  fx.flash = { color: '#ffd34d', life: 0.5 };
+  fx.shake = 12;
 }
 
 function stepFx(dt) {
   for (const d of fx.debris) { d.x += d.vx * dt; d.y += d.vy * dt; d.vy += 600 * dt; d.life -= dt * 0.9; }
   fx.debris = fx.debris.filter((d) => d.life > 0 && d.y < cv.height + 20);
+  if (fx.debris.length > 1500) fx.debris.splice(0, fx.debris.length - 1500);
   for (const p of fx.puffs) { p.y -= 30 * dt; p.life -= dt * 1.2; }
   fx.puffs = fx.puffs.filter((p) => p.life > 0);
+  if (fx.puffs.length > 300) fx.puffs.splice(0, fx.puffs.length - 300);
   for (const p of fx.popups) { p.y -= 40 * dt; p.life -= dt * 0.8; }
   fx.popups = fx.popups.filter((p) => p.life > 0);
   if (fx.flash) { fx.flash.life -= dt; if (fx.flash.life <= 0) fx.flash = null; }
@@ -261,23 +297,27 @@ function stepFx(dt) {
 // ---------- drawing ----------
 
 function drawParticles(ts) {
+  const g = game();
   const d = img.data;
   d.fill(0);
   for (let y = 0; y < GH; y++) {
+    const row = g.grid[y];
     for (let x = 0; x < GW; x++) {
-      const c = game.grid[y][x];
+      const c = row[x];
       if (!c) continue;
-      let [r, g, b, a] = pixelColor(c.m, x, y, c.shade, ts);
+      let [r, gg, b, a] = pixelColor(c.m, x, y, c.shade, ts);
       // Light edge around each solid piece so you can see where one ends and the next begins.
       if (RIGID.has(c.m)) {
-        const edge = [[0, 1], [1, 0], [-1, 0], [0, -1]].some(([u, v]) => {
-          const n = game.grid[y + v]?.[x + u];
-          return !n || n.id !== c.id;
-        });
-        if (edge) { r = r + (255 - r) * 0.45; g = g + (255 - g) * 0.45; b = b + (255 - b) * 0.45; a = 255; }
+        const up = y > 0 ? g.grid[y - 1][x] : null;
+        const dn = y < GH - 1 ? g.grid[y + 1][x] : null;
+        const lf = x > 0 ? row[x - 1] : null;
+        const rt = x < GW - 1 ? row[x + 1] : null;
+        if (!up || up.id !== c.id || !dn || dn.id !== c.id || !lf || lf.id !== c.id || !rt || rt.id !== c.id) {
+          r += (255 - r) * 0.45; gg += (255 - gg) * 0.45; b += (255 - b) * 0.45; a = 255;
+        }
       }
       const i = (y * GW + x) * 4;
-      d[i] = r; d[i + 1] = g; d[i + 2] = b; d[i + 3] = a;
+      d[i] = r; d[i + 1] = gg; d[i + 2] = b; d[i + 3] = a;
     }
   }
   lctx.putImageData(img, 0, 0);
@@ -287,11 +327,12 @@ function drawParticles(ts) {
 
 // The falling piece shows its real texture, with each block outlined in its material's colour.
 function drawPiece(ts) {
-  const p = game.piece;
+  const g = game();
+  const p = g.piece;
   if (!p) return;
   const cell = S * PX;
   const mats = pieceMats(p);
-  const gy = landingY(game);
+  const gy = landingY(g);
   ctx.lineWidth = 2;
   p.cells.forEach(([a, b], i) => {
     // Ghost: where it will land, outline only.
@@ -307,8 +348,8 @@ function drawPiece(ts) {
     for (let y = y0; y < y0 + S; y++) {
       if (y < 0) continue;
       for (let x = x0; x < x0 + S; x++) {
-        const [r, g, bl, al] = pixelColor(m, x, y, hash(x, y - p.y), ts);
-        ctx.fillStyle = `rgba(${r | 0},${g | 0},${bl | 0},${al / 255})`;
+        const [r, gg, bl, al] = pixelColor(m, x, y, hash(x, y - p.y), ts);
+        ctx.fillStyle = `rgba(${r | 0},${gg | 0},${bl | 0},${al / 255})`;
         ctx.fillRect(x * PX, y * PX, PX, PX);
       }
     }
@@ -349,11 +390,25 @@ function drawFx() {
   }
 }
 
+function bigText(lines) {
+  ctx.textAlign = 'center';
+  ctx.lineWidth = 6;
+  ctx.strokeStyle = 'rgba(0,0,0,.6)';
+  for (const [text, y, size, color] of lines) {
+    ctx.font = `800 ${size}px system-ui, sans-serif`;
+    ctx.strokeText(text, cv.width / 2, cv.height * y);
+    ctx.fillStyle = color;
+    ctx.fillText(text, cv.width / 2, cv.height * y);
+  }
+}
+
 function draw(ts) {
+  const g = game();
+  const level = sess.daily ? g.level : sess.level;
   // During the celebration the camera pans down 1 ft.
-  let alt = altitude(level);
-  if (phase === 'celebrate') alt -= Math.min(1, Math.max(0, (celebrateT - 0.8) / 1.2));
-  else if (phase === 'won') alt -= 1;
+  let alt = altitude(Math.min(100, level));
+  if (sess.phase === 'celebrate') alt -= Math.min(1, Math.max(0, (sess.celebrateT - 0.8) / 1.2));
+  else if (sess.phase === 'won') alt -= 1;
 
   ctx.save();
   if (fx.shake > 0) ctx.translate((Math.random() - 0.5) * fx.shake, (Math.random() - 0.5) * fx.shake);
@@ -361,30 +416,23 @@ function draw(ts) {
   ctx.fillStyle = 'rgba(20,22,30,.35)';
   ctx.fillRect(0, 0, cv.width, cv.height);
   drawParticles(ts);
-  if (phase === 'play') drawPiece(ts);
+  if (sess.phase === 'play') drawPiece(ts);
   drawFx();
-  if (phase === 'celebrate' || phase === 'won') {
-    const total = piecesDrained(game);
-    const shown = phase === 'won' ? total : Math.floor(total * Math.min(1, celebrateT / 1.2));
-    ctx.textAlign = 'center';
-    ctx.font = '800 34px system-ui, sans-serif';
-    ctx.lineWidth = 6;
-    ctx.strokeStyle = 'rgba(0,0,0,.6)';
-    ctx.strokeText('LEVEL CLEARED', cv.width / 2, cv.height * 0.38);
-    ctx.fillStyle = '#ffd34d';
-    ctx.fillText('LEVEL CLEARED', cv.width / 2, cv.height * 0.38);
-    ctx.font = '700 24px system-ui, sans-serif';
-    ctx.strokeText(`${shown} blocks drained`, cv.width / 2, cv.height * 0.46);
-    ctx.fillStyle = '#fff';
-    ctx.fillText(`${shown} blocks drained`, cv.width / 2, cv.height * 0.46);
+  if (sess.phase === 'celebrate' || sess.phase === 'won') {
+    const total = piecesDrained(g);
+    const shown = sess.phase === 'won' ? total : Math.floor(total * Math.min(1, sess.celebrateT / (CELEBRATE_TIME * 0.55)));
+    const pop = sess.phase === 'won' ? 1 : Math.min(1, sess.celebrateT * 4);
+    bigText([
+      ['LEVEL CLEARED', 0.38, Math.round(22 + 14 * pop), '#ffd34d'],
+      [`${shown} blocks drained`, 0.46, 24, '#ffffff'],
+    ]);
   }
   ctx.restore();
 }
 
 function drawNext() {
   nctx.clearRect(0, 0, nxCv.width, nxCv.height);
-  const { shape } = game.next;
-  const mats = pieceMats({ cells: shape, mats: game.next.mats, m: game.next.m });
+  const { shape, mats } = game().next;
   const s = 12;
   const w = Math.max(...shape.map(([a]) => a)) + 1;
   const h = Math.max(...shape.map(([, b]) => b)) + 1;
@@ -403,64 +451,102 @@ function drawNext() {
 const label = (mats) => [...new Set(mats)].map((m) => NAME[m]).join(' + ');
 
 function hud() {
-  const cfg = game.cfg;
-  const drained = piecesDrained(game);
-  const nowMats = game.piece ? pieceMats(game.piece) : [];
-  const nextMats = game.next.mats || [game.next.m];
-  const key = [level, drained, nowMats, nextMats, game.next.shape, game.meter.toFixed(2), game.questDone, phase, meterAdUsed].join('|');
+  const g = game();
+  const cfg = g.cfg;
+  const drained = piecesDrained(g);
+  const nowMats = g.piece ? pieceMats(g.piece) : [];
+  const nextMats = g.next ? g.next.mats : [];
+  const qn = questCount(g);
+  const meterAd = meterAdAvailable(sess);
+  const key = [sess.level, sess.daily, drained, nowMats, nextMats, g.next && g.next.shape, g.meter.toFixed(2), g.questDone, qn, sess.phase, meterAd, isMuted()].join('|');
   if (key === lastHud) return;
-  if (drained > lastDrained) {
+  if (drained > lastDrained && sess.phase === 'play') {
     const el = document.querySelector('.drain');
     el.classList.remove('bump');
     void el.offsetWidth; // restart the bump animation
     el.classList.add('bump');
+    // A "+1" pops off the side of the board toward the bar.
+    popup(cv.width - 40, cv.height * (1 - progress(g)) + 20, `+${drained - lastDrained}`, '#7fdc8f', 22, 'plus');
+    play('drain', { mult: g.mult });
   }
   lastDrained = drained;
   lastHud = key;
 
-  $('lvl').textContent = `Lv ${level} · ${altitude(level)} ft`;
+  $('lvl').textContent = sess.daily ? 'Daily' : `Lv ${sess.level} · ${altitude(sess.level)} ft`;
   $('drainNum').textContent = String(drained);
   $('drainGoal').textContent = `/${cfg.goal.pieces}`;
-  $('drainBar').style.height = `${progress(game) * 100}%`;
+  $('drainBar').style.height = `${progress(g) * 100}%`;
 
-  const full = game.meter >= 1 && phase === 'play';
+  const full = g.meter >= 1 && sess.phase === 'play';
   $('meterLabel').textContent = full ? `${POWERS[cfg.power].label} ready! Swipe up` : POWERS[cfg.power].label;
-  $('meterBar').style.width = `${game.meter * 100}%`;
+  $('meterBar').style.width = `${g.meter * 100}%`;
   document.querySelector('.meter').classList.toggle('full', full);
-  $('meterAd').hidden = !(phase === 'play' && !meterAdUsed && game.meter >= 0.8 && !full);
+  $('meterAd').hidden = !meterAd;
 
   const q = cfg.quest;
-  $('quest').textContent = `${game.questDone ? '✓ ' : ''}Side quest: ${q.type === 'chain' ? `hit a ×${q.n} combo` : `put out ${q.n} blocks of fire`} (+power)`;
-  $('quest').classList.toggle('done', game.questDone);
+  $('quest').textContent = g.questDone ? `✓ Side quest done: ${questText(q)}` : `Side quest: ${questText(q)} (${Math.min(qn, q.n)}/${q.n}) → +power`;
+  $('quest').classList.toggle('done', g.questDone);
 
   $('nowName').textContent = nowMats.length ? label(nowMats) : '–';
-  $('nextName').textContent = label(nextMats);
+  $('nextName').textContent = nextMats.length ? label(nextMats) : '–';
   $('tip').textContent = [...new Set(nextMats)].map((m) => `${NAME[m]}: ${TIP[m]}`).join(' · ');
-  drawNext();
+  $('muteBtn').innerHTML = isMuted() ? '&#128263;' : '&#128266;';
+  $('muteBtn').setAttribute('aria-label', isMuted() ? 'Unmute sound' : 'Mute sound');
+
+  const notes = [];
+  if (cfg.help) notes.push('Helping hand: an extra fire and water in every bag.');
+  if (cfg.mode === 'flood') notes.push('Flood: water keeps rising.');
+  if (cfg.mode === 'prefill') notes.push('Burn through the wall.');
+  if (sess.daily) notes.push('Daily challenge: same level for everyone today.');
+  $('banner').textContent = notes.join(' ');
+  $('banner').hidden = notes.length === 0;
+  if (g.next) drawNext();
+}
+
+function calloutView() {
+  const el = $('callout');
+  const c = sess.callout;
+  if (!c || sess.home || sess.phase !== 'play') {
+    el.hidden = true;
+    return;
+  }
+  el.hidden = false;
+  if (el.dataset.text !== c.text) {
+    el.dataset.text = c.text;
+    el.innerHTML = `<b>${c.text}</b><small>tap to hide</small>`;
+  }
+  el.style.opacity = String(Math.min(1, c.left / 0.4));
 }
 
 // ---------- input ----------
 
-function usePower() {
-  if (phase === 'play') activatePower(game);
+function act(a) {
+  unlock();
+  input(sess, a);
 }
 
 // Swipes count anywhere on the screen except on buttons.
 let sw = null;
 window.addEventListener('pointerdown', (e) => {
-  if (paused || e.target.closest('button')) return;
+  unlock();
+  if (!live(sess) || e.target.closest('button')) return;
   const step = (cv.getBoundingClientRect().width / COLS) * 0.75;
   sw = { id: e.pointerId, sx: e.clientX, sy: e.clientY, ax: e.clientX, ay: e.clientY, t: performance.now(), step, moved: false };
 });
 
 window.addEventListener('pointermove', (e) => {
-  if (!sw || e.pointerId !== sw.id || phase !== 'play' || paused) return;
+  if (!sw || e.pointerId !== sw.id) return;
+  if (!live(sess)) { sw = null; return; }
   e.preventDefault();
   let dx = e.clientX - sw.ax;
   let dy = e.clientY - sw.ay;
-  while (dx >= sw.step) { move(game, 1); sw.ax += sw.step; dx -= sw.step; sw.moved = true; }
-  while (dx <= -sw.step) { move(game, -1); sw.ax -= sw.step; dx += sw.step; sw.moved = true; }
-  while (dy >= sw.step) { softDrop(game); sw.ay += sw.step; dy -= sw.step; sw.moved = true; }
+  while (dx >= sw.step) { act('right'); sw.ax += sw.step; dx -= sw.step; sw.moved = true; }
+  while (dx <= -sw.step) { act('left'); sw.ax -= sw.step; dx += sw.step; sw.moved = true; }
+  // Dragging down soft-drops, but only once the finger is clearly heading down, so a
+  // flick (fast and short) still slams instead of dragging.
+  if (performance.now() - sw.t > 120 || Math.abs(dy) > sw.step * 3) {
+    while (dy >= sw.step) { act('soft'); sw.ay += sw.step; dy -= sw.step; sw.moved = true; }
+  }
   if (dy < 0) sw.ay = e.clientY;
 }, { passive: false });
 
@@ -469,33 +555,31 @@ window.addEventListener('pointerup', (e) => {
   const dt = performance.now() - sw.t;
   const tx = e.clientX - sw.sx;
   const ty = e.clientY - sw.sy;
+  const moved = sw.moved;
   sw = null;
-  if (phase !== 'play' || paused) return;
-  if (dt < 300 && ty < -50 && -ty > Math.abs(tx) * 1.5) usePower();
-  else if (dt < 250 && ty > 50 && ty > Math.abs(tx) * 1.5) hardDrop(game);
-  else if (Math.hypot(tx, ty) < 12) rotate(game);
+  if (!live(sess)) return;
+  if (dt < 300 && ty < -50 && -ty > Math.abs(tx) * 1.5) act('power');
+  else if (dt < 250 && ty > 50 && ty > Math.abs(tx) * 1.5) act('slam');
+  else if (!moved && Math.hypot(tx, ty) < 12 && dt < 400) act('rotate');
 });
 window.addEventListener('pointercancel', () => { sw = null; });
 
 // Desktop fallback only.
 const KEYS = {
-  ArrowLeft: () => move(game, -1),
-  ArrowRight: () => move(game, 1),
-  ArrowUp: () => rotate(game),
-  ArrowDown: () => softDrop(game),
-  ' ': () => hardDrop(game),
-  f: usePower,
-  Enter: usePower,
+  ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'rotate', ArrowDown: 'soft', ' ': 'slam', f: 'power', Enter: 'power',
 };
 window.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') return paused ? closeHome() : openHome();
+  unlock();
+  if (e.key === 'Escape') {
+    if (sess.home) closeHome(sess);
+    else openHome(sess);
+    return;
+  }
   const k = KEYS[e.key];
-  if (!k || phase !== 'play' || paused) return;
+  if (!k || !live(sess)) return;
   e.preventDefault();
-  k();
+  act(k);
 });
-
-// ---------- loop ----------
 
 // ---------- home screen ----------
 
@@ -507,10 +591,10 @@ const HOW_IT_GOES = [
   ['wetwood', 'Wet wood steams next to fire, then dries and burns. More water dissolves it.'],
   ['ice', 'Fire melts ice into water. Water sitting next to ice freezes into it.'],
   ['sand', 'Water turns sand into mud. Fire melts sand into glass.'],
-  ['mud', 'Mud sinks away on its own. Fire bakes it into brick.'],
+  ['mud', 'Mud sinks away on its own, or water washes it away.'],
   ['glass', 'Slam a piece onto glass, or drop stone on it, and the whole pane smashes.'],
-  ['brick', 'Brick is heavy. Water wears it down to sand.'],
-  ['stone', 'Stone is the hardest to clear. Water wears it down, very slowly.'],
+  ['brick', 'Brick is heavy. Water wears it down into sand.'],
+  ['stone', 'Stone is the heaviest: it smashes glass. Water wears it down slowly.'],
 ];
 
 $('legend').innerHTML = HOW_IT_GOES
@@ -520,39 +604,14 @@ $('powers').innerHTML = Object.values(POWERS)
   .map((p) => `<li><b>${p.label}</b> clears all ${p.clears.map((m) => NAME[m].toLowerCase()).join(', ')}.</li>`)
   .join('');
 
-function openHome() {
-  paused = true;
-  sw = null;
-  $('homeLevel').textContent = `Level ${level}`;
-  $('homeFt').textContent = `${altitude(level)} ft up`;
-  $('home').hidden = false;
-  $('home').scrollTop = 0;
-}
-
-function closeHome() {
-  paused = false;
-  $('home').hidden = true;
-  fit();
-}
-
-$('homeBtn').onclick = openHome;
-$('playBtn').onclick = closeHome;
-
-function celebrate() {
-  // Everything left on the board shatters and falls away.
-  const cells = [];
-  for (let y = 0; y < GH; y++) {
-    for (let x = 0; x < GW; x++) {
-      if (game.grid[y][x]) { cells.push([x, y, game.grid[y][x].m]); game.grid[y][x] = null; }
-    }
-  }
-  burst(cells, null, 200, 900);
-  fx.flash = { color: '#ffd34d', life: 0.5 };
-  fx.shake = 12;
-  phase = 'celebrate';
-  celebrateT = 0;
-  store.set(`mb_losses_${level}`, 0);
-}
+$('homeBtn').onclick = () => { unlock(); sw = null; openHome(sess); $('home').scrollTop = 0; };
+$('playBtn').onclick = () => { unlock(); closeHome(sess); fit(); };
+$('dailyBtn').onclick = () => { unlock(); if (dailyReady(sess)) startDaily(sess); fit(); };
+$('muteBtn').onclick = () => {
+  unlock();
+  setMuted(!isMuted());
+  sess.store.set('mb_muted', isMuted());
+};
 
 // The board takes all the height the phone gives it.
 function fit() {
@@ -560,40 +619,66 @@ function fit() {
   const top = stage.getBoundingClientRect().top;
   const room = window.innerHeight - top - 30; // leave a line for the side quest
   const maxW = stage.clientWidth - 30; // the drain bar sits to the right
-  const h = Math.max(260, Math.min(room, maxW * (GH / GW)));
+  const h = Math.max(200, Math.min(room, maxW * (GH / GW)));
   cv.style.height = `${Math.floor(h)}px`;
   cv.style.width = `${Math.floor(h * (GW / GH))}px`;
 }
 window.addEventListener('resize', fit);
-
-startLevel(level);
+window.addEventListener('orientationchange', fit);
 fit();
-// The game opens straight into play; home is only behind the home button.
-closeHome();
 
-// ?debug in the URL exposes the live game for testing in the browser console.
-if (new URLSearchParams(location.search).has('debug')) {
-  window.mb = { get game() { return game; }, get phase() { return phase; } };
+// A hidden tab stops the frame loop; drop the stale timestamp so nothing jumps on return.
+let last = performance.now();
+document.addEventListener('visibilitychange', () => { last = performance.now(); sw = null; });
+
+// ---------- debug ----------
+
+// ?debug exposes the live session for tests and runs the invariant checks every frame.
+const checker = createValidator();
+const debugErrors = [];
+let frames = 0;
+let physMs = 0;
+if (DEBUG) {
+  window.mb = {
+    sess,
+    get game() { return sess.game; },
+    get phase() { return sess.phase; },
+    errors: debugErrors,
+    stats: () => ({ frames, physMs, avgPhysMs: physMs / Math.max(1, frames) }),
+  };
+  if (params.has('scene')) {
+    import('./scenes.js').then(({ SCENES }) => {
+      const sc = SCENES[params.get('scene')];
+      if (sc) {
+        sc.setup(sess);
+        lastOverlay = '';
+        lastHud = '';
+      } else console.error('unknown scene', params.get('scene'));
+      window.mb.sceneReady = true;
+    });
+  }
 }
 
-let last = performance.now();
 function frame(ts) {
-  const dt = Math.min(0.1, (ts - last) / 1000);
+  const dt = Math.min(0.1, Math.max(0, (ts - last) / 1000));
   last = ts;
-  if (paused) {
-    // Waiting behind the home screen.
-  } else if (phase === 'play') {
-    update(game, dt);
-    handleEvents();
-    if (game.state === 'win') celebrate();
-    else if (game.state === 'lose') { phase = 'lost'; showLose(); }
-  } else if (phase === 'celebrate') {
-    celebrateT += dt;
-    if (celebrateT >= 2) { phase = 'won'; showWin(); }
+  const t0 = performance.now();
+  step(sess, dt);
+  if (DEBUG) {
+    frames++;
+    physMs += performance.now() - t0;
+    const errs = validate(sess.game, checker);
+    if (errs.length && debugErrors.length < 50) {
+      debugErrors.push(...errs);
+      console.error('invariant', errs);
+    }
   }
+  handleEvents();
   stepFx(dt);
   draw(ts);
   hud();
+  overlays();
+  calloutView();
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
