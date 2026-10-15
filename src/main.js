@@ -7,7 +7,7 @@ import { drawScenery } from './scenery.js';
 import { showRewarded, showInterstitial, adsRemoved } from './ads.js';
 
 const BASE = {
-  water: '#3f8ee3', wood: '#a8743f', wetwood: '#5f4a33', ice: '#b5ecfa', sand: '#dcb66b',
+  water: '#3f8ee3', wood: '#c0813f', wetwood: '#5f4a33', ice: '#b5ecfa', sand: '#dcb66b',
   stone: '#8d93a1', mud: '#6e4c30', glass: '#cdeee6', brick: '#a8453a', fire: '#ff6a1f',
 };
 const NAME = {
@@ -17,13 +17,13 @@ const NAME = {
 // How each material breaks down.
 const LEGEND = [
   ['fire', 'Fire + water: both drain'],
-  ['water', 'Water: soaks into wood, puts out fire'],
-  ['wood', 'Wood: burns away in fire'],
-  ['wetwood', 'Wet wood: steams, then burns'],
+  ['water', 'Water: puts out fire, washes mud, soaks wood'],
+  ['wood', 'Wood: burns in fire, soak it twice to dissolve'],
+  ['wetwood', 'Wet wood: more water dissolves it, fire steams then burns it'],
   ['ice', 'Ice: fire melts it to water'],
   ['sand', 'Sand: fire makes glass, water makes mud'],
   ['glass', 'Glass: slam it to smash it away'],
-  ['mud', 'Mud: fire bakes it to brick'],
+  ['mud', 'Mud: water washes it away, fire bakes it to brick'],
   ['brick', 'Brick: water wears it to sand'],
   ['stone', 'Stone: water wears it down, slowly'],
 ];
@@ -221,7 +221,11 @@ function drawParticles(ts) {
     for (let x = 0; x < GW; x++) {
       const c = game.grid[y][x];
       if (!c) continue;
-      let [r, g, b] = SHADES[c.m][Math.floor(c.shade * 4)];
+      // Wood gets horizontal grain lines so it reads as planks, not dirt.
+      const shade = c.m === 'wood' || c.m === 'wetwood'
+        ? (y % S === 0 ? 0 : 2 + (c.shade > 0.7 ? 1 : 0))
+        : Math.floor(c.shade * 4);
+      let [r, g, b] = SHADES[c.m][shade];
       if (c.m === 'fire') {
         const f = 0.75 + 0.35 * Math.sin(ts / 70 + x * 1.3 + y * 2.1);
         r = Math.min(255, r * f + 40); g = Math.min(255, g * f + 30 * f); b *= f;

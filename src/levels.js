@@ -1,5 +1,4 @@
 // Level definitions. Four themes rotate; each has a main material and a matching power.
-// Every pool carries both fire and water so there is always something to cancel.
 
 export const POWERS = {
   blaze: { label: 'Fire Mode', clears: ['wood', 'wetwood'] },
@@ -8,18 +7,27 @@ export const POWERS = {
   hammer: { label: 'Hammer', clears: ['glass', 'brick', 'stone'] },
 };
 
+// Every level spawns every core material. Fire and water are the most common because
+// they cancel the most; the theme only nudges its main material up a little.
+const BASE_POOL = { fire: 22, water: 22, wood: 16, sand: 16, ice: 12, glass: 6, stone: 4, brick: 2 };
+const THEME_BONUS = 10;
+
 const THEMES = [
-  { main: 'wood', power: 'blaze', pool: { wood: 30, fire: 25, water: 25, sand: 10, stone: 10 } },
-  { main: 'water', power: 'freeze', pool: { water: 30, fire: 25, ice: 20, sand: 15, stone: 10 } },
-  { main: 'sand', power: 'sweep', pool: { sand: 30, fire: 25, water: 20, glass: 15, stone: 10 } },
-  { main: 'glass', power: 'hammer', pool: { glass: 30, stone: 20, brick: 15, fire: 20, water: 15 } },
+  { main: 'wood', power: 'blaze' },
+  { main: 'water', power: 'freeze' },
+  { main: 'sand', power: 'sweep' },
+  { main: 'glass', power: 'hammer' },
 ];
 
 export function levelConfig(level, { help = false } = {}) {
   const theme = THEMES[(level - 1) % THEMES.length];
-  const pool = { ...theme.pool };
-  // Helping hand: after repeated losses the main material shows up more, and the player is told.
-  if (help) pool[theme.main] *= 2;
+  const pool = { ...BASE_POOL };
+  pool[theme.main] += THEME_BONUS;
+  // Helping hand: after repeated losses, more fire and water (the cancellers), and the player is told.
+  if (help) {
+    pool.fire *= 1.5;
+    pool.water *= 1.5;
+  }
 
   // Drain this many four-cell pieces' worth of material to clear the level.
   const goal = { pieces: 15 + Math.floor((level - 1) / 5) };

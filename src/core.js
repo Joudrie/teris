@@ -26,6 +26,7 @@ const BURN = { wood: 0.75, wetwood: 0.75, ice: 0.375, sand: 0.5, mud: 0.75 };
 // Seconds a particle must touch water before it erodes into sand. Stone is meant to be hard.
 const ERODE = { brick: 3, stone: 8 };
 const FREEZE_TIME = 0.75;
+const WASH_TIME = 0.5; // seconds of water contact before mud washes away
 
 // The seven four-cell shapes as [x, y] cell offsets, y pointing down.
 const SHAPES = [
@@ -369,6 +370,22 @@ function react(g, dt) {
         continue;
       }
 
+      // Water washes mud away: both drain.
+      if (c.m === 'mud') {
+        const w = N4.find(([u, v]) => at(g, x + u, y + v)?.m === 'water');
+        if (w) {
+          c.frz += dt;
+          if (c.frz >= WASH_TIME) {
+            g.grid[y + w[1]][x + w[0]] = null;
+            g.grid[y][x] = null;
+            drain(g, 2);
+            continue;
+          }
+        } else {
+          c.frz = 0;
+        }
+      }
+
       // Water slowly wears brick and stone down into sand.
       const erode = ERODE[c.m];
       if (erode !== undefined) {
@@ -546,11 +563,21 @@ function sand(g, moved, x, y) {
 }
 
 function water(g, moved, x, y) {
-  const wood = N4.map(([u, v]) => at(g, x + u, y + v)).find((n) => n && n.m === 'wood');
-  if (wood) {
-    wood.m = 'wetwood';
+  // Water soaks into wood; soaking wet wood again dissolves it.
+  const n = N4.map(([u, v]) => [x + u, y + v]).find(([nx, ny]) => {
+    const c = at(g, nx, ny);
+    return c && (c.m === 'wood' || c.m === 'wetwood');
+  });
+  if (n) {
+    const wood = g.grid[n[1]][n[0]];
     g.grid[y][x] = null;
-    drain(g, 1);
+    if (wood.m === 'wood') {
+      wood.m = 'wetwood';
+      drain(g, 1);
+    } else {
+      g.grid[n[1]][n[0]] = null;
+      drain(g, 2);
+    }
     return;
   }
   if (free(g, x, y + 1)) return mv(g, moved, x, y, x, y + 1);

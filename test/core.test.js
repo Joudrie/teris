@@ -57,8 +57,43 @@ test('levels rotate themes and every pool has fire and water to cancel', () => {
   for (const m of ['glass', 'brick', 'fire', 'wood', 'water', 'ice', 'sand', 'stone']) assert.ok(pools.includes(m), m);
 });
 
-test('helping hand doubles the main material', () => {
-  assert.equal(levelConfig(1, { help: true }).pool.wood, levelConfig(1).pool.wood * 2);
+test('helping hand adds fire and water, not more of the main material', () => {
+  const help = levelConfig(1, { help: true }).pool;
+  const base = levelConfig(1).pool;
+  assert.ok(help.fire > base.fire && help.water > base.water);
+  assert.equal(help.wood, base.wood);
+});
+
+test('every level spawns ice and glass, and no material dominates', () => {
+  for (let l = 1; l <= 4; l++) {
+    const pool = levelConfig(l).pool;
+    const total = Object.values(pool).reduce((a, b) => a + b, 0);
+    assert.ok(pool.ice > 0 && pool.glass > 0, `level ${l}`);
+    for (const [m, w] of Object.entries(pool)) assert.ok(w / total < 0.3, `${m} on level ${l}`);
+  }
+});
+
+test('soaking wet wood again dissolves it', () => {
+  const g = setup();
+  put(g, 4, GH - 1, 'wetwood');
+  put(g, 5, GH - 1, 'water');
+  put(g, 6, GH - 1, 'stone');
+  tick(g, DT);
+  assert.equal(g.grid[GH - 1][4], null);
+  assert.equal(g.drained, 2);
+});
+
+test('water washes mud away', () => {
+  const g = setup();
+  put(g, 3, GH - 1, 'stone');
+  put(g, 4, GH - 1, 'mud');
+  put(g, 5, GH - 1, 'water');
+  put(g, 6, GH - 1, 'stone');
+  run(g, 0.3);
+  assert.equal(g.grid[GH - 1][4].m, 'mud');
+  run(g, 0.4);
+  assert.equal(g.grid[GH - 1][4], null);
+  assert.equal(g.drained, 2);
 });
 
 test('pickMaterial respects weights', () => {
@@ -208,16 +243,15 @@ test('an unsupported solid piece falls as one block', () => {
   assert.equal(g.grid[10][8], null);
 });
 
-test('wood floats up through water', () => {
+test('wood in water floats up and gets eaten away', () => {
   const g = setup();
   block(g, 4, GH - 1, 4, 1, 'wetwood');
   for (let x = 4; x < 8; x++) put(g, x, GH - 2, 'water');
   for (const x of [3, 8]) { put(g, x, GH - 1, 'stone'); put(g, x, GH - 2, 'stone'); }
   tick(g, DT);
-  assert.equal(g.grid[GH - 2][5].m, 'wetwood');
-  assert.equal(g.grid[GH - 1][5].m, 'water');
+  for (let x = 4; x < 8; x++) assert.notEqual(g.grid[GH - 1][x]?.m, 'wetwood');
+  assert.ok(g.drained > 0);
 });
-
 test('slamming a piece onto glass smashes it away; a gentle drop does not', () => {
   const slam = setup();
   block(slam, 12, GH - S, 16, S, 'glass');
