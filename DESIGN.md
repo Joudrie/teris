@@ -18,9 +18,30 @@ Phase 5 (mechanics, progression, instant hook) and Phase 6 (bug overhaul) are do
 **Final win rates (all three bots, every level)**
 
 <!-- gen:winrates -->
+| Levels | Target (casual, first try) | Random bot | Human-ish bot | Human-ish, first try in a campaign | Expert (smart) bot |
+|---|---|---|---|---|---|
+| Teach (1-3) | 96% | 77% (100% with revive) | 99% (100% with revive) | 98% | 100% (100% with revive) |
+| Early (4-10) | 77% | 24% (81% with revive) | 82% (100% with revive) | 80% | 83% (100% with revive) |
+| Early (11-20) | 71% | 26% (82% with revive) | 64% (100% with revive) | 66% | 74% (100% with revive) |
+| Mid (21-40) | 54% | 8% (56% with revive) | 54% (98% with revive) | 53% | 63% (100% with revive) |
+| Mid (41-60) | 52% | 6% (52% with revive) | 57% (97% with revive) | 59% | 71% (100% with revive) |
+| Late (61-80) | 50% | 4% (41% with revive) | 55% (97% with revive) | 56% | 68% (100% with revive) |
+| Late (81-100) | 48% | 3% (30% with revive) | 50% (98% with revive) | 50% | 56% (100% with revive) |
+| **All 100** | 56% | 11% | 58% | 59% | 68% |
+
+Win = cleared without the revive. 6000 rig games in total, every one with the invariant checks on every tick.
 <!-- /gen:winrates -->
 
-**Bugs fixed: 10** (see the [bug log](#bug-log)). **Final fuzz: see [Fuzzing](#fuzzing): 0 crashes, 0 invariant breaks.**
+Reading the table:
+- Skill decides outcomes. From level 21 on, random play wins 3–8%, the human-ish bot about 55% and the expert 56–71%.
+- The human-ish bot's first-try rate follows the targets within a few points per band. Mid levels (21–60) come out at 56% against an aim of 40–55%, one point over.
+- Per level, 10 of 100 levels land more than 20 points from their target. Needs cluster on a few piece counts, so one piece of budget can move a level's win rate by 30 points, and 30 games per level carries about ±9 points of noise.
+
+**Bugs fixed: 10** (see the [bug log](#bug-log)).
+
+**Final fuzz: 5,500 games** (1,375 per level band, 3.1 million frames) through the whole session with hostile input: **0 crashes, 0 invariant breaks**. On top of that come 6,000 rig games and about 4,000 campaign games, all with the validator on every tick, also with 0 breaks.
+
+**Browser:** all checks pass at 390×844 and 375×667 with touch: 36 mobile checks, 14 hook checks, and 40 card scenes re-checked in the browser.
 
 **Top 5 next steps**
 
@@ -100,6 +121,108 @@ Teach one idea, test it, then combine. The order follows what each material need
 <details><summary>All 100 levels: config and rig results</summary>
 
 <!-- gen:perlevel -->
+| Lvl | Name | Mode | Goal | Pieces | Target | Random | Human-ish | First try (campaign) | Expert | Close losses | Win time | Gap (med) | Powers |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | Put it out | normal | 15 | 14 | 97% | 100% | 100% | 100% | 100% | – | 27 s | 2.2 s | 0.1 |
+| 2 | Fire and water | normal | 18 | 20 | 96% | 100% | 100% | 100% | 100% | – | 38 s | 3.9 s | 0.3 |
+| 3 | Woodpile | normal | 18 | 19 | 95% | 30% | 97% | 95% | 100% | 100% | 36 s | 3.3 s | 0.7 |
+| 4 | Dunes | normal | 20 | 16 | 85% | 55% | 87% | 90% | 90% | 100% | 32 s | 2.1 s | 0.8 |
+| 5 | Glass tower ★ | normal | 21 | 24 | 85% | 10% | 90% | 90% | 100% | 100% | 35 s | 4.6 s | 0.7 |
+| 6 | Glassworks | normal | 22 | 24 | 75% | 15% | 77% | 80% | 90% | 100% | 40 s | 5.6 s | 0.9 |
+| 7 | Ice block | normal | 22 | 21 | 75% | 30% | 63% | 83% | 70% | 100% | 42 s | 5.6 s | 0.8 |
+| 8 | Halves | normal | 22 | 22 | 80% | 20% | 93% | 83% | 100% | 100% | 41 s | 2.6 s | 0.9 |
+| 9 | Mixed bag | normal | 27 | 29 | 60% | 0% | 73% | 53% | 40% | 100% | 55 s | 5.3 s | 1.0 |
+| 10 | Firebreak ★ | normal | 27 | 22 | 80% | 40% | 90% | 85% | 90% | 100% | 43 s | 3.2 s | 1.1 |
+| 11 | Stone | normal | 22 | 22 | 85% | 30% | 70% | 85% | 80% | 100% | 39 s | 4.5 s | 0.9 |
+| 12 | Flood | flood | 26 | 21 | 60% | 55% | 40% | 57% | 50% | 100% | 56 s | 3.5 s | 0.9 |
+| 13 | Brickworks | normal | 27 | 25 | 65% | 25% | 43% | 45% | 60% | 100% | 49 s | 3.5 s | 1.0 |
+| 14 | Kindling | normal | 26 | 29 | 85% | 30% | 90% | 93% | 100% | 100% | 56 s | 4.9 s | 0.9 |
+| 15 | Skyscraper ★ | normal | 30 | 29 | 75% | 10% | 83% | 57% | 100% | 100% | 53 s | 5.3 s | 0.9 |
+| 16 | The wall | prefill | 28 | 27 | 55% | 0% | 43% | 48% | 60% | 100% | 49 s | 5.7 s | 0.8 |
+| 17 | Thaw | normal | 27 | 28 | 80% | 20% | 87% | 85% | 100% | 100% | 54 s | 5.8 s | 1.0 |
+| 18 | High water | flood | 28 | 23 | 50% | 25% | 63% | 43% | 20% | 100% | 61 s | 2.9 s | 0.9 |
+| 19 | Sandbox | normal | 27 | 26 | 80% | 55% | 77% | 85% | 100% | 100% | 49 s | 4.3 s | 0.9 |
+| 20 | Glacier ★ | normal | 32 | 27 | 70% | 5% | 47% | 60% | 70% | 100% | 52 s | 4.3 s | 0.9 |
+| 21 | Wood 21 | prefill | 33 | 31 | 55% | 5% | 53% | 57% | 90% | 100% | 55 s | 4.0 s | 1.0 |
+| 22 | Water 22 | flood | 34 | 29 | 45% | 20% | 37% | 38% | 0% | 100% | 59 s | 6.6 s | 0.8 |
+| 23 | Sand 23 | normal | 31 | 34 | 72% | 0% | 73% | 80% | 100% | 100% | 65 s | 5.3 s | 0.9 |
+| 24 | Glass 24 | normal | 35 | 37 | 40% | 30% | 43% | 43% | 60% | 100% | 64 s | 5.3 s | 0.9 |
+| 25 | Showcase 25 ★ | normal | 33 | 27 | 62% | 5% | 43% | 65% | 60% | 88% | 49 s | 5.2 s | 0.9 |
+| 26 | Wood 26 | normal | 34 | 37 | 55% | 0% | 77% | 60% | 60% | 100% | 68 s | 5.2 s | 0.9 |
+| 27 | Water 27 | normal | 35 | 36 | 44% | 0% | 13% | 8% | 50% | 100% | 76 s | 5.4 s | 0.9 |
+| 28 | Sand 28 | normal | 32 | 36 | 71% | 5% | 83% | 73% | 90% | 100% | 66 s | 4.4 s | 0.9 |
+| 29 | Glass 29 | normal | 36 | 38 | 39% | 0% | 33% | 48% | 80% | 100% | 73 s | 6.0 s | 1.0 |
+| 30 | Showcase 30 ★ | normal | 34 | 28 | 61% | 5% | 57% | 57% | 70% | 100% | 51 s | 5.3 s | 1.0 |
+| 31 | Wood 31 | prefill | 35 | 33 | 54% | 5% | 67% | 48% | 20% | 100% | 59 s | 4.7 s | 0.9 |
+| 32 | Water 32 | flood | 36 | 31 | 44% | 10% | 50% | 53% | 0% | 100% | 59 s | 4.8 s | 0.9 |
+| 33 | Sand 33 | normal | 33 | 36 | 71% | 0% | 67% | 65% | 80% | 100% | 68 s | 6.3 s | 0.9 |
+| 34 | Glass 34 | normal | 37 | 39 | 39% | 5% | 37% | 28% | 50% | 100% | 69 s | 5.0 s | 0.9 |
+| 35 | Showcase 35 ★ | normal | 35 | 30 | 61% | 30% | 73% | 83% | 100% | 75% | 55 s | 5.1 s | 0.9 |
+| 36 | Wood 36 | normal | 36 | 39 | 54% | 0% | 50% | 48% | 60% | 100% | 71 s | 5.7 s | 0.9 |
+| 37 | Water 37 | normal | 37 | 39 | 43% | 5% | 60% | 48% | 80% | 100% | 73 s | 5.3 s | 1.0 |
+| 38 | Sand 38 | normal | 34 | 37 | 70% | 20% | 60% | 57% | 60% | 100% | 70 s | 5.7 s | 0.8 |
+| 39 | Glass 39 | normal | 38 | 40 | 38% | 5% | 27% | 33% | 70% | 100% | 73 s | 4.9 s | 1.0 |
+| 40 | Showcase 40 ★ | normal | 36 | 31 | 60% | 5% | 80% | 70% | 80% | 67% | 55 s | 5.5 s | 1.0 |
+| 41 | Wood 41 | prefill | 37 | 36 | 53% | 5% | 40% | 57% | 70% | 100% | 65 s | 5.1 s | 1.0 |
+| 42 | Water 42 | flood | 38 | 33 | 43% | 10% | 57% | 45% | 0% | 92% | 60 s | 4.7 s | 1.0 |
+| 43 | Sand 43 | normal | 35 | 38 | 70% | 0% | 63% | 73% | 100% | 100% | 68 s | 5.0 s | 1.0 |
+| 44 | Glass 44 | normal | 39 | 41 | 38% | 10% | 53% | 55% | 70% | 100% | 72 s | 4.6 s | 1.4 |
+| 45 | Showcase 45 ★ | normal | 37 | 31 | 60% | 5% | 70% | 63% | 60% | 89% | 56 s | 4.4 s | 1.2 |
+| 46 | Wood 46 | normal | 38 | 41 | 53% | 5% | 57% | 48% | 60% | 100% | 73 s | 5.3 s | 0.9 |
+| 47 | Water 47 | normal | 39 | 41 | 42% | 5% | 63% | 43% | 70% | 100% | 73 s | 5.1 s | 1.0 |
+| 48 | Sand 48 | normal | 36 | 40 | 69% | 5% | 80% | 73% | 100% | 100% | 71 s | 5.2 s | 0.9 |
+| 49 | Glass 49 | normal | 40 | 42 | 37% | 5% | 43% | 55% | 50% | 100% | 73 s | 4.9 s | 1.3 |
+| 50 | Showcase 50 ★ | normal | 38 | 33 | 59% | 5% | 73% | 78% | 90% | 88% | 57 s | 5.2 s | 1.1 |
+| 51 | Wood 51 | prefill | 39 | 36 | 52% | 0% | 37% | 57% | 40% | 100% | 64 s | 5.4 s | 1.1 |
+| 52 | Water 52 | flood | 40 | 36 | 42% | 20% | 50% | 55% | 30% | 100% | 64 s | 4.5 s | 1.0 |
+| 53 | Sand 53 | normal | 37 | 41 | 69% | 5% | 83% | 70% | 100% | 100% | 73 s | 5.0 s | 1.0 |
+| 54 | Glass 54 | normal | 41 | 43 | 37% | 0% | 47% | 43% | 90% | 100% | 75 s | 3.9 s | 1.5 |
+| 55 | Showcase 55 ★ | normal | 39 | 34 | 59% | 0% | 43% | 70% | 90% | 65% | 57 s | 6.2 s | 0.8 |
+| 56 | Wood 56 | normal | 40 | 43 | 52% | 0% | 47% | 48% | 90% | 100% | 73 s | 5.2 s | 1.1 |
+| 57 | Water 57 | normal | 41 | 43 | 41% | 5% | 50% | 55% | 60% | 100% | 76 s | 5.6 s | 1.1 |
+| 58 | Sand 58 | normal | 38 | 42 | 68% | 20% | 63% | 73% | 80% | 100% | 72 s | 5.5 s | 1.1 |
+| 59 | Glass 59 | normal | 42 | 46 | 36% | 5% | 43% | 65% | 100% | 100% | 74 s | 4.4 s | 1.3 |
+| 60 | Showcase 60 ★ | normal | 40 | 35 | 58% | 0% | 70% | 57% | 70% | 89% | 60 s | 4.6 s | 1.3 |
+| 61 | Wood 61 | prefill | 41 | 40 | 51% | 10% | 70% | 75% | 100% | 100% | 66 s | 4.8 s | 1.1 |
+| 62 | Water 62 | flood | 42 | 36 | 41% | 0% | 57% | 50% | 0% | 92% | 64 s | 3.3 s | 1.2 |
+| 63 | Sand 63 | normal | 39 | 42 | 68% | 10% | 80% | 70% | 90% | 100% | 73 s | 4.2 s | 1.3 |
+| 64 | Glass 64 | normal | 43 | 46 | 36% | 5% | 43% | 33% | 50% | 100% | 76 s | 5.2 s | 1.3 |
+| 65 | Showcase 65 ★ | normal | 41 | 36 | 58% | 5% | 80% | 53% | 90% | 67% | 60 s | 5.0 s | 1.4 |
+| 66 | Wood 66 | normal | 42 | 47 | 51% | 5% | 50% | 50% | 60% | 100% | 79 s | 5.2 s | 1.2 |
+| 67 | Water 67 | normal | 43 | 46 | 40% | 5% | 67% | 65% | 90% | 100% | 77 s | 4.9 s | 1.7 |
+| 68 | Sand 68 | normal | 40 | 44 | 67% | 10% | 63% | 85% | 80% | 100% | 75 s | 6.4 s | 1.6 |
+| 69 | Glass 69 | normal | 44 | 47 | 35% | 0% | 40% | 57% | 50% | 100% | 78 s | 4.9 s | 1.3 |
+| 70 | Showcase 70 ★ | normal | 42 | 38 | 57% | 10% | 63% | 73% | 80% | 91% | 65 s | 4.9 s | 1.3 |
+| 71 | Wood 71 | prefill | 43 | 44 | 50% | 5% | 43% | 65% | 100% | 100% | 72 s | 5.4 s | 1.3 |
+| 72 | Water 72 | flood | 44 | 37 | 40% | 5% | 40% | 48% | 0% | 100% | 69 s | 4.1 s | 1.5 |
+| 73 | Sand 73 | normal | 41 | 44 | 67% | 0% | 57% | 63% | 70% | 100% | 75 s | 4.9 s | 1.6 |
+| 74 | Glass 74 | normal | 45 | 48 | 35% | 0% | 40% | 48% | 80% | 100% | 79 s | 5.2 s | 1.4 |
+| 75 | Showcase 75 ★ | normal | 43 | 38 | 57% | 0% | 40% | 48% | 80% | 94% | 64 s | 5.3 s | 1.5 |
+| 76 | Wood 76 | normal | 44 | 49 | 50% | 0% | 30% | 43% | 80% | 100% | 81 s | 5.1 s | 1.2 |
+| 77 | Water 77 | normal | 45 | 47 | 39% | 10% | 30% | 33% | 10% | 100% | 78 s | 4.5 s | 1.7 |
+| 78 | Sand 78 | normal | 42 | 47 | 66% | 0% | 70% | 73% | 100% | 100% | 78 s | 5.4 s | 1.7 |
+| 79 | Glass 79 | normal | 46 | 49 | 34% | 0% | 43% | 40% | 70% | 100% | 76 s | 4.3 s | 1.6 |
+| 80 | Showcase 80 ★ | normal | 44 | 40 | 56% | 5% | 83% | 60% | 80% | 100% | 66 s | 5.4 s | 1.7 |
+| 81 | Wood 81 | prefill | 45 | 45 | 49% | 0% | 50% | 50% | 60% | 100% | 74 s | 5.0 s | 1.5 |
+| 82 | Water 82 | flood | 46 | 39 | 39% | 0% | 50% | 40% | 0% | 100% | 69 s | 3.8 s | 1.6 |
+| 83 | Sand 83 | normal | 43 | 48 | 66% | 5% | 80% | 73% | 60% | 100% | 80 s | 5.2 s | 1.6 |
+| 84 | Glass 84 | normal | 47 | 50 | 34% | 5% | 47% | 53% | 70% | 100% | 78 s | 4.9 s | 1.8 |
+| 85 | Showcase 85 ★ | normal | 45 | 41 | 56% | 0% | 70% | 50% | 80% | 100% | 67 s | 4.6 s | 1.7 |
+| 86 | Wood 86 | normal | 46 | 51 | 49% | 0% | 57% | 60% | 60% | 100% | 79 s | 4.6 s | 1.7 |
+| 87 | Water 87 | normal | 47 | 49 | 38% | 0% | 23% | 25% | 10% | 100% | 81 s | 4.4 s | 1.8 |
+| 88 | Sand 88 | normal | 44 | 50 | 65% | 5% | 73% | 83% | 100% | 100% | 82 s | 5.8 s | 1.9 |
+| 89 | Glass 89 | normal | 48 | 51 | 33% | 0% | 57% | 48% | 70% | 100% | 81 s | 4.6 s | 1.7 |
+| 90 | Showcase 90 ★ | normal | 46 | 42 | 55% | 5% | 60% | 73% | 70% | 92% | 65 s | 4.3 s | 1.5 |
+| 91 | Wood 91 | prefill | 47 | 47 | 48% | 0% | 30% | 43% | 60% | 100% | 71 s | 4.7 s | 1.5 |
+| 92 | Water 92 | flood | 48 | 41 | 38% | 5% | 50% | 35% | 0% | 100% | 71 s | 3.8 s | 1.8 |
+| 93 | Sand 93 | normal | 45 | 50 | 65% | 10% | 63% | 55% | 80% | 100% | 81 s | 5.2 s | 1.7 |
+| 94 | Glass 94 | normal | 49 | 52 | 33% | 5% | 50% | 48% | 60% | 100% | 81 s | 4.7 s | 1.7 |
+| 95 | Showcase 95 ★ | normal | 47 | 42 | 55% | 0% | 37% | 45% | 60% | 100% | 67 s | 5.0 s | 1.6 |
+| 96 | Wood 96 | normal | 48 | 53 | 48% | 0% | 33% | 55% | 70% | 100% | 81 s | 4.8 s | 1.7 |
+| 97 | Water 97 | normal | 49 | 51 | 37% | 10% | 40% | 28% | 30% | 100% | 84 s | 4.7 s | 1.8 |
+| 98 | Sand 98 | normal | 46 | 51 | 64% | 0% | 43% | 70% | 100% | 100% | 80 s | 5.9 s | 1.8 |
+| 99 | Glass 99 | normal | 50 | 52 | 32% | 5% | 37% | 28% | 20% | 100% | 84 s | 4.3 s | 1.9 |
+| 100 | Showcase 100 ★ | normal | 48 | 43 | 54% | 0% | 53% | 48% | 70% | 86% | 67 s | 4.6 s | 1.6 |
 <!-- /gen:perlevel -->
 
 </details>
@@ -109,6 +232,15 @@ Teach one idea, test it, then combine. The order follows what each material need
 ## Retention proxies
 
 <!-- gen:retention -->
+| Proxy (human-ish bot) | Aim | Measured |
+|---|---|---|
+| Levels won on first try, early (4-20) | 60-75% | 72% |
+| Levels won on first try, mid (21-60) | 40-55% | 56% |
+| Losses that were close (80%+ of the bar) | at least half | 96% |
+| Longest stretch with no drain, per level (median of medians) | under ~6 s | 4.9 s (90th percentile 7.6 s) |
+| Powers used per level | about 1 | 1.19 |
+| Time to first drain (median level) |  | 3.9 s |
+| Time to win a level (median level) |  | 68 s |
 <!-- /gen:retention -->
 
 The no-drain gap is measured from the moment the first piece lands. For a true first-timer who never drops pieces, the newbie bot shows gaps of 10–20 s, because a piece takes 7–9 s to fall on its own at early speeds. The first drain still lands at 7.2 s with no input at all (see the hook checklist).
@@ -120,6 +252,22 @@ The no-drain gap is measured from the moment the first piece lands. For a true f
 `node tools/browser/hook.mjs` opens the game in Chromium with touch emulation. It waits ten seconds with no input, then lets the **newbie bot** play level 1 through the live page. The newbie bot is slow to read pieces, swipes slowly and mostly lets pieces fall on their own.
 
 <!-- gen:hook -->
+| Check | Result | Measured |
+|---|---|---|
+| a piece is already falling the moment the game opens (no menu first) | PASS |  |
+| the first-time callout explains the one thing to do | PASS | Drop WATER on the FIRE to put it out! |
+| first reaction happens in the first 10 s with no input | PASS | 7.2 s |
+| first 60 s: a drain, a combo popup and the bar moving | PASS | drain 7.2 s, combo 7.4 s |
+| always a visible next goal: drain bar, power meter, side quest, pieces left | PASS | {"bar":true,"meter":true,"quest":true,"left":true} |
+| first level clears in 1-2 minutes, as a new player plays it | PASS | celebrate at 79 s |
+| win screen: big celebration, then what is new next level | PASS | Level cleared! / Next: level 2. No fire bed this time: set up your own reactions. |
+| win screen offers the daily challenge | PASS |  |
+| feedback events fired (land/slam, combo, drain popups, quest or power) | PASS | start,land,combo,quest,win |
+| session loop: one tap from the win screen and level 2 is falling | PASS | {"phase":"play","level":2,"piece":true,"ad":false} |
+| sound layer can be muted, and the choice is remembered | PASS |  |
+| home screen: daily challenge ready | PASS | new today |
+| no console errors or invariant breaks in the whole session | PASS |  |
+| every loss shows real progress and the one revive | PASS | So close! 88% / Watch ad: clear the top 4 rows |
 <!-- /gen:hook -->
 
 | Moment | Screenshot |
@@ -159,6 +307,48 @@ Every card has a scripted scene in `src/scenes.js`. The same scene runs headless
 Scores are 1–5 for **I**ntuitive, **S**atisfying and **D**ecision. The rule was that anything under 3 gets fixed or cut. "Discover / repeat" asks whether a new player could hit it by accident, then do it again on purpose.
 
 <!-- gen:cardtimes -->
+| Card | Scene | Headless | Browser | Effect starts | Effect done | Screenshot |
+|---|---|---|---|---|---|---|
+| Water puts out fire | `douse` | pass | pass | 0.03 s | 0.50 s | [shot](docs/shots/card-douse.jpg) |
+| Fire burns a wood piece away | `burn` | pass | pass | 0.77 s | 3.33 s | [shot](docs/shots/card-burn.jpg) |
+| Water soaks wood, a second soak dissolves it | `soak` | pass | pass | 0.03 s | 1.37 s | [shot](docs/shots/card-soak.jpg) |
+| Fire dries wet wood, then burns it | `wetwood` | pass | pass | 1.53 s | 4.10 s | [shot](docs/shots/card-wetwood.jpg) |
+| Fire melts ice into water | `melt` | pass | pass | 0.40 s | 1.57 s | [shot](docs/shots/card-melt.jpg) |
+| Water touching ice freezes | `freeze` | pass | pass | 0.77 s | 2.00 s | [shot](docs/shots/card-freeze.jpg) |
+| Water turns sand to mud, mud sinks away | `mud` | pass | pass | 0.03 s | 3.80 s | [shot](docs/shots/card-mud.jpg) |
+| Fire melts sand into one glass pane | `glassmelt` | pass | pass | 0.27 s | 1.50 s | [shot](docs/shots/card-glassmelt.jpg) |
+| Slamming a piece onto glass smashes the pane | `slam` | pass | pass | 0.00 s | 0.00 s | [shot](docs/shots/card-slam.jpg) |
+| Dragging a piece down onto glass does not smash it | `gentle` | pass | pass | at once | – | [shot](docs/shots/card-gentle.jpg) |
+| Stone smashes glass even when placed gently | `stone` | pass | pass | 0.13 s | 0.13 s | [shot](docs/shots/card-stone.jpg) |
+| A block that falls a long way smashes glass | `fall` | pass | pass | 1.23 s | 1.23 s | [shot](docs/shots/card-fall.jpg) |
+| Water wears stone into sand, which turns to mud | `erode` | pass | pass | 1.20 s | 1.90 s | [shot](docs/shots/card-erode.jpg) |
+| Water wears brick into sand | `brick` | pass | pass | 0.60 s | 0.90 s | [shot](docs/shots/card-brick.jpg) |
+| Fire never burns out on its own | `firestays` | pass | pass | at once | – | [shot](docs/shots/card-firestays.jpg) |
+| Rainstorm puts out every fire | `rain` | pass | pass | 0.00 s | 0.00 s | [shot](docs/shots/card-rain.jpg) |
+| Fire Mode burns every wood block | `blaze` | pass | pass | 0.00 s | 0.00 s | [shot](docs/shots/card-blaze.jpg) |
+| Deep Freeze clears all water and ice | `deepfreeze` | pass | pass | 0.00 s | 0.00 s | [shot](docs/shots/card-deepfreeze.jpg) |
+| Sandstorm clears all sand and mud | `sweep` | pass | pass | 0.00 s | 0.00 s | [shot](docs/shots/card-sweep.jpg) |
+| Hammer clears glass, brick and stone | `hammer` | pass | pass | 0.00 s | 0.00 s | [shot](docs/shots/card-hammer.jpg) |
+| Flood: water rises from the bottom | `flood` | pass | pass | 0.27 s | 5.87 s | [shot](docs/shots/card-flood.jpg) |
+| Wall: burn through a prefilled wood wall | `wall` | pass | pass | 0.77 s | 3.73 s | [shot](docs/shots/card-wall.jpg) |
+| Showcase: smash the glass tower | `showcase` | pass | pass | 0.00 s | 0.00 s | [shot](docs/shots/card-showcase.jpg) |
+| Tap to rotate, swipe to move, walls kick | `rotate` | pass | pass | 0.00 s | 0.00 s | [shot](docs/shots/card-rotate.jpg) |
+| Two-material piece: each half acts on its own | `mixed` | pass | pass | 0.03 s | 2.93 s | [shot](docs/shots/card-mixed.jpg) |
+| Ghost outline shows where the piece lands | `ghost` | pass | pass | at once | – | [shot](docs/shots/card-ghost.jpg) |
+| Drain bar fills as blocks cancel | `bar` | pass | pass | 0.10 s | 0.23 s | [shot](docs/shots/card-bar.jpg) |
+| Draining fast builds a combo | `combo` | pass | pass | 0.10 s | 0.67 s | [shot](docs/shots/card-combo.jpg) |
+| Side quest done tops up the power meter | `quest` | pass | pass | 0.23 s | 0.23 s | [shot](docs/shots/card-quest.jpg) |
+| Full meter: swipe up to fire the power | `meter` | pass | pass | at once | – | [shot](docs/shots/card-meter.jpg) |
+| Piece budget: pieces left counts down; reactions finish after the last one | `budget` | pass | pass | 0.00 s | 2.70 s | [shot](docs/shots/card-budget.jpg) |
+| First-time callout on the board | `callout` | pass | pass | at once | – | [shot](docs/shots/card-callout.jpg) |
+| Win: celebration, then what is new next level | `win` | pass | pass | 2.30 s | 2.30 s | [shot](docs/shots/card-win.jpg) |
+| Loss shows real progress and the one revive | `lose` | pass | pass | 0.00 s | 0.00 s | [shot](docs/shots/card-lose.jpg) |
+| Revive ad clears the top rows and play goes on | `revive` | pass | pass | at once | – | [shot](docs/shots/card-revive.jpg) |
+| Interstitial between levels, paced | `interstitial` | pass | pass | at once | – | [shot](docs/shots/card-interstitial.jpg) |
+| Meter at 80%: one optional ad fills it | `meterad` | pass | pass | at once | – | [shot](docs/shots/card-meterad.jpg) |
+| Home screen: play, daily, how to play | `home` | pass | pass | at once | – | [shot](docs/shots/card-home.jpg) |
+| Daily challenge | `daily` | pass | pass | at once | – | [shot](docs/shots/card-daily.jpg) |
+| Helping hand after three losses | `help` | pass | pass | at once | – | [shot](docs/shots/card-help.jpg) |
 <!-- /gen:cardtimes -->
 
 ### Materials and reactions
@@ -261,6 +451,13 @@ The fuzzer adds session checks:
 - skipping to the next day.
 
 <!-- gen:fuzz -->
+| Band | Levels | Games | Frames | Wins | Losses | Crashes / invariant breaks |
+|---|---|---|---|---|---|---|
+| a | 1-10 | 1375 | 762548 | 459 | 806 | 0 |
+| b | 11-20 | 1375 | 820251 | 333 | 900 | 0 |
+| c | 21-60 | 1375 | 824467 | 247 | 1037 | 0 |
+| d | 61-100 | 1375 | 706281 | 147 | 1288 | 0 |
+| **Total** | | **5500** | 3113547 | | | **0** |
 <!-- /gen:fuzz -->
 
 Failures from earlier runs are in the bug log with their seeds and regression tests.
@@ -286,11 +483,54 @@ Failures from earlier runs are in the bug log with their seeds and regression te
 `node tools/browser/check.mjs` runs real Chromium at 390×844 and 375×667 with touch emulation. Touches go through the DevTools protocol, so the page gets real touch, then pointer, events.
 
 <!-- gen:browser -->
+| Check | Result | Measured |
+|---|---|---|
+| 390x844 tap rotates | PASS |  |
+| 390x844 sloppy 6px tap still rotates, does not move | PASS |  |
+| 390x844 slow swipe right ~2.4 columns moves 3 | PASS | moved 3 |
+| 390x844 swipe far into the wall stops at the wall | PASS | x=0 |
+| 390x844 slow drag down soft-drops without slamming | PASS | dy=16 |
+| 390x844 quick flick down slams | PASS | {"dt":133,"tx":8,"ty":120,"moved":true,"what":"slam"} |
+| 390x844 diagonal swipe moves sideways, no slam | PASS |  |
+| 390x844 flick up fires the power at full meter | PASS | {"dt":134,"tx":0,"ty":-140,"moved":false,"what":"power"} |
+| 390x844 flick up at 0% meter does nothing | PASS |  |
+| 390x844 the page never scrolls during play | PASS | {"y":0,"top":0,"bodyH":844,"vh":844} |
+| 390x844 board and quest line fit on screen | PASS | {"bottom":684,"right":352,"quest":705,"vw":390,"vh":844} |
+| 390x844 home screen scrolls | PASS | scrollTop 491 |
+| 390x844 game waits behind the home screen | PASS |  |
+| 390x844 no console errors | PASS |  |
+| 375x667 tap rotates | PASS |  |
+| 375x667 sloppy 6px tap still rotates, does not move | PASS |  |
+| 375x667 slow swipe right ~2.4 columns moves 3 | PASS | moved 3 |
+| 375x667 swipe far into the wall stops at the wall | PASS | x=0 |
+| 375x667 slow drag down soft-drops without slamming | PASS | dy=16 |
+| 375x667 quick flick down slams | PASS | {"dt":133,"tx":8,"ty":120,"moved":true,"what":"slam"} |
+| 375x667 diagonal swipe moves sideways, no slam | PASS |  |
+| 375x667 flick up fires the power at full meter | PASS | {"dt":134,"tx":0,"ty":-140,"moved":false,"what":"power"} |
+| 375x667 flick up at 0% meter does nothing | PASS |  |
+| 375x667 the page never scrolls during play | PASS | {"y":0,"top":0,"bodyH":670,"vh":667} |
+| 375x667 board and quest line fit on screen | PASS | {"bottom":639,"right":329.5,"quest":660,"vw":375,"vh":667} |
+| 375x667 home screen scrolls | PASS | scrollTop 385 |
+| 375x667 game waits behind the home screen | PASS |  |
+| 375x667 no console errors | PASS |  |
+| rotate and resize mid-game: board refits, no errors | PASS | {"bottom":751,"right":392,"vw":430,"vh":932,"h":635} |
+| landscape phone: board still visible (shrinks to fit) | PASS | {"h":246,"bottom":362,"vh":390} |
+| background tab for 4 s and back: no time jump | PASS | moved 0 rows while hidden, 1 on return |
+| overlays opened/closed in random order: input and frames still work | PASS | 16 steps;  |
+| localStorage blocked: game starts and runs with no errors | PASS |  |
+| localStorage cleared mid-game: win still saved | PASS | mb_level=5 |
+| performance at 1x CPU throttle: physics tick under 4 ms | PASS | physics 0.28 ms, whole frame 0.99 ms avg / 4.6 worst, 60 fps |
+| performance at 4x CPU throttle: physics tick under 4 ms | PASS | physics 2.11 ms, whole frame 5.38 ms avg / 226.6 worst, 55 fps |
 <!-- /gen:browser -->
 
 Notes:
 - **Flick timing.** Each simulated touch event costs about 50 ms through the protocol, so a "90 ms" flick arrived as 300 ms and missed the 250 ms slam window. The test now sends flicks with fewer events (arriving at 130–180 ms). A real phone flick is about 100–200 ms.
 - **Background tab.** Headless Chromium keeps running `requestAnimationFrame` when "frozen", so the check holds frames for 4 s and then releases them with the 4 s timestamp jump, which is what a phone does when the tab comes back. The loop clamps every frame to 0.1 s.
+- **Frame rate.** With 4× CPU throttling (a mid-range phone), a busy level 20 runs at 55–56 fps:
+  - physics averages 2.1 ms per frame and the whole frame 5.4 ms with the debug validator on;
+  - the worst frame was 227 ms, but that was the first-frame warm-up plus the debug-only validator;
+  - without `?debug`, 8 frames in 8 s went over 40 ms, all of them at injected key presses;
+  - the profile is mostly native canvas compositing, not game code.
 - **Performance.** The physics tick was profiled and rewritten with flat typed arrays. Rigid blocks, the piece mask and neighbour lookups no longer create closures or `[x, y]` pairs. The tick went from 0.42 ms to 0.22 ms in node, and the results are bit-for-bit identical (checked on 24 seeded games).
 
 ### Bug log

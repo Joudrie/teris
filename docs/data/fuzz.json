@@ -1,0 +1,38 @@
+{
+ "by": {
+  "a": {
+   "runs": 125,
+   "games": 1375,
+   "frames": 762548,
+   "wins": 459,
+   "losses": 806,
+   "bad": 0
+  },
+  "b": {
+   "runs": 125,
+   "games": 1375,
+   "frames": 820251,
+   "wins": 333,
+   "losses": 900,
+   "bad": 0
+  },
+  "c": {
+   "runs": 125,
+   "games": 1375,
+   "frames": 824467,
+   "wins": 247,
+   "losses": 1037,
+   "bad": 0
+  },
+  "d": {
+   "runs": 125,
+   "games": 1375,
+   "frames": 706281,
+   "wins": 147,
+   "losses": 1288,
+   "bad": 0
+  }
+ },
+ "total": 5500,
+ "bad": []
+}

@@ -37,7 +37,7 @@
  {
   "name": "390x844 flick up fires the power at full meter",
   "ok": true,
-  "info": "{\"dt\":137,\"tx\":0,\"ty\":-140,\"moved\":false,\"what\":\"power\"}"
+  "info": "{\"dt\":134,\"tx\":0,\"ty\":-140,\"moved\":false,\"what\":\"power\"}"
  },
  {
   "name": "390x844 flick up at 0% meter does nothing",
@@ -92,12 +92,12 @@
  {
   "name": "375x667 slow drag down soft-drops without slamming",
   "ok": true,
-  "info": "dy=17"
+  "info": "dy=16"
  },
  {
   "name": "375x667 quick flick down slams",
   "ok": true,
-  "info": "{\"dt\":183,\"tx\":8,\"ty\":120,\"moved\":true,\"what\":\"slam\"}"
+  "info": "{\"dt\":133,\"tx\":8,\"ty\":120,\"moved\":true,\"what\":\"slam\"}"
  },
  {
   "name": "375x667 diagonal swipe moves sideways, no slam",
@@ -107,7 +107,7 @@
  {
   "name": "375x667 flick up fires the power at full meter",
   "ok": true,
-  "info": "{\"dt\":137,\"tx\":0,\"ty\":-140,\"moved\":false,\"what\":\"power\"}"
+  "info": "{\"dt\":134,\"tx\":0,\"ty\":-140,\"moved\":false,\"what\":\"power\"}"
  },
  {
   "name": "375x667 flick up at 0% meter does nothing",
@@ -172,11 +172,11 @@
  {
   "name": "performance at 1x CPU throttle: physics tick under 4 ms",
   "ok": true,
-  "info": "physics 0.65 ms, whole frame 1.61 ms avg / 11.4 worst, 60 fps"
+  "info": "physics 0.28 ms, whole frame 0.99 ms avg / 4.6 worst, 60 fps"
  },
  {
   "name": "performance at 4x CPU throttle: physics tick under 4 ms",
-  "ok": false,
-  "info": "physics 5.69 ms, whole frame 9.27 ms avg / 344.3 worst, 57 fps"
+  "ok": true,
+  "info": "physics 2.11 ms, whole frame 5.38 ms avg / 226.6 worst, 55 fps"
  }
 ]

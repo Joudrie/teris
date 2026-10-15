@@ -16,9 +16,10 @@ const med = (xs) => { const s = [...xs].sort((a, b) => a - b); return s.length ?
 const rig = { random: read('rig-random.json')?.random, human: read('rig-human.json')?.human, smart: read('rig-smart.json')?.smart };
 const campaign = read('campaign-human.json');
 const fuzz = read('fuzz.json');
-const browser = read('browser-checks.json');
-const hook = read('hook-checks.json');
-const cards = read('cards.json') || {};
+const shots = (f) => (fs.existsSync(`docs/shots/${f}`) ? JSON.parse(fs.readFileSync(`docs/shots/${f}`, 'utf8')) : null);
+const browser = shots('browser-checks.json');
+const hook = shots('hook-checks.json');
+const cards = shots('cards.json') || {};
 
 const BANDS = [[1, 3, 'Teach (1-3)'], [4, 10, 'Early (4-10)'], [11, 20, 'Early (11-20)'], [21, 40, 'Mid (21-40)'], [41, 60, 'Mid (41-60)'], [61, 80, 'Late (61-80)'], [81, 100, 'Late (81-100)']];
 const inBand = (rows, a, b) => (rows || []).filter((r) => r.level >= a && r.level <= b);
