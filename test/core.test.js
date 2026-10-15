@@ -485,3 +485,71 @@ test('topping out loses, and one revive clears the top and continues', () => {
   assert.equal(g.state, 'play');
   assert.equal(revive(g), false);
 });
+
+// BUG LOG #1 (found by the validator in the rig): fall distance was kept per piece id, so
+// it leaked for pieces destroyed mid-fall, and the two halves of a split piece shared it.
+test('regression: halves of a split piece track their own falls', () => {
+  const g = setup();
+  // One wood piece in two halves: the left half rests on glass, the right half hangs high
+  // over another pane.
+  const id = ++autoId;
+  for (let y = GH - 8; y < GH - 4; y++) for (let x = 0; x < 4; x++) put(g, x, y, 'wood', id);
+  for (let y = GH - 40; y < GH - 36; y++) for (let x = 20; x < 24; x++) put(g, x, y, 'wood', id);
+  block(g, 0, GH - 4, 4, 4, 'glass');
+  block(g, 20, GH - 4, 4, 4, 'glass');
+  run(g, 1.5);
+  // The right half fell a long way and smashed its pane; the left half never moved, so the
+  // pane under it is whole. (Before the fix the resting half reset the shared counter every
+  // tick, so the falling half never smashed anything.)
+  assert.equal(g.smashed, 1);
+  assert.equal(count(g, 'glass'), 16);
+  assert.ok(g.grid[GH - 1][1].m === 'glass');
+});
+
+test('regression: a block destroyed while falling leaves nothing behind', () => {
+  const g = setup();
+  block(g, 4, GH - 30, 4, 4, 'ice');
+  block(g, 4, GH - 20, 4, 4, 'fire');
+  run(g, 2);
+  assert.equal('falls' in g, false);
+  for (const row of g.grid) for (const c of row) if (c && c.fall) assert.ok(Number.isFinite(c.fall));
+});
+
+test('piece budget: when the pieces run out, reactions finish, then the level is lost', () => {
+  const g = createGame({ level: 1, rand: fixed, config: { ...baseConfig({ bag: ['water'] }), pieces: 2 } });
+  g.grid = emptyGrid();
+  block(g, 0, GH - 8, 48, 8, 'fire');
+  hardDrop(g); // first piece
+  assert.ok(g.piece); // second piece
+  hardDrop(g);
+  assert.equal(g.piece, null);
+  assert.notEqual(g.settling, null);
+  assert.equal(g.state, 'play');
+  run(g, 1.5);
+  assert.equal(g.state, 'play'); // still dousing: keep waiting
+  run(g, 6);
+  assert.equal(g.state, 'lose');
+  assert.equal(g.loseReason, 'pieces');
+  assert.ok(revive(g));
+  assert.equal(g.state, 'play');
+  assert.ok(g.piece);
+  assert.equal(g.left, 4); // five more, one already falling
+});
+
+test('piece budget: a reaction that fills the bar after the last piece still wins', () => {
+  const g = createGame({ level: 1, rand: fixed, config: { ...baseConfig({ bag: ['water'], goal: { pieces: 2 } }), pieces: 1 } });
+  g.grid = emptyGrid();
+  block(g, 0, GH - 8, 48, 8, 'fire');
+  hardDrop(g);
+  assert.equal(g.piece, null);
+  run(g, 5);
+  assert.equal(g.state, 'win');
+});
+
+test('topping out says so, and the revive clears the top instead', () => {
+  const g = setup();
+  for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) if (x % 8 !== 0) put(g, x, y, 'glass', 1);
+  g.piece = { m: 'brick', cells: [[0, 0], [1, 0]], x: 3, y: 0 };
+  hardDrop(g);
+  assert.equal(g.loseReason, 'top');
+});

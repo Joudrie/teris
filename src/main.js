@@ -1,7 +1,7 @@
 // The view: draws the session and turns touches into inputs. All game and screen logic
 // lives in session.js and core.js.
 
-import { pieceMats, landingY, progress, piecesDrained, COLS, GW, GH, S, altitude } from './core.js';
+import { pieceMats, landingY, progress, piecesDrained, piecesLeft, COLS, GW, GH, S, altitude } from './core.js';
 import { POWERS, questText } from './levels.js';
 import {
   createSession, step, input, live, next, replay, watchRevive, watchMeterAd, meterAdAvailable, openHome,
@@ -166,7 +166,7 @@ function overlays() {
     $('ovN').textContent = l.help ? 'Helping hand next try: an extra fire and water in every bag.' : '';
     $('ovN').hidden = !l.help;
     setButtons([
-      l.canRevive ? ['Watch ad: clear the top 4 rows', () => watchRevive(sess)] : null,
+      l.canRevive ? [l.revive, () => watchRevive(sess)] : null,
       ['Retry level', () => replay(sess)],
       null,
     ]);
@@ -458,7 +458,8 @@ function hud() {
   const nextMats = g.next ? g.next.mats : [];
   const qn = questCount(g);
   const meterAd = meterAdAvailable(sess);
-  const key = [sess.level, sess.daily, drained, nowMats, nextMats, g.next && g.next.shape, g.meter.toFixed(2), g.questDone, qn, sess.phase, meterAd, isMuted()].join('|');
+  const left = piecesLeft(g);
+  const key = [sess.level, sess.daily, drained, left, g.settling !== null, nowMats, nextMats, g.next && g.next.shape, g.meter.toFixed(2), g.questDone, qn, sess.phase, meterAd, isMuted()].join('|');
   if (key === lastHud) return;
   if (drained > lastDrained && sess.phase === 'play') {
     const el = document.querySelector('.drain');
@@ -475,6 +476,8 @@ function hud() {
   $('lvl').textContent = sess.daily ? 'Daily' : `Lv ${sess.level} · ${altitude(sess.level)} ft`;
   $('drainNum').textContent = String(drained);
   $('drainGoal').textContent = `/${cfg.goal.pieces}`;
+  $('left').textContent = g.settling !== null ? '0' : String(left);
+  document.querySelector('.left').classList.toggle('low', left <= 3);
   $('drainBar').style.height = `${progress(g) * 100}%`;
 
   const full = g.meter >= 1 && sess.phase === 'play';

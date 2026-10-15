@@ -326,6 +326,37 @@ test('a win is saved at once: quitting on the win screen or during the ad keeps 
   assert.equal(mk({ storage }).level, 1);
 });
 
+// BUG LOG #3 (fuzz seed 11000437, band d): a saved "null" crashed the daily challenge
+// button, and wrong-typed saved numbers switched off ad pacing and loss counting.
+test('regression: corrupt saves of every kind fall back to defaults', () => {
+  for (const junk of ['null', '"x"', '[]', '{}', '-5', '1e999', '{', 'true']) {
+    const storage = memStorage();
+    for (const k of ['mb_level', 'mb_daily', 'mb_seen', 'mb_since_ad', 'mb_last_ad', 'mb_losses_6', 'mb_muted']) storage.setItem(k, junk);
+    const s = mk({ storage });
+    assert.ok(s.level >= 1 && s.level <= 100, junk);
+    dailyReady(s);
+    startDaily(s);
+    winScreen(s);
+    loseScreen(s);
+    start(s, 6);
+    win(s);
+    next(s);
+    assert.ok(s.store.get('mb_since_ad', 0) >= 0, junk);
+  }
+});
+
+test('regression: a clock set backwards does not lock ads out forever', () => {
+  let clock = Date.UTC(2026, 9, 15, 12);
+  const storage = memStorage();
+  storage.setItem('mb_last_ad', String(clock + 365 * 86400000));
+  storage.setItem('mb_since_ad', '5');
+  const s = mk({ storage, now: () => clock });
+  start(s, 8);
+  win(s);
+  next(s);
+  assert.ok(s.ad);
+});
+
 test('safeStore never throws', () => {
   const st = safeStore(blocked);
   st.set('a', 1);

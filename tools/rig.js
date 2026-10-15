@@ -22,6 +22,9 @@ const MAX_TIME = 420; // seconds of play before a game counts as stuck
 export function playGame({ level, bot: kind, seed, help = false, check = true, maxTime = MAX_TIME, useRevive = true }) {
   const rand = mulberry32(seed);
   const cfg = levelConfig(level, { help });
+  // Tuning experiments: scale goals or fall speed without editing the levels.
+  if (process.env.GOALX) cfg.goal = { pieces: Math.round(cfg.goal.pieces * +process.env.GOALX) };
+  if (process.env.SPEEDX) cfg.speed = (cfg.speed || 0.4) * +process.env.SPEEDX;
   const g = createGame({ level, rand, config: cfg });
   const bot = createBot(kind, mulberry32(seed ^ 0x9e3779b9));
   const v = createValidator();
@@ -104,9 +107,29 @@ export function playCampaign({ bot, seed, to, from = 1 }) {
   return out;
 }
 
+// Pieces a player needs to clear a level, with no budget: how many had landed when the bar
+// filled. Infinity if they topped out first. tools/calibrate.js turns these into budgets.
+export function measureNeed({ level, bot: kind, seed }) {
+  const rand = mulberry32(seed);
+  const cfg = levelConfig(level);
+  cfg.pieces = Infinity;
+  const g = createGame({ level, rand, config: cfg });
+  const bot = createBot(kind, mulberry32(seed ^ 0x9e3779b9));
+  let lands = 0;
+  let t = 0;
+  while (t < 900 && g.state === 'play') {
+    botStep(bot, g, DT);
+    update(g, DT);
+    t += DT;
+    for (const e of g.events) if (e.type === 'land') lands++;
+    g.events.length = 0;
+  }
+  return { level, seed, need: g.state === 'win' ? lands : Infinity, time: t, powers: bot.powers };
+}
+
 // ---------- parallel runner ----------
 
-function runParallel(jobs, fn) {
+export function runParallel(jobs, fn) {
   const n = Math.min(os.cpus().length, jobs.length) || 1;
   const chunks = Array.from({ length: n }, () => []);
   jobs.forEach((j, i) => chunks[i % n].push(j));
@@ -119,7 +142,7 @@ function runParallel(jobs, fn) {
 
 if (!isMainThread) {
   const { fn, chunk } = workerData;
-  const f = fn === 'campaign' ? playCampaign : playGame;
+  const f = fn === 'campaign' ? playCampaign : fn === 'need' ? measureNeed : playGame;
   parentPort.postMessage(chunk.map((j) => f(j)));
 }
 

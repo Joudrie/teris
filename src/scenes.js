@@ -239,6 +239,16 @@ export const SCENES = {
     check: (g) => g.meter === 1,
   },
 
+  budget: {
+    title: 'Piece budget: pieces left counts down; reactions finish after the last one', kind: 'goal',
+    setup: (s) => {
+      const g = stage(s, { level: 2, board: [{ m: 'fire', x: 0, y: 17, w: 12, h: 3 }], piece: { mats: mats('water'), x: 4, shape: 0 }, next: ['water'] });
+      g.left = 0;
+    },
+    actions: ['slam'], wait: 4, watch: (g) => (g.settling !== null ? 1 : 0) + (g.state === 'lose' ? 2 : 0),
+    check: (g, s) => g.state === 'lose' && g.loseReason === 'pieces' && s.phase === 'lost',
+  },
+
   // ---------- screens ----------
   callout: {
     title: 'First-time callout on the board', kind: 'ui',
@@ -251,14 +261,17 @@ export const SCENES = {
   },
   win: {
     title: 'Win: celebration, then what is new next level', kind: 'ui',
-    setup: (s) => stage(s, { level: 4, drained: 12 * PIECE + 40, board: [{ m: 'fire', x: 0, y: 18, w: 12, h: 2 }], piece: { mats: mats('water'), x: 4, shape: 0 } }),
+    setup: (s) => {
+      const g = stage(s, { level: 4, board: [{ m: 'fire', x: 0, y: 18, w: 12, h: 2 }], piece: { mats: mats('water'), x: 4, shape: 0 } });
+      g.drained = g.cfg.goal.pieces * PIECE - 40;
+    },
     actions: ['slam'], wait: 3, watch: (g, s) => (s.phase === 'won' ? 1 : 0),
     check: (g, s) => s.phase === 'won',
   },
   lose: {
     title: 'Loss shows real progress and the one revive', kind: 'ui',
     setup: (s) => {
-      const g = stage(s, { level: 9, drained: Math.floor(18 * 0.92) * PIECE + 5, board: [{ m: 'stone', x: 0, y: 2, w: 12, h: 18 }], piece: { mats: mats('stone'), x: 4, shape: 1, y: 0 } });
+      const g = stage(s, { level: 9, drained: Math.floor(27 * 0.92) * PIECE + 5, board: [{ m: 'stone', x: 0, y: 2, w: 12, h: 18 }], piece: { mats: mats('stone'), x: 4, shape: 1, y: 0 } });
       for (let y = 0; y < 2 * S; y++) for (let x = 0; x < GW; x++) if (x < 4 * S || x >= 8 * S) g.grid[y][x] = null;
     },
     actions: ['slam'], wait: 0.5, watch: (g, s) => (s.phase === 'lost' ? 1 : 0),

@@ -8,8 +8,9 @@
 // A bot never touches the board directly; it only sends the same inputs a player can.
 
 import {
-  COLS, GW, GH, S, collide, move, rotate, softDrop, hardDrop, activatePower, pieceMats,
+  COLS, GW, GH, S, PIECE, collide, move, rotate, softDrop, hardDrop, activatePower, pieceMats, update,
 } from '../src/core.js';
+import { POWERS } from '../src/levels.js';
 
 export function mulberry32(seed) {
   let a = seed >>> 0;
@@ -160,6 +161,48 @@ export function placements(g, slam = true) {
   return out;
 }
 
+// ---------- lookahead (smart bot) ----------
+
+// A copy of the game the bot can play forward without touching the real one.
+export function cloneGame(g, seed = 1) {
+  const c = {
+    ...g,
+    grid: g.grid.map((row) => row.map((p) => (p ? { ...p } : null))),
+    piece: g.piece ? { ...g.piece, cells: g.piece.cells.map((x) => [...x]), mats: [...g.piece.mats] } : null,
+    bag: [...g.bag],
+    queue: [...g.queue],
+    panes: new Map(g.panes),
+    mask: new Set(),
+    events: [],
+    rand: mulberry32(seed),
+  };
+  return c;
+}
+
+// Plays each of the best few placements forward for a moment and keeps the one that
+// actually drains the most without building up.
+function lookahead(g, options, k = 5, secs = 1.6) {
+  const top = [...options].sort((a, b) => b.score - a.score).slice(0, k);
+  let best = null;
+  for (const o of top) {
+    const c = cloneGame(g, 7);
+    c.piece.cells = o.cells;
+    c.piece.x = o.x;
+    const before = c.drained;
+    hardDrop(c);
+    for (let t = 0; t < secs && c.state === 'play'; t += 1 / 15) {
+      if (c.piece) c.piece.y = Math.min(c.piece.y, 0); // hold the next piece at the top
+      update(c, 1 / 15);
+    }
+    let top2 = GH;
+    for (let y = 0; y < GH && top2 === GH; y++) for (let x = 0; x < GW; x++) if (c.grid[y][x]) { top2 = y; break; }
+    const fill = 1 - top2 / GH;
+    const v = (c.state === 'lose' ? -1e6 : 0) + ((c.drained - before) / PIECE) * 30 + o.score * 0.5 - fill * fill * 80;
+    if (!best || v > best.v) best = { ...o, v };
+  }
+  return best;
+}
+
 // ---------- controllers ----------
 
 // A plan is a list of inputs; the bot sends them one at a time at its input rate.
@@ -173,10 +216,14 @@ function planInputs(g, target, drop) {
 
 const PROFILES = {
   random: { delay: [0.1, 0.4], rate: 0.12, noise: 0, blunder: 1, slam: 0.5, powerDelay: [0.5, 3], noticePower: 0.6 },
-  smart: { delay: [0, 0], rate: 0, noise: 0, blunder: 0, slam: 1, powerDelay: [0, 0], noticePower: 1 },
-  // A casual phone player: half a second to read the piece, about eight swipes a second,
-  // judges well but not perfectly, drags down about half the time instead of flicking.
-  human: { delay: [0.35, 0.9], rate: 0.12, noise: 5, blunder: 0.07, slam: 0.55, powerDelay: [0.4, 2.5], noticePower: 0.9, slamGlass: 0.75 },
+  // An expert: reads every placement perfectly, quick hands (but still human-fast: a
+  // quarter second to read a piece, twenty inputs a second), always flicks.
+  smart: { delay: [0.6, 0.6], rate: 0.05, noise: 0, blunder: 0, slam: 1, powerDelay: [0.1, 0.1], noticePower: 1, look: 99, ahead: true },
+  // A casual phone player: half a second to read the piece, about eight swipes a second.
+  // Looks at the few columns near the piece plus a couple of others, judges them roughly
+  // (noise is half the spread between good and bad options), blunders now and then, and
+  // drags down about half the time instead of flicking.
+  human: { delay: [0.35, 0.9], rate: 0.12, noise: 0.5, blunder: 0.08, slam: 0.55, powerDelay: [0.4, 2.5], noticePower: 0.9, slamGlass: 0.75, look: 3, extra: 2 },
 };
 
 export function createBot(kind, rand) {
@@ -192,12 +239,23 @@ function gauss(rand) {
 
 function choose(bot, g) {
   const { prof, rand } = bot;
-  const options = placements(g);
-  if (!options.length) return null;
-  if (rand() < prof.blunder) return options[Math.floor(rand() * options.length)];
+  const all = placements(g);
+  if (!all.length) return null;
+  if (prof.ahead) return lookahead(g, all);
+  if (rand() < prof.blunder) return all[Math.floor(rand() * all.length)];
+  // What this player actually considers: nearby columns, plus a few others they notice.
+  const px = g.piece.x;
+  let options = all.filter((o) => Math.abs(o.x - px) <= prof.look);
+  for (let i = 0; i < (prof.extra || 0); i++) options.push(all[Math.floor(rand() * all.length)]);
+  if (!options.length) options = all;
+  let spread = 0;
+  if (prof.noise) {
+    const mean = options.reduce((t, o) => t + o.score, 0) / options.length;
+    spread = Math.sqrt(options.reduce((t, o) => t + (o.score - mean) ** 2, 0) / options.length);
+  }
   let best = null;
   for (const o of options) {
-    const s = o.score + (prof.noise ? gauss(rand) * prof.noise : 0);
+    const s = o.score + (prof.noise ? gauss(rand) * prof.noise * spread : 0);
     if (!best || s > best.s) best = { ...o, s };
   }
   return best;
@@ -225,8 +283,11 @@ export function botStep(bot, g, dt) {
   if (g.state !== 'play') return;
   const { prof, rand } = bot;
 
-  // Power: fire it once the meter is full and the bot has noticed.
-  if (g.meter >= 1) {
+  // Power: fire it once the meter is full and the bot has noticed. The expert waits until
+  // the power has something worth clearing (or the board is getting high).
+  if (g.meter >= 1 && prof.ahead && !powerWorthIt(g)) {
+    bot.powerWait = null;
+  } else if (g.meter >= 1) {
     if (bot.powerWait === null) bot.powerWait = rand() < prof.noticePower ? between(rand, prof.powerDelay) : 1e9;
     bot.powerWait -= dt;
     if (bot.powerWait <= 0 && activatePower(g)) {
@@ -274,6 +335,21 @@ export function botStep(bot, g, dt) {
       return;
     }
   }
+}
+
+function powerWorthIt(g) {
+  const clears = new Set(POWERS[g.cfg.power].clears);
+  let n = 0;
+  let top = GH;
+  for (let y = 0; y < GH; y++) {
+    for (let x = 0; x < GW; x++) {
+      const c = g.grid[y][x];
+      if (!c) continue;
+      if (top === GH) top = y;
+      if (clears.has(c.m)) n++;
+    }
+  }
+  return n >= 2.5 * PIECE || top < GH * 0.45 || (g.left !== undefined && g.left <= 1);
 }
 
 function randomTarget(bot, g) {

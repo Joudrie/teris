@@ -9,7 +9,7 @@
 
 import {
   createGame, update, move, softDrop, hardDrop, rotate, activatePower, revive, progress,
-  piecesDrained, TOTAL_LEVELS,
+  piecesDrained, TOTAL_LEVELS, REVIVE_PIECES,
 } from './core.js';
 import { levelConfig, levelPreview, dailyConfig, POWERS } from './levels.js';
 
@@ -21,6 +21,17 @@ const FREE_LEVELS = 5; // no interstitials before this level
 const AD_EVERY = 2; // at most one interstitial every this many level starts
 const AD_GAP_MS = 3 * 60 * 1000; // and never two within three minutes, across sessions
 
+// A saved value only counts if it has the same shape as its default: a corrupt or
+// hand-edited save (null, a string where a number goes, Infinity) falls back to the default.
+function sameShape(v, d) {
+  if (d === undefined) return v !== undefined;
+  if (Array.isArray(d)) return Array.isArray(v);
+  if (v === null || typeof v !== typeof d) return false;
+  if (typeof v === 'number') return Number.isFinite(v);
+  if (typeof v === 'object') return !Array.isArray(v);
+  return true;
+}
+
 // Storage that never throws: if localStorage is blocked or wiped, the session keeps going
 // on an in-memory copy.
 export function safeStore(backing) {
@@ -28,10 +39,13 @@ export function safeStore(backing) {
   return {
     get(k, d) {
       try {
-        const v = backing && backing.getItem(k);
-        if (v !== null && v !== undefined) return JSON.parse(v);
+        const raw = backing && backing.getItem(k);
+        if (raw !== null && raw !== undefined) {
+          const v = JSON.parse(raw);
+          if (sameShape(v, d)) return v;
+        }
       } catch (e) { /* blocked or corrupt */ }
-      return mem.has(k) ? mem.get(k) : d;
+      return mem.has(k) && sameShape(mem.get(k), d) ? mem.get(k) : d;
     },
     set(k, v) {
       mem.set(k, v);
@@ -79,7 +93,7 @@ export function start(s, level, { daily = false } = {}) {
   } else {
     s.level = clampLevel(level);
     s.store.set('mb_level', s.level);
-    const losses = s.store.get(`mb_losses_${s.level}`, 0);
+    const losses = Math.max(0, s.store.get(`mb_losses_${s.level}`, 0));
     cfg = levelConfig(s.level, { help: losses >= 3 });
   }
   s.cfg = cfg;
@@ -165,7 +179,7 @@ function afterGame(s) {
       const today = dateKey(s.now());
       if (d.done !== today) {
         const yesterday = dateKey(s.now() - 86400000);
-        s.store.set('mb_daily', { done: today, streak: d.done === yesterday ? (d.streak || 0) + 1 : 1 });
+        s.store.set('mb_daily', { done: today, streak: d.done === yesterday ? streakOf(s) + 1 : 1 });
       }
     } else {
       s.store.set(`mb_losses_${s.level}`, 0);
@@ -179,7 +193,7 @@ function afterGame(s) {
     s.callout = null;
     if (!s.lossCounted && !s.daily) {
       s.lossCounted = true; // one loss per attempt, even if the revive also runs out
-      s.store.set(`mb_losses_${s.level}`, s.store.get(`mb_losses_${s.level}`, 0) + 1);
+      s.store.set(`mb_losses_${s.level}`, Math.max(0, s.store.get(`mb_losses_${s.level}`, 0)) + 1);
     }
     s.events.push({ type: 'lose', pct: Math.floor(progress(g) * 100) });
   }
@@ -193,7 +207,7 @@ export function winScreen(s) {
   return {
     title: s.daily ? 'Daily challenge cleared!' : last ? 'You reached the ground!' : 'Level cleared!',
     drained: piecesDrained(s.game),
-    sub: s.daily ? `Streak: ${s.store.get('mb_daily', {}).streak || 1} day(s)` : last ? 'All 100 levels cleared.' : `Down to ${100 - s.level} ft.`,
+    sub: s.daily ? `Streak: ${Math.max(1, streakOf(s))} day(s)` : last ? 'All 100 levels cleared.' : `Down to ${100 - s.level} ft.`,
     next: s.daily ? `Back to level ${s.level}` : last ? 'Play again from the top' : `Next: level ${nextLevel}. ${levelPreview(nextLevel)}`,
     nextLabel: s.daily ? `Continue level ${s.level}` : last ? 'Play again' : `Play level ${nextLevel}`,
     dailyReady: dailyReady(s),
@@ -202,14 +216,22 @@ export function winScreen(s) {
 
 export function loseScreen(s) {
   const pct = Math.floor(progress(s.game) * 100);
+  const outOfPieces = s.game.loseReason === 'pieces';
   return {
     pct,
-    title: pct >= 80 ? `So close! ${pct}%` : `Topped out at ${pct}%`,
-    sub: `${piecesDrained(s.game)} of ${s.game.cfg.goal.pieces} blocks drained.`,
+    outOfPieces,
+    title: pct >= 80 ? `So close! ${pct}%` : outOfPieces ? `Out of pieces at ${pct}%` : `Topped out at ${pct}%`,
+    sub: `${piecesDrained(s.game)} of ${s.game.cfg.goal.pieces} blocks drained${outOfPieces ? ' before the pieces ran out' : ' before the board filled up'}.`,
+    revive: outOfPieces ? `Watch ad: +${REVIVE_PIECES} pieces` : 'Watch ad: clear the top 4 rows',
     canRevive: !s.game.revived,
     help: !s.daily && s.store.get(`mb_losses_${s.level}`, 0) >= 3 && !s.cfg.help,
   };
 }
+
+const streakOf = (s) => {
+  const n = s.store.get('mb_daily', {}).streak;
+  return Number.isFinite(n) ? n : 0;
+};
 
 export const dailyReady = (s) => s.store.get('mb_daily', {}).done !== dateKey(s.now());
 
@@ -217,8 +239,9 @@ export const dailyReady = (s) => s.store.get('mb_daily', {}).done !== dateKey(s.
 export function next(s) {
   if (s.phase !== 'won' || s.ad) return false;
   const to = s.daily ? s.level : s.level >= TOTAL_LEVELS ? 1 : s.level + 1;
-  const since = s.store.get('mb_since_ad', 0) + 1;
-  const lastAd = s.store.get('mb_last_ad', 0);
+  const since = Math.max(0, s.store.get('mb_since_ad', 0)) + 1;
+  let lastAd = s.store.get('mb_last_ad', 0);
+  if (lastAd > s.now()) lastAd = 0; // the clock went backwards: don't lock ads out forever
   const due = !s.daily && s.level >= FREE_LEVELS && since >= AD_EVERY && s.now() - lastAd >= AD_GAP_MS && !s.adsRemoved();
   if (due) {
     s.store.set('mb_since_ad', 0);
@@ -292,7 +315,7 @@ export function homeInfo(s) {
     level: s.level,
     ft: 101 - s.level,
     dailyReady: dailyReady(s),
-    streak: s.store.get('mb_daily', {}).streak || 0,
+    streak: streakOf(s),
     powers: POWERS,
   };
 }

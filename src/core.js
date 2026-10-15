@@ -16,6 +16,8 @@ const MAX_MULT = 4; // combo multiplier cap
 const COMBO_WINDOW = 1.0; // seconds of quiet before a combo ends
 const QUEST_BONUS = 0.35; // meter charge for finishing the side quest
 const SLAM_DROP = 3 * S; // falling this far onto glass smashes it
+const SETTLE = 2.5; // after the last piece, seconds of quiet before the level is called
+export const REVIVE_PIECES = 5; // the revive's extra pieces when the budget ran out
 
 // Solid materials keep their piece together and move as one rigid block.
 // Water and sand are loose particles; mud stays put.
@@ -83,6 +85,9 @@ export function createGame({ level = 1, rand = Math.random, config = levelConfig
     nextId: 0,
     bag: [], // pieces left in the current shuffled bag
     queue: [...(config.first || [])], // set pieces dealt before the bag (a level's lesson)
+    left: config.pieces || Infinity, // pieces still to come (the level's budget)
+    settling: null, // seconds left to let reactions finish once the budget is spent
+    loseReason: null, // 'top' (board filled) or 'pieces' (budget spent short of the goal)
     panes: new Map(), // fire block id -> id of the glass pane that fire is melting
     mask: new Set(), // particles covered by the falling piece
     events: [], // drained by the renderer for effects
@@ -165,16 +170,25 @@ export function placeBlock(g, { m, x, y, w, h }) {
 }
 
 function spawn(g) {
+  if (g.left <= 0) {
+    // Out of pieces: let what's on the board finish reacting, then call it.
+    g.piece = null;
+    g.settling = SETTLE;
+    return;
+  }
+  g.left--;
   const { m, shape, mats } = g.next;
   g.next = makeNext(g);
   g.piece = { m, mats, cells: shape, x: SPAWN_X, y: 0 };
   g.slam = false;
-  if (collide(g, shape, SPAWN_X, 0)) lose(g);
+  if (collide(g, shape, SPAWN_X, 0)) lose(g, 'top');
 }
 
-function lose(g) {
+function lose(g, reason) {
   g.state = 'lose';
+  g.loseReason = reason;
   g.piece = null;
+  g.settling = null;
 }
 
 const inb = (x, y) => x >= 0 && x < GW && y >= 0 && y < GH;
@@ -264,7 +278,7 @@ function lock(g) {
       }
     }
   });
-  if (overflow) return lose(g);
+  if (overflow) return lose(g, 'top');
   g.events.push({ type: 'land', slam: g.slam, cells: cells.map(([a, b]) => [x + a, y + b]) });
   // A slam smashes glass underneath; stone shatters glass even when placed gently.
   for (const [i, [a, b]] of cells.entries()) {
@@ -301,6 +315,7 @@ function shatter(g, x, y) {
 // which charges the power meter faster.
 function drain(g, n, charge = true) {
   g.drained += n;
+  if (g.settling !== null) g.settling = SETTLE; // still reacting: keep waiting
   g.combo += n;
   g.comboTimer = COMBO_WINDOW;
   const mult = Math.min(MAX_MULT, 1 + Math.floor(g.combo / PIECE));
@@ -378,6 +393,10 @@ export function tick(g, dt) {
   rigid(g);
   loose(g);
   checkGoal(g);
+  if (g.state === 'play' && g.settling !== null) {
+    g.settling -= dt;
+    if (g.settling <= 0) lose(g, 'pieces');
+  }
 }
 
 function pieceMask(g) {
@@ -790,11 +809,17 @@ export function activatePower(g) {
 }
 
 // One revive per level: clears the top four rows and play continues.
+// One revive per level. Topped out: the top four rows are cleared. Out of pieces: five more.
 export function revive(g) {
   if (g.state !== 'lose' || g.revived) return false;
   g.revived = true;
-  for (let y = 0; y < 4 * S; y++) g.grid[y].fill(null);
+  if (g.loseReason === 'pieces') g.left += REVIVE_PIECES;
+  else for (let y = 0; y < 4 * S; y++) g.grid[y].fill(null);
   g.state = 'play';
+  g.loseReason = null;
   spawn(g);
   return true;
 }
+
+// Pieces the player still has, counting the one falling now.
+export const piecesLeft = (g) => (g.left === Infinity ? Infinity : g.left + (g.piece ? 1 : 0));

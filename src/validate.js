@@ -31,7 +31,9 @@ export function validate(g, v = createValidator()) {
   if (g.state === 'play') {
     if (!g.next || !g.next.mats || g.next.mats.length !== 4) errs.push('no next piece');
     else for (const m of g.next.mats) if (!MATS.has(m)) errs.push(`next piece has material ${m}`);
-    if (!g.piece) errs.push('playing with no falling piece');
+    if (!g.piece && g.settling === null) errs.push('playing with no falling piece');
+    if (g.piece && g.settling !== null) errs.push('a piece is falling while the level is settling');
+    if (!(g.left >= 0)) errs.push(`pieces left is ${g.left}`);
   }
   if (!Array.isArray(g.bag)) errs.push('bag is not a list');
 
