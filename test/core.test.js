@@ -383,6 +383,17 @@ test('a block that falls a long way smashes glass', () => {
   assert.equal(count(g, 'glass'), 0);
 });
 
+test('a block landing on glass that is itself part of a falling block does not crash', () => {
+  const g = setup();
+  block(g, 0, GH - 4, 40, 4, 'stone');
+  // A glass pane falling under a brick block: when the brick lands on it, the pane smashes
+  // while the pane is still waiting for its own turn to move.
+  const pane = block(g, 8, 20, 16, 4, 'glass');
+  put(g, 30, 30, 'glass', pane); // a stray bit of the same pane elsewhere
+  block(g, 8, 4, 16, 4, 'brick');
+  assert.doesNotThrow(() => run(g, 4));
+});
+
 test('power needs a full meter and clears the level material', () => {
   const g = setup();
   block(g, 0, GH - 8, 8, 8, 'wood');

@@ -575,7 +575,11 @@ function rigidBlocks(g) {
 }
 
 function rigid(g) {
-  for (const { id, cells } of rigidBlocks(g)) {
+  for (const block of rigidBlocks(g)) {
+    const { id } = block;
+    // A block processed earlier this tick may have smashed part of this one; skip what's gone.
+    const cells = block.cells.filter(([x, y]) => g.grid[y][x]?.id === id && RIGID.has(g.grid[y][x].m));
+    if (!cells.length) continue;
     const own = new Set(cells.map(([x, y]) => y * GW + x));
     const mine = (x, y) => own.has(y * GW + x);
 
