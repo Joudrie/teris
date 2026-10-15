@@ -306,7 +306,7 @@ Notes:
 | 7 | Stone and brick erosion was too slow to see (12 of 64 particles after 9 s) | Test card `erode` | card scene | 32eed00 | `water wears stone down to sand, and the wear spreads through the piece`, card `erode` |
 | 8 | The background cloud layer was drawn as opaque grey blobs that looked like smoke or rubble and hid materials | Card screenshots | levels 1–45, any board | b1f694b | visual: `docs/shots/card-*.jpg` |
 | 9 | The canvas "LEVEL CLEARED" text bled through the win-screen overlay behind the next-level preview | Hook screenshot | win any level | b1f694b | visual: `docs/shots/hook-06-win-screen.jpg` |
-| 10 | The daily challenge said "same level for everyone today" but dealt pieces from `Math.random`, so every player got a different game | Code review | Start the daily on two devices on the same day | DAILYFIX | `regression: the daily challenge deals the same pieces to everyone that day` |
+| 10 | The daily challenge said "same level for everyone today" but dealt pieces from `Math.random`, so every player got a different game | Code review | Start the daily on two devices on the same day | de3d652 | `regression: the daily challenge deals the same pieces to everyone that day` |
 
 Not bugs, but found and fixed on the way:
 - Level 2's first piece reacted with nothing, so a newbie's first drain came at 17 s; it's now 5 s.
