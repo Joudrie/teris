@@ -15,6 +15,14 @@ Each entry gives the choice, the alternatives considered, and why this one won.
 - **How:** One tile per material, variant and fire frame is baked per board size. Faces are 16 × 16 texels: fine enough to read as a premium texture pack, still pixel art. The first build used 8 × 8; all three fresh-eyes reviewers called it "8-bit" against the glossy UI. Intact cells stamp a whole tile; partly burned or crumbled cells cut particle-sized pieces from it and get fresh bevels on the broken edges. Loose materials are smooth bodies: interior runs as rectangles, edge particles as discs, colored from a smoothed particle field. Static blocks are cached and redrawn only when they change. A dynamic-resolution step-down protects the frame rate.
 - **No rule changes:** the renderer never writes to a particle. Texture offsets live in a `WeakMap`, which matters: writing extra fields onto particle objects made the simulation measurably slower.
 
+## Showing the cancel
+
+- **Problem:** the rules remove a touching fire and water particle on the spot. A water piece eats into fire in a few hundred milliseconds, and the first build drew a couple of soft puffs (rate-limited to one every 45 ms), then the hole. Screenshots and players saw "before" and "after", never the blocks cancelling. The prototype got this right by accident: one small puff per removed particle, in place.
+- **Chosen:** a fizz layer in the board renderer. Every particle a reaction removes leaves a trace where it was: a hot flash, then steam (fire, water, ice), smoke (wood) or dust (everything else). The removed particles are found by comparing the grid with the last frame's, on frames where the drain counter moved. A particle that appears in place with no matching particle next door last frame is a transform (water freezing, sand into mud) and gets no trace.
+- **Rejected:** driving it from the simulation's events. Only some reactions emit one (fire and water do, mud washing and sand packing don't), and the water partner of a cancel has no position in the event. Changing the events would mean changing `core.js`.
+- **Cost:** about 2 ms per frame at 4× CPU throttle, inside run-to-run noise on the draw time. The renderer still never writes to a particle.
+- **Also:** no dust cloud or impact ring when a piece slams into something it reacts with, no board flash on combos, and the ghost fades in just after a piece spawns, tinted by the piece's material. Each of those was covering or competing with the cancel.
+
 ## Name: Tumbledown
 
 - **Chosen:** Tumbledown. Blocks tumble, the tower is climbed down floor by floor, and things crumble. It's short, warm and unusual in this genre.

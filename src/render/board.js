@@ -5,7 +5,9 @@
 //   4. rigid blocks as baked voxel tiles: a whole tile per intact cell, particle-sized cut-outs
 //      where a block has partly burned, melted or crumbled,
 //   5. heat glow, fire glow and flame tongues,
-//   6. the ghost (with the cells it would react with) and the falling piece.
+//   6. the ghost (with the cells it would react with),
+//   7. fizz: a trace of every particle a reaction removed, where it was,
+//   8. the falling piece.
 // It only reads the game and never touches a particle: each rigid particle's texture offset
 // is kept in a WeakMap, so the simulation's objects keep their shape (and their speed).
 
@@ -129,6 +131,7 @@ export function createBoardRenderer(cv, skin) {
     st.emblems = bakeEmblems(Math.round(P * S * 0.62));
     bakePatterns();
     bakeLut();
+    bakeFizz();
     return { w: st.W / d, h: st.H / d, P };
   }
 
@@ -233,6 +236,150 @@ export function createBoardRenderer(cv, skin) {
 
 
   // Particle-space origins (x, y) of the cells next to the landing spot that would react.
+  // ---------- fizz ----------
+  // The rules cancel touching particles on the spot: a water piece eats into fire in about
+  // 0.1 s, so on its own the player only ever sees the hole afterwards. Every particle a
+  // reaction removes therefore leaves a trace where it was: a hot flash, then steam, smoke
+  // or dust that rises (or falls) away. The cancel reads in its own shape, the way the
+  // prototype's one-puff-per-particle steam did. Render only: found by comparing the grid
+  // with the last frame's, never by touching the simulation.
+  const prevObj = new Array(N).fill(null);
+  const curSet = new Set();
+  const fizz = [];
+  const FIZZ_MAX = 800;
+  const FIZZ_HOT = 0.14; // share of a trace's life spent as a hot flash in place
+  const FIZZ_KIND = { fire: 'steam', ice: 'steam', wood: 'smoke', wetwood: 'smoke' };
+  const FIZZ_HOT_COLOR = { fire: [255, 244, 190], water: [232, 250, 255], ice: [245, 253, 255], wood: [255, 178, 80], wetwood: [255, 196, 120] };
+  const fz = { sprites: null, hot: {}, dust: {}, ghost: {} };
+  let fzSeed = 1;
+  const fzRand = () => { fzSeed = (Math.imul(fzSeed, 1664525) + 1013904223) | 0; return (fzSeed >>> 8) / 16777216; };
+
+  function bakeFizz() {
+    const R = Math.max(8, Math.round(st.P * 2.4));
+    const dot = (rgb) => {
+      const c = canvas(R * 2, R * 2);
+      const x = c.getContext('2d');
+      const g = x.createRadialGradient(R, R, 0, R, R, R);
+      g.addColorStop(0, css(rgb, 1));
+      g.addColorStop(0.45, css(rgb, 0.75));
+      g.addColorStop(1, css(rgb, 0));
+      x.fillStyle = g;
+      x.fillRect(0, 0, R * 2, R * 2);
+      return c;
+    };
+    fz.sprites = { steam: dot([246, 251, 255]), smoke: dot([78, 80, 96]) };
+    fz.ghost = {};
+    for (const m of Object.keys(st.skin.mats)) {
+      fz.hot[m] = css(FIZZ_HOT_COLOR[m] || mix(st.skin.mats[m].light, [255, 255, 255], 0.3));
+      fz.dust[m] = css(st.skin.mats[m].base);
+    }
+  }
+
+  // Compares the grid with the last frame's. Only on frames where something drained (the
+  // counter moved), so a settled board costs one copy pass.
+  function trackFizz(g, ts) {
+    const grid = g.grid;
+    const fresh = g !== st.fzGame || grid !== st.fzGrid || g.drained < st.fzDrained;
+    const diff = !fresh && g.drained !== st.fzDrained;
+    st.fzGame = g;
+    st.fzGrid = grid;
+    st.fzDrained = g.drained;
+    if (fresh) fizz.length = 0;
+    if (diff) {
+      curSet.clear();
+      for (let y = 0; y < GH; y++) {
+        const row = grid[y];
+        for (let x = 0; x < GW; x++) { const c = row[x]; if (c) curSet.add(c); }
+      }
+      let gone = 0;
+      let fireGone = false;
+      for (let i = 0; i < N; i++) {
+        const o = prevObj[i];
+        if (o && !curSet.has(o)) { gone++; if (o.m === 'fire') fireGone = true; }
+      }
+      // A power or a reset clears hundreds at once: the screen effects cover those.
+      if (gone > 0 && gone <= 360) {
+        fzSeed = (ts * 1000) | 0;
+        for (let i = 0; i < N; i++) {
+          const o = prevObj[i];
+          if (!o || curSet.has(o)) continue;
+          const x = i % GW;
+          const y = (i / GW) | 0;
+          const now = grid[y][x];
+          if (now && isNew(now, x, y)) continue; // turned into something else in place (froze, became mud)
+          if (fizz.length >= FIZZ_MAX) break;
+          const m = o.m;
+          // Water that met fire boils off; water that washed mud or sand away splashes.
+          const kind = m === 'water' ? (fireGone ? 'steam' : 'dust') : (FIZZ_KIND[m] || 'dust');
+          const r = fzRand();
+          const life = kind === 'dust' ? 420 + 200 * r : kind === 'smoke' ? 950 + 350 * r : 950 + 400 * r;
+          fizz.push({ x, y, m, kind, t0: ts, life, dx: fzRand() - 0.5 });
+        }
+      }
+    }
+    for (let y = 0; y < GH; y++) {
+      const row = grid[y];
+      const o = y * GW;
+      for (let x = 0; x < GW; x++) prevObj[o + x] = row[x];
+    }
+  }
+
+  // A particle that wasn't anywhere around this spot last frame was just created here: a
+  // transform, not something that flowed in from next door.
+  function isNew(c, x, y) {
+    for (let dy = -1; dy <= 1; dy++) {
+      const yy = y + dy;
+      if (yy < 0 || yy >= GH) continue;
+      for (let dx = -1; dx <= 1; dx++) {
+        const xx = x + dx;
+        if (xx >= 0 && xx < GW && prevObj[yy * GW + xx] === c) return false;
+      }
+    }
+    return true;
+  }
+
+  function drawFizz(ts, lite) {
+    const P = st.P;
+    const T = P * S;
+    let w = 0;
+    for (let k = 0; k < fizz.length; k++) { const f = fizz[k]; if (ts - f.t0 < f.life) fizz[w++] = f; }
+    fizz.length = w;
+    if (!w) return;
+    // Hot flashes and dust: particle-sized squares in place.
+    for (let k = 0; k < w; k++) {
+      const f = fizz[k];
+      const a = Math.max(0, (ts - f.t0) / f.life);
+      const cx = (f.x + 0.5) * P;
+      const cy = (f.y + 0.5) * P;
+      if (f.kind === 'dust') {
+        const s = P * (1.1 - 0.75 * a);
+        ctx.globalAlpha = 1 - a * a;
+        ctx.fillStyle = fz.dust[f.m] || fz.dust.stone;
+        ctx.fillRect(cx - s / 2 + f.dx * P * 3 * a, cy - s / 2 + P * 6 * a * a, s, s);
+      } else if (a < FIZZ_HOT) {
+        const s = P * (1.3 - a);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = fz.hot[f.m] || fz.hot.fire;
+        ctx.fillRect(cx - s / 2, cy - s / 2, s, s);
+      }
+    }
+    // Steam and smoke: soft clouds that grow, rise and drift.
+    const spr = fz.sprites;
+    const step = lite ? 2 : 1;
+    for (let k = 0; k < w; k += step) {
+      const f = fizz[k];
+      if (f.kind === 'dust') continue;
+      const a = Math.max(0, (ts - f.t0) / f.life);
+      const e = Math.max(0, (a - FIZZ_HOT * 0.5) / (1 - FIZZ_HOT * 0.5));
+      const r = P * (1 + 1.6 * e);
+      const rise = T * 1.5 * (1 - (1 - e) * (1 - e));
+      const fadeIn = Math.min(1, a / (FIZZ_HOT * 0.5));
+      ctx.globalAlpha = Math.min(1, (f.kind === 'steam' ? 0.55 : 0.45) * step * fadeIn * (1 - Math.pow(e, 1.4)));
+      ctx.drawImage(spr[f.kind], (f.x + 0.5) * P - r + f.dx * P * 4 * e, (f.y + 0.5) * P - r - rise, r * 2, r * 2);
+    }
+    ctx.globalAlpha = 1;
+  }
+
   let tgKey = '';
   let tgOut = [];
   function telegraph(grid, piece, mats, gy, reacts) {
@@ -270,6 +417,7 @@ export function createBoardRenderer(cv, skin) {
     st.g = g;
     const { P, W, H, skin: sk, tiles } = st;
     const ts = opts.ts || 0;
+    trackFizz(g, ts);
     const T = P * S;
     const grid = g.grid;
 
@@ -526,31 +674,44 @@ export function createBoardRenderer(cv, skin) {
 
     // ---------- ghost and falling piece ----------
     const piece = opts.piece;
+    st.targets = 0;
+    let fizzDone = false;
     if (piece) {
       const mats = piece.mats || piece.cells.map(() => piece.m);
       const minB = Math.min(...piece.cells.map(([, bb]) => bb));
       const px = opts.pieceX ?? piece.x;
-      if (opts.ghostY !== undefined && opts.ghostY !== null) {
-        ctx.globalAlpha = 0.28;
+      // The ghost fades in just after a piece spawns, so the reaction the last piece set off
+      // keeps the stage for a moment instead of sharing it with a landing preview.
+      if (piece !== st.ghostFor) { st.ghostFor = piece; st.ghostT = ts; }
+      const gk = Math.min(1, Math.max(0, (ts - st.ghostT - 100) / 200));
+      if (opts.ghostY !== undefined && opts.ghostY !== null && gk > 0) {
+        ctx.globalAlpha = 0.28 * gk;
         piece.cells.forEach(([a, bb], k) => {
           ctx.drawImage(tiles[mats[k]][variantOf((piece.x + a) * S, bb - minB)], (piece.x + a) * T, (opts.ghostY + bb * S) * P);
         });
-        ctx.globalAlpha = 1;
-        // A solid, softly lit silhouette with a bright rim: clearly "here", never a wireframe.
+        // A solid silhouette tinted by the piece's own material, with a bright rim: clearly
+        // "this piece lands here", never mistaken for grey blocks on the board.
         const lw = Math.max(1.5, P * 0.2);
-        ctx.fillStyle = 'rgba(255,255,255,0.14)';
-        ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+        ctx.globalAlpha = gk;
         ctx.lineWidth = lw;
-        piece.cells.forEach(([a, bb]) => {
+        piece.cells.forEach(([a, bb], k) => {
+          const gc = ghostCss(mats[k]);
+          ctx.fillStyle = gc.fill;
+          ctx.strokeStyle = gc.rim;
           const gx = (piece.x + a) * T + lw;
           const gy2 = (opts.ghostY + bb * S) * P + lw;
           ctx.fillRect(gx, gy2, T - lw * 2, T - lw * 2);
           ctx.strokeRect(gx, gy2, T - lw * 2, T - lw * 2);
         });
+        ctx.globalAlpha = 1;
+      }
+      if (opts.ghostY !== undefined && opts.ghostY !== null) {
         // Telegraph: the blocks this piece would react with where it lands.
         if (opts.reacts) {
           const targets = telegraph(grid, piece, mats, opts.ghostY, opts.reacts);
-          if (targets.length) {
+          st.targets = targets.length;
+          if (targets.length && gk > 0) {
+            ctx.globalAlpha = gk;
             // An ink outline under a pulsing bright one, so it reads even on glowing fire.
             const a = 0.6 + 0.4 * Math.sin(ts / 140);
             const lw = Math.max(2, P * 0.3);
@@ -564,9 +725,12 @@ export function createBoardRenderer(cv, skin) {
               ctx.strokeStyle = `rgba(255,248,200,${a})`;
               ctx.strokeRect(tx * P + inset, ty * P + inset, T - inset * 2, T - inset * 2);
             }
+            ctx.globalAlpha = 1;
           }
         }
       }
+      if (fizz.length) drawFizz(ts, opts.lite);
+      fizzDone = true;
       const lift = opts.pieceLift || 0;
       piece.cells.forEach(([a, bb], k) => {
         const x = (px + a) * T;
@@ -594,6 +758,15 @@ export function createBoardRenderer(cv, skin) {
         ctx.globalCompositeOperation = 'source-over';
       }
     }
+    if (!fizzDone && fizz.length) drawFizz(ts, opts.lite);
+  }
+
+  function ghostCss(m) {
+    if (!fz.ghost[m]) {
+      const mat = st.skin.mats[m];
+      fz.ghost[m] = { fill: css(mat.light, 0.2), rim: css(mix(mat.light, [255, 255, 255], 0.4), 0.85) };
+    }
+    return fz.ghost[m];
   }
 
   return {
@@ -606,5 +779,7 @@ export function createBoardRenderer(cv, skin) {
     get dpr() { return st.d; },
     get skin() { return st.skin; },
     get tiles() { return st.tiles; },
+    // True when the piece, dropped now, would land against something it reacts with.
+    get reactive() { return st.targets > 0; },
   };
 }

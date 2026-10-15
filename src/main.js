@@ -196,7 +196,6 @@ function shakeWell(n) {
   view.shake = Math.max(view.shake, n);
 }
 
-let puffT = 0;
 function handleEvents() {
   for (const e of sess.events) {
     if (DEBUG && eventLog.length < 5000 && e.type !== 'steam' && e.type !== 'burn') eventLog.push({ t: performance.now(), type: e.type, mult: e.mult, slam: e.slam, power: e.power });
@@ -207,7 +206,6 @@ function handleEvents() {
       const bonus = `×${e.mult} combo!`;
       fx.word(txt, b.x + b.w / 2, b.y + b.h * 0.44, { size: 46 + e.mult * 6, style, sub: bonus, slot: 'praise' });
       shakeWell(3 + e.mult * 2);
-      if (e.mult >= 3) fx.flash('#fff3b0', 0.22, 0.28);
       play('combo', e);
       buzz(15 * e.mult);
     } else if (e.type === 'shatter') {
@@ -226,16 +224,11 @@ function handleEvents() {
       play('shatter');
       buzz([30, 20, 40]);
     } else if (e.type === 'steam') {
-      if (now - puffT > 45) {
-        puffT = now;
-        const [x, y] = toScreen(e.x + 0.5, e.y);
-        fx.puff(x, y, false, 14);
-      }
+      // The steam itself is drawn by the board (one trace per cancelled particle, in place).
       remember(e.x, e.y, 'fire');
       play('steam');
     } else if (e.type === 'burn') {
       const [x, y] = toScreen(e.x + 0.5, e.y);
-      if (now - puffT > 45) { puffT = now; fx.puff(x, y, true, 13); }
       fx.sparks(x, y, 2);
       remember(e.x, e.y, 'wood');
       play('burn');
@@ -283,8 +276,12 @@ function landed(e) {
   const [sx0, sy] = toScreen(x0, bottom, b);
   const [sx1] = toScreen(x1, bottom, b);
   if (e.slam) {
-    fx.dust((sx0 + sx1) / 2, sy, 14);
-    fx.ring((sx0 + sx1) / 2, sy, 'rgba(255,255,255,.9)', 50);
+    // Slamming into something it reacts with: the reaction is the show, so no dust cloud or
+    // impact ring over it. The shake, hit-stop and thud stay.
+    if (!view.reactiveLanding) {
+      fx.dust((sx0 + sx1) / 2, sy, 14);
+      fx.ring((sx0 + sx1) / 2, sy, 'rgba(255,255,255,.9)', 50);
+    }
     shakeWell(9);
     view.hitstop = Math.max(view.hitstop, 0.05);
     play('slam');
@@ -968,6 +965,7 @@ function drawBoard(ts, dt) {
   }
   const gy = p ? landingY(g) : null;
   board.draw(g, { ts, piece: p, pieceX: view.pieceX, ghostY: gy, reacts, assist: settings.assist, lite: quality === 0 });
+  view.reactiveLanding = board.reactive;
   const well = $('well');
   if (view.shake > 0.2) {
     view.shake = Math.max(0, view.shake - dt * 40);

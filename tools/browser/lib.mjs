@@ -13,10 +13,10 @@ export const { chromium, devices } = pw;
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.json': 'application/json' };
 
-export function serve() {
+export function serve(root = ROOT) {
   return new Promise((res) => {
     const srv = http.createServer((req, rsp) => {
-      const p = path.join(ROOT, decodeURIComponent(new URL(req.url, 'http://x').pathname));
+      const p = path.join(root, decodeURIComponent(new URL(req.url, 'http://x').pathname));
       const file = p.endsWith('/') ? path.join(p, 'index.html') : p;
       fs.readFile(file, (err, data) => {
         if (err) { rsp.writeHead(404); rsp.end(); return; }

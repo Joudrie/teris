@@ -13,7 +13,7 @@ Before/after composites for every state are in [compare/](compare/). The reasoni
 | 1 | **Blocks are voxel cubes**: 16 × 16 pixel-art faces, bevel, gloss and shadow. A magma fire block glows and throws flames, water and sand are smooth bodies, and glass is see-through. | [busy](compare/busy@390x844.jpg), [lineup](compare/lineup@390x844.jpg) |
 | 2 | **New HUD**: the goal meter is the hero, with a pieces badge, a next tray in real tiles, a quest chip and a power button that charges and glows. No sentences during play. | [open](compare/open-1s@390x844.jpg) |
 | 3 | **A world**: a sky that changes with altitude (sun and clouds, then city, trees and ground), and a framed well with the level plaque. | [open](compare/open-1s@390x844.jpg), [desktop](compare/busy@1440x900.jpg) |
-| 4 | **Juice**: goal orbs fly from each reaction into the goal; one praise word at a time; hit-stop on slams and smashes; glass shards; steam, smoke and embers; a power cinematic; a win celebration with confetti. | [combo](compare/combo-peak@390x844.jpg), [power](compare/scene-blaze@390x844.jpg), [smash](compare/scene-slam@390x844.jpg) |
+| 4 | **Juice**: every cancelled particle flashes hot and turns to steam, smoke or dust in place, so reactions read in their own shape; goal orbs fly from each reaction into the goal; one praise word at a time; hit-stop on slams and smashes; glass shards; steam, smoke and embers; a power cinematic; a win celebration with confetti. | [cancel frame by frame](compare/motion-cancel.jpg), [combo](compare/combo-peak@390x844.jpg), [power](compare/scene-blaze@390x844.jpg), [smash](compare/scene-slam@390x844.jpg) |
 | 5 | **Win screen**: ribbon, three stamped stars, results card, coin reward, a "next up" row with the new material's tile, Continue. | [win](compare/win-screen@390x844.jpg) |
 | 6 | **Lose screen**: progress ring with "N to go", a gift-first revive, Try again, Give up. | [lose](compare/scene-lose@390x844.jpg) |
 | 7 | **Tower map** replaces the manual: 100 floors with stars, wordmark, coins and stars, daily, gifts, shop, the Blocks codex, boosters and a big Play button. | [home](compare/scene-home@390x844.jpg) |
@@ -37,6 +37,18 @@ Round 4 saw a combo still taken at the praise word's peak (`combo-peak`). The ge
 **Where it plateaued, and why.** Every reviewer's first complaint was the same: pixel-art blocks inside a glossy vector UI, "rebuild them as high-res glossy tiles". That conflicts with the brief ("pixelly like Minecraft, flat but with depth"). I kept pixel faces, moved to a finer 16 × 16 grid, and added volume and gloss, which narrows the clash without dropping the look you asked for. If you'd rather have the glossy, non-pixel look, the **Clay** skin is already built and can become the default with a two-line change in `src/meta.js` (the default skin and the owned-skins check).
 
 The second recurring complaint is the empty board early in a level. That's level design (most levels start nearly empty), which the brief protects. Possible fixes are listed under next steps.
+
+## Owner feedback: "the screenshots don't show the blocks cancelling"
+
+You were right. Filming the core moment frame by frame on a paused clock showed the problem: a water piece eats into fire within a few hundred milliseconds, and the first build showed it as two or three soft puffs, a full-board combo flash and a slam dust cloud, then just the hole. On top of that, the next piece's landing preview appeared in the hole as grey boxes. The prototype read better here, by accident: it drew one small puff per removed particle, in place.
+
+What changed (render only; the rules are untouched):
+- **Fizz layer** in `src/render/board.js`. Every particle a reaction removes leaves a trace where it was. Fire and water flash white-hot, then turn to steam that grows and rises, so the water visibly sinks into the fire under a boiling edge and the steam keeps the shape of the pit it dug. Burned wood smokes; sand, mud, stone and glass leave falling dust.
+- **Nothing covers the cancel.** No dust cloud or impact ring when a piece slams into something it reacts with, and no board flash on combos.
+- **The landing preview** fades in just after a piece spawns, tinted by the piece's material, so it can't be mistaken for grey blocks.
+- **Shots re-timed.** The store's moment shots run on a paused clock, so they land on the exact frame every run. "Set off chain reactions" now catches water boiling into fire, mid-combo.
+
+Frame by frame, prototype above the redesign: [compare/motion-cancel.jpg](compare/motion-cancel.jpg) (`node tools/browser/cancel.mjs --proto=<prototype checkout>`).
 
 ## Checks
 

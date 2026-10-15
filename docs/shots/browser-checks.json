@@ -22,12 +22,12 @@
  {
   "name": "390x844 slow drag down soft-drops without slamming",
   "ok": true,
-  "info": "dy=17"
+  "info": "dy=16"
  },
  {
   "name": "390x844 quick flick down slams",
   "ok": true,
-  "info": "{\"dt\":135,\"tx\":8,\"ty\":120,\"moved\":true,\"what\":\"slam\"}"
+  "info": "{\"dt\":133,\"tx\":8,\"ty\":120,\"moved\":true,\"what\":\"slam\"}"
  },
  {
   "name": "390x844 diagonal swipe moves sideways, no slam",
@@ -37,7 +37,7 @@
  {
   "name": "390x844 flick up fires the power at full meter",
   "ok": true,
-  "info": "{\"dt\":134,\"tx\":0,\"ty\":-140,\"moved\":false,\"what\":\"power\"}"
+  "info": "{\"dt\":135,\"tx\":0,\"ty\":-140,\"moved\":false,\"what\":\"power\"}"
  },
  {
   "name": "390x844 flick up at 0% meter does nothing",
@@ -107,7 +107,7 @@
  {
   "name": "375x667 flick up fires the power at full meter",
   "ok": true,
-  "info": "{\"dt\":132,\"tx\":0,\"ty\":-140,\"moved\":false,\"what\":\"power\"}"
+  "info": "{\"dt\":135,\"tx\":0,\"ty\":-140,\"moved\":false,\"what\":\"power\"}"
  },
  {
   "name": "375x667 flick up at 0% meter does nothing",
@@ -142,7 +142,7 @@
  {
   "name": "rotate and resize mid-game: board refits, no errors",
   "ok": true,
-  "info": "{\"bottom\":744.328125,\"right\":391,\"vw\":430,\"vh\":932,\"h\":586.65625}"
+  "info": "{\"bottom\":731,\"right\":383,\"vw\":430,\"vh\":932,\"h\":560}"
  },
  {
   "name": "landscape phone: board still visible (shrinks to fit)",
@@ -172,11 +172,11 @@
  {
   "name": "performance at 1x CPU throttle: physics tick under 4 ms",
   "ok": true,
-  "info": "physics 0.53 ms, game JS per frame 5.60 ms avg / 76.7 worst (debug validator 0.18 ms extra), 61 fps in software-rendered headless Chromium"
+  "info": "physics 0.81 ms, game JS per frame 5.92 ms avg / 82.8 worst (debug validator 0.15 ms extra), 60 fps in software-rendered headless Chromium"
  },
  {
   "name": "performance at 4x CPU throttle: physics tick under 4 ms",
   "ok": false,
-  "info": "physics 7.87 ms, game JS per frame 50.94 ms avg / 465.5 worst (debug validator 0.43 ms extra), 14 fps in software-rendered headless Chromium"
+  "info": "physics 14.25 ms, game JS per frame 55.82 ms avg / 566.7 worst (debug validator 0.44 ms extra), 17 fps in software-rendered headless Chromium"
  }
 ]
