@@ -12,12 +12,12 @@
  {
   "name": "first reaction happens in the first 10 s with no input",
   "ok": true,
-  "info": "7.2 s"
+  "info": "7.1 s"
  },
  {
   "name": "first 60 s: a drain, a combo popup and the bar moving",
   "ok": true,
-  "info": "drain 7.2 s, combo 7.3 s"
+  "info": "drain 7.1 s, combo 7.2 s"
  },
  {
   "name": "always a visible next goal: drain bar, power meter, side quest, pieces left",
@@ -27,7 +27,7 @@
  {
   "name": "first level clears in 1-2 minutes, as a new player plays it",
   "ok": true,
-  "info": "celebrate at 76 s"
+  "info": "celebrate at 81 s"
  },
  {
   "name": "win screen: big celebration, then what is new next level",

@@ -6,7 +6,7 @@ Where each effect lives: board effects are in [`src/render/board.js`](../../src/
 |---|---|---|---|---|
 | **Move** | The piece slides between columns (render-only tween) | Exponential approach, about 60 ms to settle (`dt × 28`) | `move` tick, very quiet | – |
 | **Rotate** | Snap (the simulation's rotation, with wall kicks) | – | `rotate` tick | – |
-| **Ghost** | Faint real tiles at the landing spot with a dashed white outline | 28% alpha, dashes 0.6/0.4 of a particle | – | – |
+| **Ghost** | Faint real tiles at the landing spot under a solid soft-white silhouette with a bright rim | Tiles at 28% alpha, silhouette at 14% | – | – |
 | **Telegraph** | The blocks the piece would react with on landing get an ink and gold pulsing outline | Pulse period about 880 ms | – | – |
 | **Land (gentle)** | Two small dust puffs at the outer bottom corners | 0.35–0.6 s | `land` thunk | – |
 | **Slam** | Dust burst of 14 puffs, white impact ring, well shake | Shake 9 px decaying at 40 px/s; **hit-stop 50 ms** | `slam` thud and crunch | 25 ms |
@@ -15,8 +15,8 @@ Where each effect lives: board effects are in [`src/render/board.js`](../../src/
 | **Burn** | Smoke puff, ember sparks, block glows and chars (heat field, multiply plus lighter) | Glow pulse about 750 ms | `burn` crackle | – |
 | **Fire block** | 4-frame ember animation, flame tongues on every exposed top, soft glow onto neighbors | Frames every 110 ms; glow pulse about 1.5 s | – | – |
 | **Water** | Depth-tinted body, moving ripple lines, wobbling bright surface lip | Ripples drift about 25 px/s | – | – |
-| **Drain (the main loop)** | Each piece drained sends 2 orbs in the material's color arcing into the goal icon. On arrival: icon pop, ring, the number ticks up and the bar fills | Arc 500–620 ms, ease-in, 70 ms stagger; bar fill 300 ms out-expo | `drain` note that climbs the scale with combo and count | – |
-| **Combo ×2 / ×3 / ×4** | "Nice!" green / "Great!" gold / "Amazing!" pink, with a "Goal ×N" sub-line | Pop to 115% then settle in 280 ms, hold, then float and fade over 1.1 s; size 58/64/70 px. ×3+ adds a 220 ms warm flash and a warm vignette for 0.6 s | `combo` arpeggio, longer per tier | 15 ms × tier |
+| **Drain (the main loop)** | Each piece drained sends a glowing orb (white core, bright material color) arcing into the goal icon. On arrival: icon pop, ring, the number ticks up and the bar fills | Arc 500–620 ms, ease-in, 70 ms stagger; bar fill 300 ms out-expo | `drain` note that climbs the scale with combo and count | – |
+| **Combo ×2 / ×3 / ×4** | "Nice!" / "Great!" / "Amazing!" in the one gold style with a "×N combo!" sub-line. One praise slot, so words never stack | Pop to 115% then settle in 280 ms, hold, then float and fade over 1.1 s; size 58/64/70 px. ×3+ adds a 220 ms pale flash on the board only | `combo` arpeggio, longer per tier | 15 ms × tier |
 | **Power ready** | Button gets a white ring, colored glow and pulse; tag turns red "READY!" | Pulse 1.2 s | `ready` shimmer | 30 ms |
 | **Power fired** | Full-screen flash in the power's color, the power's name in big gradient type with "+N", every cleared block bursts into cubes and a third of them fly to the goal | Flash 550 ms at 50%; shake 16 px; **hit-stop 120 ms**; flights start after 250 ms | `power` sweep tinted per power, music ducks | 40-30-80 |
 | **Quest done** | Green toast drops in, a ring pulses on the quest chip, the chip turns green | Toast 1.8 s | `quest` chime | – |

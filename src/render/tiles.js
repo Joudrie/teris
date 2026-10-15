@@ -25,17 +25,20 @@ const BRICK_A = ['aaaaa.bb', 'aaaaa.bb', 'aaaaa.bb', '........', 'cc.ddddd', 'cc
 const BRICK_B = ['aa.bbbbb', 'aa.bbbbb', 'aa.bbbbb', '........', 'ccccc.dd', 'ccccc.dd', 'ccccc.dd', '........'];
 
 function fromPattern(p, r, n, rows, mortar, spread) {
+  // The layouts are drawn on an 8 x 8 grid; at higher texel counts each cell of the layout
+  // covers several texels and the edge highlights stay one texel thin (crisper, more "HD").
+  const at = (x, y) => rows[Math.floor((y * 8) / n)][Math.floor((x * 8) / n)];
   const g = grid(n, mortar);
   const tones = {};
   for (let y = 0; y < n; y++) {
     for (let x = 0; x < n; x++) {
-      const k = rows[y][x];
+      const k = at(x, y);
       if (k === '.') { g[y][x] = [...jitter(mortar, r, 0.05), 255]; continue; }
       if (!tones[k]) tones[k] = mix(p.base, r() < 0.5 ? p.light : p.dark, r() * spread);
-      const top = y === 0 || rows[y - 1][x] !== k;
-      const left = x === 0 || rows[y][x - 1] !== k;
-      const bottom = y === n - 1 || rows[y + 1][x] !== k;
-      const right = x === n - 1 || rows[y][x + 1] !== k;
+      const top = y === 0 || at(x, y - 1) !== k;
+      const left = x === 0 || at(x - 1, y) !== k;
+      const bottom = y === n - 1 || at(x, y + 1) !== k;
+      const right = x === n - 1 || at(x + 1, y) !== k;
       let c = jitter(tones[k], r, 0.06);
       if (top || left) c = mix(c, p.light, 0.4);
       if (bottom || right) c = mix(c, p.dark, 0.45);
@@ -108,7 +111,7 @@ const FACES = {
     for (let y = 0; y < n; y++) {
       for (let x = 0; x < n; x++) {
         const edge = x === 0 || y === 0 || x === n - 1 || y === n - 1;
-        g[y][x] = edge ? [...mix(p.edge, p.light, 0.6), 240] : [...mix(p.base, p.light, 0.3 - y / n * 0.25), 70 + Math.round((1 - y / n) * 40)];
+        g[y][x] = edge ? [...mix(p.edge, p.light, 0.6), 245] : [...mix(p.base, p.light, 0.35 - y / n * 0.25), 110 + Math.round((1 - y / n) * 50)];
       }
     }
     // Long diagonal glints.
@@ -116,9 +119,9 @@ const FACES = {
     for (let k = 0; k < n; k++) {
       const x = n - 2 - k + o;
       const y = 1 + k;
-      if (x > 0 && x < n - 1 && y < n - 1 && k < 4) g[y][x] = [...p.light, 210];
-      const x2 = x + 3;
-      if (x2 > 0 && x2 < n - 1 && y < n - 1 && k > 1 && k < 4) g[y][x2] = [...p.light, 150];
+      if (x > 0 && x < n - 1 && y < n - 1 && k < n / 2) g[y][x] = [...p.light, 210];
+      const x2 = x + Math.round((3 * n) / 8);
+      if (x2 > 0 && x2 < n - 1 && y < n - 1 && k > n / 8 && k < n / 2) g[y][x2] = [...p.light, 150];
     }
     return g;
   },
@@ -128,7 +131,7 @@ const FACES = {
     const g = grid(n, p.base);
     for (let y = 0; y < n; y++) {
       for (let x = 0; x < n; x++) {
-        const k = rows[y][x];
+        const k = rows[Math.floor((y * 8) / n)][Math.floor((x * 8) / n)];
         const pulse = 0.5 + 0.5 * Math.sin(frame * 1.57 + (x + y) * 0.9);
         let c;
         if (k === 'c') c = mix(p.light, [255, 255, 235], 0.25 + 0.45 * pulse);

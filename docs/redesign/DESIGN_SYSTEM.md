@@ -19,7 +19,7 @@ The tokens live in code: CSS custom properties at the top of [`style.css`](../..
 | `--aqua` / `--aqua-hi` | `#27c4ff` / `#8ff0ff` | The goal meter and drain flights |
 | `--sky` | `#2f8ef0` | Fallback page color under the world backdrop |
 
-**Value structure.** The well is the darkest, most neutral surface on screen (`#24305e → #141a38`), so materials carry all the saturation. UI chrome is a mid-dark navy. Rewards are the only warm, light UI color. The world backdrop is the lightest layer and sits furthest back.
+**Value structure.** The well is the darkest, most neutral surface on screen (`#34479a → #1e2a5e`, with faint masonry and light from above), so materials carry all the saturation. UI chrome is a mid-dark navy. Rewards are the only warm, light UI color. The world backdrop is the lightest layer and sits furthest back.
 
 ### Materials (`TOYBOX.mats`)
 
@@ -27,13 +27,13 @@ Each material has `base`, `light`, `dark` and `edge` colors, plus a few extras: 
 
 | Material | Base | Pattern | Form |
 |---|---|---|---|
-| Fire | `#ff7b1c` | Animated ember seams | Glowing cube, flame tongues, light on its neighbors |
+| Fire | `#ff7b1c` | Magma: dark crust, molten body, pulsing bright cracks | Glowing cube, flame tongues, light on its neighbors |
 | Water | `#2f8cff` | Moving ripple lines, depth tint | Smooth liquid body with a bright surface lip |
 | Wood | `#c98a4b` | Two planks, grain, nail heads | Cube |
-| Wet wood | `#5d5249` | Planks with cyan drips | Darker cube |
+| Wet wood | `#6e5038` | Planks with cyan drips | Darker, browner cube |
 | Ice | `#a6e6ff` | Inner rim, crack, frosted corner | Opaque pale cube |
 | Sand | `#f3c96d` | Grains | Loose, slumped heap |
-| Glass | `#c8f4ff` (alpha) | Sheen band, bright frame | See-through pane |
+| Glass | `#9fe8ff` (alpha) | Sheen band, bright frame | See-through pane |
 | Stone | `#9198a6` | Cobbles with mortar | Cube |
 | Brick | `#c9533c` | Offset bricks, light mortar | Cube |
 | Mud | `#6a4224` | Glossy, bubbles | Loose body |
@@ -81,7 +81,8 @@ Reduced motion: `prefers-reduced-motion` and the in-game **Motion** toggle (`bod
 | **Power button** `.power` | Conic charge ring in the power's color around a glossy face with the power icon; label tag | `.ready`: white ring, colored glow, pulse, red READY tag. Tap or swipe up to fire |
 | **Pill** `.pill` | Translucent ink capsule with an icon and a number | – |
 | **Map node** `.node` | Gold disc with number and stars; `.cur` blue with a pulsing ring; `.lock` grey with a lock; `.show` pink for showcase floors | – |
-| **Booster chip** `.boost` | Ink capsule with icon, label and count badge | `.on`: green; `.empty`: gold "+" badge that opens the shop |
+| **Booster chip** `.boost` | Solid navy chip with a lip, icon, label and count badge | `.on`: green; `.empty`: gold "+" badge that opens the shop |
+| **Text link** `.btn-link` | Underlined display type, no face; for the quiet way out ("Give up") under a primary offer | Focus: white ring |
 | **Ribbon** `.ribbon` | Red (win), blue (lose) or gold (daily) banner in display type | Drop-in |
 | **Stars** `.stars` | Three star icons, middle one larger | `.on` stamps in, 320 ms apart, each with a sound |
 | **Progress ring** `.ring` | SVG ring, aqua stroke, percentage in the middle | Fills over 900 ms |

@@ -117,8 +117,8 @@ export function createFx(cv) {
 
   // An orb that arcs from (x0, y0) into (x1, y1); onArrive runs when it lands.
   function flight(x0, y0, x1, y1, { color = '#8ff0ff', edge = null, delay = 0, dur = 0.55, size = 9, kind = 'orb', onArrive } = {}) {
-    const mx = (x0 + x1) / 2 + rand(-80, 80);
-    const my = Math.min(y0, y1) - rand(40, 120);
+    const mx = (x0 + x1) / 2 + rand(-140, 140);
+    const my = Math.min(y0, y1) - rand(20, 160);
     flights.push({ x0, y0, x1, y1, mx, my, t: -delay, dur, color, edge, size, kind, onArrive });
   }
 

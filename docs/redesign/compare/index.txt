@@ -59,3 +59,4 @@ win-screen@390x844.jpg
 win-screen@430x932.jpg
 win-screen@768x1024.jpg
 win-screen@844x390.jpg
+combo-peak@390x844.jpg

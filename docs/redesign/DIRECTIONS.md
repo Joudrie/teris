@@ -13,7 +13,7 @@ The screen layout is the same across all three. That's a UX decision (§6.1 of t
 - **World:** a bright day sky that changes with altitude. A sea of blocky clouds and the sun up top, then cloud layers, a blocky city, treetops and the ground at level 100.
 - **Palette:** sky `#2f8ef0 → #dff6ff`. Well `#24305e → #141a38` (darkest and most neutral, so the materials carry the color). UI navy `#23377f / #33509f`, ink `#0d1640`. Gold `#ffc83a / #e8960c` for rewards and the frame, green `#45c41e` for go, red `#e2362a` only for celebration ribbons and alerts.
 - **Type:** Lilita One (display: chunky, friendly numerals, survives a thick outline at any size) and Nunito 800–900 (UI: rounded, legible at 12 px).
-- **Blocks:** approach A (Canvas 2D with baked tiles). An 8 × 8 texel face per cell, a 1-texel light bevel top and left and shadow bottom and right, a corner gloss, and an ink outline. Loose water, sand and mud are smooth bodies with a bright surface lip. Fire glows and grows flame tongues.
+- **Blocks:** approach A (Canvas 2D with baked tiles). An 8 × 8 texel face per cell in this mockup (16 × 16 in the shipped build), a 1-texel light bevel top and left and shadow bottom and right, a corner gloss, and an ink outline. Loose water, sand and mud are smooth bodies with a bright surface lip. Fire glows and grows flame tongues.
 - **UI chrome:** 3D press buttons (lit face, 6–8 px darker lip, 3 px ink outline), navy panels with an inner highlight, gold badges.
 - **Motion:** springy and toy-like. Overshoot pop-ins, squash on landing, chunky square debris, gold coin flights.
 - **Sound:** bright, woody and glassy. Marimba and glockenspiel plinks, crunchy cube thuds, sparkly rewards.

@@ -68,8 +68,8 @@ const QUEST_SHORT = {
   chain: (n) => `Hit a ×${n} combo`,
   douse: (n) => `Put out ${n} fires`,
   smash: (n) => `Smash ${n} panes`,
-  burn: (n) => `Burn ${n} wood blocks`,
-  melt: (n) => `Melt ${n} ice blocks`,
+  burn: (n) => `Burn ${n} planks`,
+  melt: (n) => `Melt ${n} ice cubes`,
 };
 const PRAISE = { 2: ['Nice!', 'gold'], 3: ['Great!', 'gold'], 4: ['Amazing!', 'gold'] };
 const GOAL_COLOR = '#5fe0ff';
@@ -479,7 +479,7 @@ function overlays() {
     $('ovPct').innerHTML = `${toGo}<small>to go</small>`;
     $('ovRingFg').style.strokeDashoffset = '314.16';
     requestAnimationFrame(() => requestAnimationFrame(() => { $('ovRingFg').style.strokeDashoffset = String(314.16 * (1 - l.pct / 100)); }));
-    $('ovS').innerHTML = `<p class="lead">${l.canRevive ? `${l.outOfPieces ? 'Out of pieces' : 'The board filled up'}. Take ${l.outOfPieces ? '5 more pieces' : 'a cleared top'} and finish it!` : l.sub}</p>`;
+    $('ovS').innerHTML = `<p class="lead">${l.canRevive ? `${l.outOfPieces ? 'Out of pieces! Grab 5 more and finish it.' : 'The board filled up! Clear the top rows and keep going.'}` : l.sub}</p>`;
     $('ovN').innerHTML = l.help ? `${icon('gift')}<div><b>Helping hand</b>Next try: extra fire and water in every bag.</div>` : '';
     if (l.canRevive) {
       setBtn('ovA', `<span class="t">${l.outOfPieces ? '+5 Pieces' : 'Clear top rows'}</span><small class="adtag">${icon('ad')} Watch an ad</small>`, () => watchRevive(sess), 'btn btn-green big');
@@ -489,7 +489,7 @@ function overlays() {
       setBtn('ovB', '<span class="t">Try again</span>', () => replay(sess), 'btn btn-green big');
     }
     $('ovB').setAttribute('aria-label', 'Try again');
-    setBtn('ovC', `${icon('home')}<span>Give up</span>`, () => { replay(sess); openHome(sess); }, 'btn btn-navy wide');
+    setBtn('ovC', '<span>Give up</span>', () => { replay(sess); openHome(sess); }, 'btn-link');
     over.hidden = false;
   } else {
     over.hidden = true;
@@ -562,9 +562,9 @@ function spawnFlights(n) {
   for (let i = 0; i < n; i++) {
     const p = pts.length ? pts[(pts.length - 1 - (i % pts.length))] : [b.x + b.w / 2, b.y + b.h * 0.8, 'water'];
     const orb = orbOf(p[2]);
-    for (let k = 0; k < 2; k++) {
-      fx.flight(p[0] + (Math.random() - 0.5) * 20, p[1] + (Math.random() - 0.5) * 20, gx, gy, {
-        color: orb.color, edge: orb.edge, delay: i * 0.07 + k * 0.05, dur: 0.5 + Math.random() * 0.12,
+    for (let k = 0; k < 1; k++) {
+      fx.flight(p[0] + (Math.random() - 0.5) * 30, p[1] + (Math.random() - 0.5) * 30, gx, gy, {
+        color: orb.color, edge: orb.edge, delay: i * 0.09, dur: 0.5 + Math.random() * 0.15, size: 11,
         onArrive: k ? null : () => {
           view.shown = Math.min(piecesDrained(g), view.shown + 1);
           lastHud = '';
@@ -631,6 +631,7 @@ function hud() {
   const done = g.questDone;
   const n = Math.min(qn, q.n);
   $('quest').className = `quest panel${done ? ' done' : ''}`;
+  $('quest').dataset.q = q.type;
   $('quest').innerHTML = `<span class="q-ic">${icon(done ? 'check' : QUEST_ICON[q.type] || 'target')}</span><div class="q-body"><span class="q-text t">${done ? 'Quest done!' : QUEST_SHORT[q.type](q.n)}</span><div class="q-row"><div class="q-bar"><i style="width:${(done ? 1 : n / q.n) * 100}%"></i></div><span class="q-n">${done ? '+Power' : `${n}/${q.n}`}</span></div></div>`;
   $('quest').setAttribute('aria-label', `Side quest: ${questText(q)}, ${n} of ${q.n}`);
 
@@ -768,15 +769,17 @@ function act(a) {
   }
 }
 
-// Swipes count anywhere on the screen except on buttons and panels.
+// Swipes count anywhere on the screen except on buttons and panels. The tutorial callout is
+// the exception: it sits on the board and often says "swipe", so a swipe that starts on it
+// still plays (and dismisses it); a plain tap on it only dismisses it.
 let sw = null;
 const gestures = []; // ?debug only
 window.addEventListener('pointerdown', (e) => {
   unlock();
   if (view.intro > 0) { endIntro(); return; }
-  if (!viewLive() || e.target.closest('button, .map, .sheet-wrap, .over')) return;
+  if (!viewLive() || e.target.closest('button:not(#callout), .map, .sheet-wrap, .over')) return;
   const step = (cv.getBoundingClientRect().width / COLS) * 0.75;
-  sw = { id: e.pointerId, sx: e.clientX, sy: e.clientY, ax: e.clientX, ay: e.clientY, t: performance.now(), step, moved: false };
+  sw = { id: e.pointerId, sx: e.clientX, sy: e.clientY, ax: e.clientX, ay: e.clientY, t: performance.now(), step, moved: false, onCallout: !!e.target.closest('#callout') };
 });
 
 window.addEventListener('pointermove', (e) => {
@@ -801,12 +804,15 @@ window.addEventListener('pointerup', (e) => {
   const tx = e.clientX - sw.sx;
   const ty = e.clientY - sw.sy;
   const moved = sw.moved;
+  const onCallout = sw.onCallout;
   sw = null;
   if (!viewLive()) return;
   let what = 'none';
   if (dt < 300 && ty < -50 && -ty > Math.abs(tx) * 1.5) what = 'power';
   else if (dt < 250 && ty > 50 && ty > Math.abs(tx) * 1.5) what = 'slam';
   else if (!moved && Math.hypot(tx, ty) < 12 && dt < 400) what = 'rotate';
+  if (onCallout && what === 'rotate') what = 'none'; // the tap belongs to the callout's own click
+  if (onCallout && (moved || what !== 'none')) dismissCallout(sess);
   if (what !== 'none') act(what);
   if (DEBUG) gestures.push({ dt: Math.round(dt), tx: Math.round(tx), ty: Math.round(ty), moved, what });
 });

@@ -12,20 +12,20 @@ export const TOYBOX = {
   id: 'toybox',
   name: 'Toybox',
   mode: 'pixel',
-  texels: 8, // pixel-art texels across one cell face
+  texels: 16, // pixel-art texels across one cell face (fine, like an HD texture pack)
   radius: 0.12, // corner radius, share of a cell
   gloss: 0.34,
-  bevel: 1, // texels of highlight / shadow band
+  bevel: 2, // texels of highlight / shadow band
   shadow: 0.42, // drop shadow strength behind blocks
-  wall: { top: hex('#2c3c7c'), bottom: hex('#18204a'), grid: 'rgba(150,180,255,0.08)', rim: 'rgba(120,160,255,0.35)' },
+  wall: { top: hex('#34479a'), bottom: hex('#1e2a5e'), grid: 'rgba(150,180,255,0.08)', rim: 'rgba(120,160,255,0.35)' },
   mats: pal({
     fire: { base: '#ff7b1c', light: '#ffd65a', dark: '#c2360c', edge: '#6e1a05', glow: '#ff9a2e' },
     water: { base: '#2f8cff', light: '#bfe8ff', dark: '#1550c8', edge: '#0b2f80' },
     wood: { base: '#c98a4b', light: '#eab275', dark: '#8a5528', edge: '#4a2a10' },
-    wetwood: { base: '#5d5249', light: '#80746a', dark: '#3a322b', edge: '#1e1915', drop: '#8fd7ff' },
+    wetwood: { base: '#6e5038', light: '#93704f', dark: '#432f20', edge: '#24170e', drop: '#8fd7ff' },
     ice: { base: '#a6e6ff', light: '#f0fcff', dark: '#5fb6e4', edge: '#2a76a8' },
     sand: { base: '#f3c96d', light: '#ffe6a3', dark: '#c99641', edge: '#7d5a22' },
-    glass: { base: '#c8f4ff', light: '#ffffff', dark: '#7ccbe0', edge: '#bdf0ff' },
+    glass: { base: '#9fe8ff', light: '#ffffff', dark: '#5fc0e0', edge: '#d8f8ff' },
     stone: { base: '#9198a6', light: '#c3c8d2', dark: '#5f6573', edge: '#30343e' },
     brick: { base: '#c9533c', light: '#ec8164', dark: '#8f3122', edge: '#4d170e', mortar: '#ead7bb' },
     mud: { base: '#6a4224', light: '#a87a4e', dark: '#3a2312', edge: '#24150a' },

@@ -1,40 +1,4 @@
 {
- "open-1s@390x844": {
-  "errors": []
- },
- "busy@390x844": {
-  "errors": []
- },
- "busy@375x667": {
-  "errors": []
- },
- "busy@430x932": {
-  "errors": []
- },
- "busy@768x1024": {
-  "errors": []
- },
- "busy@844x390": {
-  "errors": []
- },
- "busy@1440x900": {
-  "errors": []
- },
- "lineup@390x844": {
-  "errors": []
- },
- "live-play@390x844": {
-  "errors": []
- },
- "scene-slam@390x844": {
-  "errors": []
- },
- "scene-combo@390x844": {
-  "errors": []
- },
- "scene-blaze@390x844": {
-  "errors": []
- },
  "scene-lose@390x844": {
   "errors": []
  },
@@ -53,43 +17,7 @@
  "scene-lose@1440x900": {
   "errors": []
  },
- "scene-interstitial@390x844": {
-  "errors": []
- },
- "scene-home@390x844": {
-  "errors": []
- },
- "scene-home@375x667": {
-  "errors": []
- },
- "scene-home@430x932": {
-  "errors": []
- },
- "scene-home@768x1024": {
-  "errors": []
- },
- "scene-home@844x390": {
-  "errors": []
- },
- "scene-home@1440x900": {
-  "errors": []
- },
- "win-screen@390x844": {
-  "errors": []
- },
- "win-screen@375x667": {
-  "errors": []
- },
- "win-screen@430x932": {
-  "errors": []
- },
- "win-screen@768x1024": {
-  "errors": []
- },
- "win-screen@844x390": {
-  "errors": []
- },
- "win-screen@1440x900": {
+ "scene-revive@390x844": {
   "errors": []
  }
 }

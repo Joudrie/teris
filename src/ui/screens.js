@@ -47,11 +47,20 @@ function cloudImage(w, h, seed) {
   ctx.scale(2, 2);
   let s = seed;
   const r = () => ((s = (s * 16807) % 2147483647) / 2147483647);
-  const blobs = Array.from({ length: 4 }, (_, k) => [w * (0.15 + k * 0.22) + r() * 10, h * (0.35 + r() * 0.25), w * (0.22 + r() * 0.12), h * (0.4 + r() * 0.2)]);
-  ctx.fillStyle = '#cfe7ff';
-  for (const [x, y, bw, bh] of blobs) { ctx.beginPath(); ctx.roundRect(x - bw / 2, y - bh / 2 + 6, bw, bh, 10); ctx.fill(); }
-  ctx.fillStyle = '#fff';
-  for (const [x, y, bw, bh] of blobs) { ctx.beginPath(); ctx.roundRect(x - bw / 2, y - bh / 2, bw, bh * 0.85, 10); ctx.fill(); }
+  const puffs = Array.from({ length: 5 }, (_, k) => {
+    const t = k / 4;
+    const rad = h * (0.28 + Math.sin(t * Math.PI) * 0.2 + r() * 0.06);
+    return [w * (0.14 + t * 0.72), h * 0.72 - rad * 0.6, rad];
+  });
+  const blob = (dy, color) => {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    for (const [x, y, rad] of puffs) { ctx.moveTo(x + rad, y + dy); ctx.arc(x, y + dy, rad, 0, Math.PI * 2); }
+    ctx.rect(w * 0.14, h * 0.55 + dy, w * 0.72, h * 0.2);
+    ctx.fill();
+  };
+  blob(5, '#cfe7ff');
+  blob(0, '#ffffff');
   return c.toDataURL();
 }
 

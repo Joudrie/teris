@@ -536,13 +536,17 @@ export function createBoardRenderer(cv, skin) {
           ctx.drawImage(tiles[mats[k]][variantOf((piece.x + a) * S, bb - minB)], (piece.x + a) * T, (opts.ghostY + bb * S) * P);
         });
         ctx.globalAlpha = 1;
-        ctx.strokeStyle = 'rgba(255,255,255,0.55)';
-        ctx.lineWidth = Math.max(1.5, P * 0.18);
-        ctx.setLineDash([P * 0.6, P * 0.4]);
+        // A solid, softly lit silhouette with a bright rim: clearly "here", never a wireframe.
+        const lw = Math.max(1.5, P * 0.2);
+        ctx.fillStyle = 'rgba(255,255,255,0.14)';
+        ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+        ctx.lineWidth = lw;
         piece.cells.forEach(([a, bb]) => {
-          ctx.strokeRect((piece.x + a) * T + ctx.lineWidth, (opts.ghostY + bb * S) * P + ctx.lineWidth, T - ctx.lineWidth * 2, T - ctx.lineWidth * 2);
+          const gx = (piece.x + a) * T + lw;
+          const gy2 = (opts.ghostY + bb * S) * P + lw;
+          ctx.fillRect(gx, gy2, T - lw * 2, T - lw * 2);
+          ctx.strokeRect(gx, gy2, T - lw * 2, T - lw * 2);
         });
-        ctx.setLineDash([]);
         // Telegraph: the blocks this piece would react with where it lands.
         if (opts.reacts) {
           const targets = telegraph(grid, piece, mats, opts.ghostY, opts.reacts);

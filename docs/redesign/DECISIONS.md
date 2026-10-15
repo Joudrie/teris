@@ -12,7 +12,7 @@ Each entry gives the choice, the alternatives considered, and why this one won.
 
 - **Rejected:** PixiJS/WebGL (B) and Three.js voxels (C).
 - **Why:** A gives the full look with no dependencies, no build step and nothing to load. It keeps the static-file and artifact deploy, and the depth comes from baked bevels, gloss and shadows, which the references (Block Blast, Minecraft) show is enough. C's real lighting would cost readability, and on low-end phones the frame rate.
-- **How:** One tile per material, variant and fire frame is baked per board size. Intact cells stamp a whole tile; partly burned or crumbled cells cut particle-sized pieces from it and get fresh bevels on the broken edges. Loose materials are smooth bodies: interior runs as rectangles, edge particles as discs, colored from a smoothed particle field. Static blocks are cached and redrawn only when they change. A dynamic-resolution step-down protects the frame rate.
+- **How:** One tile per material, variant and fire frame is baked per board size. Faces are 16 × 16 texels: fine enough to read as a premium texture pack, still pixel art. The first build used 8 × 8; all three fresh-eyes reviewers called it "8-bit" against the glossy UI. Intact cells stamp a whole tile; partly burned or crumbled cells cut particle-sized pieces from it and get fresh bevels on the broken edges. Loose materials are smooth bodies: interior runs as rectangles, edge particles as discs, colored from a smoothed particle field. Static blocks are cached and redrawn only when they change. A dynamic-resolution step-down protects the frame rate.
 - **No rule changes:** the renderer never writes to a particle. Texture offsets live in a `WeakMap`, which matters: writing extra fields onto particle objects made the simulation measurably slower.
 
 ## Name: Tumbledown
@@ -57,7 +57,7 @@ The rule is pieces left at the clear, as a share of the budget: 3 stars at 8% or
 
 ## Copy
 
-- Short verbs and numbers: "Put out 4 fire", "+5 Pieces", "Next up: level 5".
+- Short verbs and numbers: "Put out 4 fires", "+5 Pieces", "Next up: level 5".
 - Praise ladder: Nice!, Great!, Amazing!
 - "So close! 88%" stays (justified in [SIMILARITY.md](SIMILARITY.md)).
 - The revive offer leads with the gift and names the ad underneath it.

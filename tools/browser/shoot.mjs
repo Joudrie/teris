@@ -91,6 +91,13 @@ const STATES = [
   { id: 'live-play', run: async (page) => { await page.evaluate(() => { mb.sess.callout = null; }); for (let i = 0; i < 6; i++) { await page.keyboard.press(i % 2 ? 'ArrowLeft' : 'ArrowRight'); await page.keyboard.press(' '); await page.waitForTimeout(500); } } },
   ...['douse', 'burn', 'melt', 'freeze', 'mud', 'glassmelt', 'slam', 'erode', 'combo', 'rain', 'blaze', 'deepfreeze', 'sweep', 'hammer', 'flood', 'mixed', 'callout', 'meter', 'meterad', 'budget', 'lose', 'revive', 'interstitial', 'daily', 'help', 'home']
     .map((id) => ({ id: `scene-${id}`, scene: id, all: id === 'home' || id === 'lose' })),
+  // The praise word lives about 1.2 s; the generic scene timing lands just after it fades.
+  // This still drives the combo the way motion-combo.jpg does (both slams back to back) and
+  // captures the 0.6 s frame, where the word is at full size.
+  {
+    id: 'combo-peak', query: '&scene=combo',
+    run: async (page) => { for (const a of SCENES.combo.actions) if (typeof a === 'string') await page.keyboard.press(KEY[a]); await page.waitForTimeout(600); },
+  },
   { id: 'win-celebrate-0.4s', scene: 'win', at: 0.4 },
   { id: 'win-celebrate-1.2s', scene: 'win', at: 1.2 },
   { id: 'win-screen', scene: 'win', at: 4.6, all: true },
@@ -107,7 +114,7 @@ for (const st of STATES) {
   if (only.length && !only.includes(st.id)) continue;
   const sizes = allSizes && st.all ? SIZES : [PRIMARY];
   for (const size of sizes) {
-    const p = await open(browser, url, size, st.scene ? `&scene=${st.scene}` : '');
+    const p = await open(browser, url, size, st.scene ? `&scene=${st.scene}` : (st.query ?? ''));
     try {
       if (st.scene) {
         const after = await scene(p.page, st.scene);
