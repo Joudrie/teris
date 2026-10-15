@@ -13,18 +13,22 @@
       <b id="lvl">Level 1</b>
       <span class="next">Next <b id="nextName">Water</b> <canvas id="nx" width="56" height="42"></canvas></span>
     </div>
-    <div class="goal">
-      <div id="goal"></div>
-      <div class="bar"><i id="goalBar"></i></div>
-    </div>
+    <div class="goal" id="goal"></div>
     <div class="meter">
       <div class="meter-row"><span id="meterLabel">Power</span><button id="meterAd" hidden>Fill with ad</button></div>
       <div class="bar meter-bar"><i id="meterBar"></i></div>
     </div>
     <div class="banner" id="banner" hidden></div>
-    <canvas id="cv" width="320" height="480" aria-label="Game board"></canvas>
+    <div class="stage">
+      <canvas id="cv" width="320" height="480" aria-label="Game board"></canvas>
+      <div class="drain" aria-label="Drain progress">
+        <b id="drainNum">0</b>
+        <div class="drain-bar"><i id="drainBar"></i></div>
+        <small id="drainGoal">/15</small>
+      </div>
+    </div>
     <div class="quest" id="quest"></div>
-    <p class="hint">Swipe to move, drag down to drop, flick down to slam, tap to rotate, swipe up to use your power. Connect one material wall to wall to break it.</p>
+    <p class="hint">Cancel materials against each other to drain them. Fill the bar to clear the level. Swipe to move, drag down to drop, flick down to slam, tap to rotate, swipe up to use your power.</p>
     <div class="legend" id="legend"></div>
   </div>
 

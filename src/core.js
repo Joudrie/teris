@@ -10,8 +10,9 @@ export const GW = COLS * S;
 export const GH = ROWS * S;
 export const TOTAL_LEVELS = 100;
 export const TICK = 1 / 30;
-export const METER_POINTS = 300; // points to fill the power meter
-const CHAIN_WINDOW = 1.0; // seconds between breaks that still count as a chain
+export const PIECE = 4 * S * S; // particles in one four-cell piece: the unit of the drain bar
+export const METER_POINTS = 300; // drained particles (times combo) to fill the power meter
+const COMBO_WINDOW = 1.0; // seconds of quiet before a combo ends
 const QUEST_BONUS = 0.35; // meter charge for finishing the side quest
 const SLAM_DROP = 3 * S; // falling this far onto glass smashes it
 
@@ -22,6 +23,8 @@ const FLOATS = new Set(['wood', 'wetwood']);
 
 // Seconds a particle must touch fire before it changes. A cell is 4 particles deep.
 const BURN = { wood: 0.75, wetwood: 0.75, ice: 0.375, sand: 0.5, mud: 0.75 };
+// Seconds a particle must touch water before it erodes into sand. Stone is meant to be hard.
+const ERODE = { brick: 3, stone: 8 };
 const FREEZE_TIME = 0.75;
 
 // The seven four-cell shapes as [x, y] cell offsets, y pointing down.
@@ -50,12 +53,12 @@ export function createGame({ level = 1, rand = Math.random, config = levelConfig
     piece: null,
     next: null,
     state: 'play', // 'play' | 'win' | 'lose'
-    score: 0,
-    made: 0, // particles of the goal material made (make-material levels)
+    drained: 0, // particles destroyed by reactions and powers: the level goal
+    doused: 0, // fire particles put out by water
     meter: 0, // 0..1, full fires the level's power
+    combo: 0, // particles drained in the current combo
+    comboTimer: 0,
     mult: 1,
-    chainTimer: 0,
-    breaks: 0,
     bestChain: 1,
     questDone: false,
     revived: false,
@@ -224,7 +227,7 @@ function lock(g) {
   if (g.state === 'play') spawn(g);
 }
 
-// Glass breaks back into loose sand: the whole connected pane that was hit.
+// Smashed glass drains away: the whole connected pane that was hit.
 function shatter(g, x, y) {
   const id = g.grid[y][x].id;
   const stack = [[x, y]];
@@ -233,24 +236,40 @@ function shatter(g, x, y) {
     const [cx, cy] = stack.pop();
     const c = at(g, cx, cy);
     if (!c || c.m !== 'glass' || c.id !== id) continue;
-    c.m = 'sand';
+    g.grid[cy][cx] = null;
     cells.push([cx, cy]);
     for (const [u, v] of N4) stack.push([cx + u, cy + v]);
   }
-  credit(g, 'shatter', cells.length);
+  drain(g, cells.length);
   g.events.push({ type: 'shatter', cells });
 }
 
-function credit(g, key, n = 1) {
-  const goal = g.cfg.goal;
-  if (goal.type === 'make' && goal.m === key) g.made += n;
+// Particles destroyed by a reaction drain away. Draining a lot quickly builds a combo,
+// which charges the power meter faster.
+function drain(g, n, charge = true) {
+  g.drained += n;
+  g.combo += n;
+  g.comboTimer = COMBO_WINDOW;
+  const mult = 1 + Math.floor(g.combo / PIECE);
+  if (mult > g.mult) {
+    g.mult = mult;
+    g.bestChain = Math.max(g.bestChain, mult);
+    g.events.push({ type: 'combo', mult });
+  }
+  if (charge) g.meter = Math.min(1, g.meter + (n * g.mult) / METER_POINTS);
+
+  const q = g.cfg.quest;
+  if (!g.questDone && ((q.type === 'chain' && g.mult >= q.n) || (q.type === 'douse' && g.doused >= q.n * PIECE))) {
+    g.questDone = true;
+    g.meter = Math.min(1, g.meter + QUEST_BONUS);
+    g.events.push({ type: 'quest' });
+  }
 }
 
-// 0..1 progress toward the level goal.
+// Whole pieces drained so far, and 0..1 progress toward the level goal.
+export const piecesDrained = (g) => Math.floor(g.drained / PIECE);
 export function progress(g) {
-  const goal = g.cfg.goal;
-  if (goal.type === 'score') return Math.min(1, g.score / goal.target);
-  return Math.min(1, Math.floor(g.made / (S * S)) / goal.cells);
+  return Math.min(1, piecesDrained(g) / g.cfg.goal.pieces);
 }
 
 function checkGoal(g) {
@@ -278,14 +297,16 @@ export function update(g, dt) {
 
 // One physics tick.
 export function tick(g, dt) {
-  g.chainTimer -= dt;
-  if (g.chainTimer <= 0) g.mult = 1;
+  g.comboTimer -= dt;
+  if (g.comboTimer <= 0) {
+    g.combo = 0;
+    g.mult = 1;
+  }
   g.mask = pieceMask(g);
   if (g.cfg.mode === 'flood') flood(g, dt);
   react(g, dt);
   rigid(g);
   loose(g);
-  breaks(g);
   checkGoal(g);
 }
 
@@ -328,8 +349,11 @@ function react(g, dt) {
       if (c.m === 'fire') {
         const w = N4.find(([u, v]) => at(g, x + u, y + v)?.m === 'water');
         if (w) {
+          // Fire and water cancel out: both drain away.
           g.grid[y + w[1]][x + w[0]] = null;
           g.grid[y][x] = null;
+          g.doused++;
+          drain(g, 2);
           g.events.push({ type: 'steam', x, y });
         }
         continue;
@@ -338,13 +362,22 @@ function react(g, dt) {
       if (c.m === 'water') {
         if (nextTo(g, x, y, 'ice')) {
           c.frz += dt;
-          if (c.frz >= FREEZE_TIME) {
-            g.grid[y][x] = part(g, 'ice');
-            credit(g, 'ice');
-          }
+          if (c.frz >= FREEZE_TIME) g.grid[y][x] = part(g, 'ice');
         } else {
           c.frz = 0;
         }
+        continue;
+      }
+
+      // Water slowly wears brick and stone down into sand.
+      const erode = ERODE[c.m];
+      if (erode !== undefined) {
+        if (!nextTo(g, x, y, 'water')) {
+          c.heat = 0;
+          continue;
+        }
+        c.heat += dt;
+        if (c.heat >= erode) g.grid[y][x] = part(g, 'sand');
         continue;
       }
 
@@ -364,6 +397,7 @@ function react(g, dt) {
       switch (c.m) {
         case 'wood': // burns away
           g.grid[y][x] = null;
+          drain(g, 1);
           g.events.push({ type: 'burn', x, y });
           break;
         case 'wetwood': // steams, then dries into wood, which then burns
@@ -374,7 +408,6 @@ function react(g, dt) {
           break;
         case 'sand': // melts into glass
           g.grid[y][x] = part(g, 'glass');
-          credit(g, 'glass');
           break;
         case 'mud': // bakes into brick
           g.grid[y][x] = part(g, 'brick');
@@ -499,8 +532,10 @@ function loose(g) {
 function sand(g, moved, x, y) {
   const below = at(g, x, y + 1);
   if (below && below.m === 'water') {
+    // Sand and water pack down into one particle of mud; the sand drains.
     g.grid[y + 1][x] = part(g, 'mud');
     g.grid[y][x] = null;
+    drain(g, 1);
     return;
   }
   if (free(g, x, y + 1)) return mv(g, moved, x, y, x, y + 1);
@@ -514,62 +549,14 @@ function water(g, moved, x, y) {
   const wood = N4.map(([u, v]) => at(g, x + u, y + v)).find((n) => n && n.m === 'wood');
   if (wood) {
     wood.m = 'wetwood';
-    credit(g, 'wetwood');
     g.grid[y][x] = null;
+    drain(g, 1);
     return;
   }
   if (free(g, x, y + 1)) return mv(g, moved, x, y, x, y + 1);
   const s = g.rand() < 0.5 ? 1 : -1;
   for (const d of [s, -s]) {
     if (free(g, x + d, y)) return mv(g, moved, x, y, x + d, y);
-  }
-}
-
-// Same material connected from the left wall to the right wall breaks.
-// Water never breaks this way; it has to be soaked up, frozen, mudded or powered away.
-function breaks(g) {
-  const seen = new Uint8Array(GW * GH);
-  for (let y0 = 0; y0 < GH; y0++) {
-    const c = g.grid[y0][0];
-    if (!c || seen[y0 * GW] || c.m === 'water') continue;
-    const cells = [];
-    const stack = [[0, y0]];
-    seen[y0 * GW] = 1;
-    let right = false;
-    while (stack.length) {
-      const [x, y] = stack.pop();
-      cells.push([x, y]);
-      if (x === GW - 1) right = true;
-      for (const [u, v] of N4) {
-        const nx = x + u;
-        const ny = y + v;
-        const n = at(g, nx, ny);
-        if (n && !seen[ny * GW + nx] && n.m === c.m) {
-          seen[ny * GW + nx] = 1;
-          stack.push([nx, ny]);
-        }
-      }
-    }
-    if (right) breakCells(g, cells, c.m);
-  }
-}
-
-function breakCells(g, cells, m) {
-  for (const [x, y] of cells) g.grid[y][x] = null;
-  g.mult = g.chainTimer > 0 ? g.mult + 1 : 1;
-  g.chainTimer = CHAIN_WINDOW;
-  const points = cells.length * g.mult;
-  g.score += points;
-  g.meter = Math.min(1, g.meter + points / METER_POINTS);
-  g.breaks++;
-  g.bestChain = Math.max(g.bestChain, g.mult);
-  g.events.push({ type: 'break', m, cells, points, mult: g.mult });
-
-  const q = g.cfg.quest;
-  if (!g.questDone && ((q.type === 'chain' && g.mult >= q.n) || (q.type === 'breaks' && g.breaks >= q.n))) {
-    g.questDone = true;
-    g.meter = Math.min(1, g.meter + QUEST_BONUS);
-    g.events.push({ type: 'quest' });
   }
 }
 
@@ -588,9 +575,8 @@ export function activatePower(g) {
       }
     }
   }
-  const points = cells.length * 2;
-  g.score += points;
-  g.events.push({ type: 'power', power: g.cfg.power, cells, points });
+  drain(g, cells.length, false);
+  g.events.push({ type: 'power', power: g.cfg.power, cells, points: cells.length });
   checkGoal(g);
   return true;
 }

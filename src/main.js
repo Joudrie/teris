@@ -1,6 +1,6 @@
 import {
   createGame, update, move, softDrop, hardDrop, rotate, landingY, activatePower, revive, progress,
-  COLS, GW, GH, S, TOTAL_LEVELS, altitude,
+  piecesDrained, COLS, GW, GH, S, TOTAL_LEVELS, altitude,
 } from './core.js';
 import { levelConfig, POWERS } from './levels.js';
 import { drawScenery } from './scenery.js';
@@ -14,17 +14,18 @@ const NAME = {
   water: 'Water', wood: 'Wood', wetwood: 'Wet wood', ice: 'Ice', sand: 'Sand', stone: 'Stone',
   mud: 'Mud', glass: 'Glass', brick: 'Brick', fire: 'Fire',
 };
+// How each material breaks down.
 const LEGEND = [
-  ['water', 'Water: flows, soaks wood, puts out fire'],
-  ['wood', 'Wood: floats, burns'],
+  ['fire', 'Fire + water: both drain'],
+  ['water', 'Water: soaks into wood, puts out fire'],
+  ['wood', 'Wood: burns away in fire'],
   ['wetwood', 'Wet wood: steams, then burns'],
-  ['ice', 'Ice: freezes water next to it'],
-  ['sand', 'Sand: pours, water turns it to mud'],
-  ['stone', 'Stone: no reaction, cracks glass'],
-  ['mud', 'Mud: stays put, fire bakes it to brick'],
-  ['glass', 'Glass: smashes if slammed'],
-  ['brick', 'Brick: heavy'],
-  ['fire', 'Fire: never goes out unless doused'],
+  ['ice', 'Ice: fire melts it to water'],
+  ['sand', 'Sand: fire makes glass, water makes mud'],
+  ['glass', 'Glass: slam it to smash it away'],
+  ['mud', 'Mud: fire bakes it to brick'],
+  ['brick', 'Brick: water wears it to sand'],
+  ['stone', 'Stone: water wears it down, slowly'],
 ];
 const POWER_COLOR = { blaze: '#ff7a1a', freeze: '#9fe6ff', sweep: '#f0c060', hammer: '#ffffff' };
 
@@ -64,6 +65,7 @@ let phase = 'play'; // 'play' | 'celebrate' | 'won' | 'lost'
 let celebrateT = 0;
 let meterAdUsed = false;
 let lastHud = '';
+let lastDrained = 0;
 let fx = { debris: [], puffs: [], popups: [], flash: null, shake: 0 };
 
 function startLevel(l) {
@@ -75,6 +77,7 @@ function startLevel(l) {
   phase = 'play';
   meterAdUsed = false;
   lastHud = '';
+  lastDrained = 0;
   fx = { debris: [], puffs: [], popups: [], flash: null, shake: 0 };
   $('over').hidden = true;
 
@@ -102,7 +105,7 @@ function showWin() {
   const last = level >= TOTAL_LEVELS;
   overlay(
     last ? 'You reached the ground' : 'Level cleared',
-    last ? 'All 100 levels cleared.' : `Score ${game.score}. Descending to ${altitude(level) - 1} ft.`,
+    last ? 'All 100 levels cleared.' : `Drained ${piecesDrained(game)} blocks. Descending to ${altitude(level) - 1} ft.`,
     [last ? 'Play again' : 'Next level', () => nextLevel(last ? 1 : level + 1)],
     ['Replay this level', () => startLevel(level)],
   );
@@ -166,17 +169,16 @@ function burst(cells, color, speed, max) {
 }
 
 function popup(x, y, text, color = '#fff', size = 18) {
-  fx.popups.push({ x, y, text, color, size, life: 1 });
+  fx.popups.push({ x, y, text, color, size, life: 1, combo: text.startsWith('COMBO') });
 }
 
 function handleEvents() {
   for (const e of game.events) {
-    if (e.type === 'break') {
-      burst(e.cells, BASE[e.m], 140 + e.mult * 40, 160);
-      const [x, y] = cellsCenter(e.cells);
-      popup(x, y, e.mult > 1 ? `+${e.points}  ×${e.mult}` : `+${e.points}`, e.mult > 1 ? '#ffd34d' : '#fff', 16 + e.mult * 4);
-      fx.shake = Math.max(fx.shake, 3 + e.mult * 3);
-      if (e.mult > 1) fx.flash = { color: '#ffd34d', life: 0.25 };
+    if (e.type === 'combo') {
+      fx.popups = fx.popups.filter((p) => !p.combo); // the newest combo replaces the last one
+      popup(cv.width / 2, cv.height * 0.25, `COMBO ×${e.mult}`, '#ffd34d', 18 + e.mult * 4);
+      fx.shake = Math.max(fx.shake, 3 + e.mult * 2);
+      if (e.mult >= 3) fx.flash = { color: '#ffd34d', life: 0.25 };
     } else if (e.type === 'shatter') {
       burst(e.cells.map(([x, y]) => [x, y, 'glass']), '#e8fffa', 220, 120);
       fx.shake = Math.max(fx.shake, 8);
@@ -303,7 +305,8 @@ function draw(ts) {
   if (phase === 'play') drawPiece(ts);
   drawFx();
   if (phase === 'celebrate' || phase === 'won') {
-    const shown = phase === 'won' ? game.score : Math.floor(game.score * Math.min(1, celebrateT / 1.2));
+    const total = piecesDrained(game);
+    const shown = phase === 'won' ? total : Math.floor(total * Math.min(1, celebrateT / 1.2));
     ctx.textAlign = 'center';
     ctx.font = '800 34px system-ui, sans-serif';
     ctx.lineWidth = 6;
@@ -312,9 +315,9 @@ function draw(ts) {
     ctx.fillStyle = '#ffd34d';
     ctx.fillText('LEVEL CLEARED', cv.width / 2, cv.height * 0.38);
     ctx.font = '700 24px system-ui, sans-serif';
-    ctx.strokeText(String(shown), cv.width / 2, cv.height * 0.46);
+    ctx.strokeText(`${shown} blocks drained`, cv.width / 2, cv.height * 0.46);
     ctx.fillStyle = '#fff';
-    ctx.fillText(String(shown), cv.width / 2, cv.height * 0.46);
+    ctx.fillText(`${shown} blocks drained`, cv.width / 2, cv.height * 0.46);
   }
   ctx.restore();
 }
@@ -333,17 +336,23 @@ function drawNext() {
 
 function hud() {
   const cfg = game.cfg;
-  const goal = cfg.goal;
-  const made = Math.floor(game.made / (S * S));
-  const key = [level, game.score, made, game.next.m, game.next.shape, game.meter.toFixed(2), game.questDone, phase, meterAdUsed].join('|');
+  const drained = piecesDrained(game);
+  const key = [level, drained, game.next.m, game.next.shape, game.meter.toFixed(2), game.questDone, phase, meterAdUsed].join('|');
   if (key === lastHud) return;
+  if (drained > lastDrained) {
+    const el = document.querySelector('.drain');
+    el.classList.remove('bump');
+    void el.offsetWidth; // restart the bump animation
+    el.classList.add('bump');
+  }
+  lastDrained = drained;
   lastHud = key;
 
   $('lvl').textContent = `Level ${level} · ${altitude(level)} ft`;
-  $('goal').textContent = goal.type === 'score'
-    ? `Score ${game.score} / ${goal.target}`
-    : `Make ${goal.cells} ${goal.label} (${goal.recipe}) · ${made}/${goal.cells}`;
-  $('goalBar').style.width = `${progress(game) * 100}%`;
+  $('goal').textContent = `Drain ${cfg.goal.pieces} blocks to clear the level`;
+  $('drainNum').textContent = String(drained);
+  $('drainGoal').textContent = `/${cfg.goal.pieces}`;
+  $('drainBar').style.height = `${progress(game) * 100}%`;
 
   const full = game.meter >= 1 && phase === 'play';
   $('meterLabel').textContent = full ? `${POWERS[cfg.power].label} ready! Swipe up` : POWERS[cfg.power].label;
@@ -352,7 +361,7 @@ function hud() {
   $('meterAd').hidden = !(phase === 'play' && !meterAdUsed && game.meter >= 0.8 && !full);
 
   const q = cfg.quest;
-  $('quest').textContent = `${game.questDone ? '✓ ' : ''}Side quest: ${q.type === 'chain' ? `make a ×${q.n} chain` : `break ${q.n} times`} (+power)`;
+  $('quest').textContent = `${game.questDone ? '✓ ' : ''}Side quest: ${q.type === 'chain' ? `hit a ×${q.n} combo` : `put out ${q.n} blocks of fire`} (+power)`;
   $('quest').classList.toggle('done', game.questDone);
 
   $('nextName').textContent = NAME[game.next.m];

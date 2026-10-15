@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  createGame, tick, hardDrop, softDrop, activatePower, revive, progress, emptyGrid, pickMaterial,
-  altitude, fallSpeed, GW, GH, S, METER_POINTS,
+  createGame, tick, hardDrop, softDrop, activatePower, revive, progress, piecesDrained, emptyGrid, pickMaterial,
+  altitude, fallSpeed, GW, GH, S, PIECE,
 } from '../src/core.js';
 import { levelConfig } from '../src/levels.js';
 
@@ -12,7 +12,7 @@ const DT = 1 / 30;
 
 const baseConfig = (over = {}) => ({
   main: 'wood', power: 'blaze', pool: { stone: 1 }, mode: 'normal',
-  goal: { type: 'score', target: 100000 }, quest: { type: 'chain', n: 3 }, ...over,
+  goal: { pieces: 1000 }, quest: { type: 'chain', n: 3 }, ...over,
 });
 
 // Empty board, no falling piece, so tests only see the particles they place.
@@ -45,11 +45,14 @@ test('altitude and fall speed follow the spec', () => {
   assert.equal(fallSpeed(200), 0.15);
 });
 
-test('levels rotate themes, and every third level is a make-material goal', () => {
+test('levels rotate themes and every pool has fire and water to cancel', () => {
   assert.equal(levelConfig(1).power, 'blaze');
   assert.equal(levelConfig(2).power, 'freeze');
-  assert.equal(levelConfig(3).goal.type, 'make');
-  assert.equal(levelConfig(4).goal.type, 'score');
+  assert.equal(levelConfig(1).goal.pieces, 15);
+  assert.ok(levelConfig(100).goal.pieces > 15);
+  for (let l = 1; l <= 4; l++) {
+    assert.ok(levelConfig(l).pool.fire > 0 && levelConfig(l).pool.water > 0, `level ${l}`);
+  }
   const pools = [1, 2, 3, 4].map((l) => Object.keys(levelConfig(l).pool)).flat();
   for (const m of ['glass', 'brick', 'fire', 'wood', 'water', 'ice', 'sand', 'stone']) assert.ok(pools.includes(m), m);
 });
@@ -63,39 +66,6 @@ test('pickMaterial respects weights', () => {
   assert.equal(pickMaterial({ a: 1, b: 1 }, () => 0.9), 'b');
 });
 
-test('same material touching both walls breaks and scores', () => {
-  const g = setup();
-  for (let x = 0; x < GW; x++) put(g, x, GH - 1, 'stone');
-  tick(g, DT);
-  assert.equal(count(g, 'stone'), 0);
-  assert.equal(g.score, GW);
-  assert.ok(Math.abs(g.meter - GW / METER_POINTS) < 1e-9);
-});
-
-test('a second break inside the chain window doubles the points', () => {
-  const g = setup();
-  for (let x = 0; x < GW; x++) put(g, x, GH - 1, 'stone');
-  tick(g, DT);
-  for (let x = 0; x < GW; x++) put(g, x, GH - 1, 'brick');
-  tick(g, DT);
-  assert.equal(g.mult, 2);
-  assert.equal(g.score, GW + GW * 2);
-});
-
-test('water never breaks by touching both walls', () => {
-  const g = setup();
-  for (let x = 0; x < GW; x++) put(g, x, GH - 1, 'water');
-  tick(g, DT);
-  assert.equal(count(g, 'water'), GW);
-});
-
-test('a gap stops the break', () => {
-  const g = setup();
-  for (let x = 0; x < GW; x++) if (x !== 20) put(g, x, GH - 1, 'stone');
-  tick(g, DT);
-  assert.equal(g.score, 0);
-});
-
 test('sand landing on water turns into mud', () => {
   const g = setup();
   put(g, 5, GH - 1, 'water');
@@ -107,22 +77,66 @@ test('sand landing on water turns into mud', () => {
   assert.equal(g.grid[GH - 2][5], null);
 });
 
-test('water soaks into wood', () => {
-  const g = setup({ goal: { type: 'make', m: 'wetwood', cells: 1 } });
+test('water soaks into wood and drains', () => {
+  const g = setup();
   put(g, 4, GH - 1, 'wood');
   put(g, 5, GH - 1, 'water');
   tick(g, DT);
   assert.equal(g.grid[GH - 1][4].m, 'wetwood');
-  assert.equal(g.made, 1);
+  assert.equal(g.drained, 1);
 });
 
-test('water puts fire out', () => {
+test('fire and water cancel out and both drain', () => {
   const g = setup();
   put(g, 4, GH - 1, 'fire');
   put(g, 5, GH - 1, 'water');
   tick(g, DT);
   assert.equal(count(g, 'fire'), 0);
   assert.equal(count(g, 'water'), 0);
+  assert.equal(g.drained, 2);
+  assert.equal(g.doused, 1);
+});
+
+test('a piece of fire and a piece of water drain two blocks on the bar', () => {
+  const g = setup();
+  block(g, 0, GH - 8, 8, 8, 'fire');
+  for (let y = GH - 8; y < GH; y++) for (let x = 8; x < 16; x++) put(g, x, y, 'water');
+  block(g, 16, GH - 8, 4, 8, 'stone'); // wall so the water can't run off
+  run(g, 10);
+  assert.equal(count(g, 'fire'), 0);
+  assert.equal(count(g, 'water'), 0);
+  assert.equal(piecesDrained(g), 2);
+});
+
+test('sand landing on water drains into mud', () => {
+  const g = setup();
+  put(g, 5, GH - 1, 'water');
+  put(g, 4, GH - 1, 'stone');
+  put(g, 6, GH - 1, 'stone');
+  put(g, 5, GH - 2, 'sand');
+  tick(g, DT);
+  assert.equal(g.drained, 1);
+});
+
+test('water wears stone down to sand, slowly', () => {
+  const g = setup();
+  put(g, 3, GH - 1, 'stone');
+  put(g, 4, GH - 1, 'stone');
+  put(g, 5, GH - 1, 'water');
+  put(g, 6, GH - 1, 'stone');
+  run(g, 4);
+  assert.equal(g.grid[GH - 1][4].m, 'stone');
+  run(g, 4.2);
+  assert.equal(g.grid[GH - 1][4].m, 'sand');
+});
+
+test('draining fast builds a combo', () => {
+  const g = setup();
+  block(g, 0, GH - 8, 8, 8, 'wood');
+  g.meter = 1;
+  activatePower(g);
+  assert.equal(g.mult, 2);
+  assert.ok(g.events.some((e) => e.type === 'combo'));
 });
 
 test('fire never burns out on its own and does not spread', () => {
@@ -138,7 +152,7 @@ test('fire never burns out on its own and does not spread', () => {
 });
 
 test('fire melts sand to glass, bakes mud to brick, melts ice', () => {
-  const g = setup({ goal: { type: 'make', m: 'glass', cells: 99 } });
+  const g = setup();
   put(g, 10, GH - 1, 'sand');
   put(g, 11, GH - 1, 'fire');
   put(g, 12, GH - 1, 'mud');
@@ -150,7 +164,6 @@ test('fire melts sand to glass, bakes mud to brick, melts ice', () => {
   assert.equal(g.grid[GH - 1][10].m, 'glass');
   assert.equal(g.grid[GH - 1][12].m, 'brick');
   assert.notEqual(g.grid[GH - 1][20]?.m, 'ice');
-  assert.equal(g.made, 1);
 });
 
 test('wet wood steams first, then dries and burns', () => {
@@ -205,13 +218,14 @@ test('wood floats up through water', () => {
   assert.equal(g.grid[GH - 1][5].m, 'water');
 });
 
-test('slamming a piece onto glass smashes it into sand; a gentle drop does not', () => {
-  const slam = setup({ goal: { type: 'make', m: 'shatter', cells: 99 } });
+test('slamming a piece onto glass smashes it away; a gentle drop does not', () => {
+  const slam = setup();
   block(slam, 12, GH - S, 16, S, 'glass');
   slam.piece = { m: 'brick', cells: [[0, 0], [1, 0], [2, 0], [3, 0]], x: 3, y: 0 };
   hardDrop(slam);
   assert.equal(count(slam, 'glass'), 0);
-  assert.ok(slam.made > 0);
+  assert.equal(count(slam, 'sand'), 0);
+  assert.equal(slam.drained, 16 * S);
 
   const gentle = setup();
   block(gentle, 12, GH - S, 16, S, 'glass');
@@ -237,22 +251,26 @@ test('power needs a full meter and clears the level material', () => {
   g.meter = 1;
   assert.equal(activatePower(g), true);
   assert.equal(count(g, 'wood'), 0);
-  assert.equal(g.score, 64 * 2);
+  assert.equal(g.drained, 64);
   assert.equal(g.meter, 0);
 });
 
 test('side quest gives meter charge once', () => {
-  const g = setup({ quest: { type: 'breaks', n: 1 } });
-  for (let x = 0; x < GW; x++) put(g, x, GH - 1, 'stone');
-  tick(g, DT);
+  const g = setup({ quest: { type: 'douse', n: 1 } });
+  block(g, 0, GH - 8, 8, 8, 'fire');
+  for (let y = GH - 8; y < GH; y++) for (let x = 8; x < 16; x++) put(g, x, y, 'water');
+  block(g, 16, GH - 8, 4, 8, 'stone');
+  run(g, 10);
   assert.ok(g.questDone);
-  assert.ok(g.meter > GW / METER_POINTS + 0.3);
+  assert.ok(g.meter >= 0.35);
 });
 
-test('reaching the score goal wins', () => {
-  const g = setup({ goal: { type: 'score', target: GW } });
-  for (let x = 0; x < GW; x++) put(g, x, GH - 1, 'stone');
-  tick(g, DT);
+test('filling the drain bar wins', () => {
+  const g = setup({ goal: { pieces: 1 } });
+  block(g, 0, GH - 8, 8, 8, 'wood');
+  g.meter = 1;
+  activatePower(g);
+  assert.equal(PIECE, 64);
   assert.equal(g.state, 'win');
   assert.equal(progress(g), 1);
 });
