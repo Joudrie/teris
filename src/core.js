@@ -11,12 +11,13 @@ export const GH = ROWS * S;
 export const TOTAL_LEVELS = 100;
 export const TICK = 1 / 30;
 export const PIECE = 4 * S * S; // particles in one four-cell piece: the unit of the drain bar
-export const METER_POINTS = 1800; // drained particles (times combo) to fill the power meter
+export const METER_POINTS = 4200; // drained particles (times combo) to fill the power meter
 const MAX_MULT = 4; // combo multiplier cap
 const COMBO_WINDOW = 1.0; // seconds of quiet before a combo ends
-const QUEST_BONUS = 0.35; // meter charge for finishing the side quest
+const QUEST_BONUS = 0.3; // meter charge for finishing the side quest
 const SLAM_DROP = 3 * S; // falling this far onto glass smashes it
 const SETTLE = 2.5; // after the last piece, seconds of quiet before the level is called
+export const SETTLE_TIME = SETTLE;
 export const REVIVE_PIECES = 5; // the revive's extra pieces when the budget ran out
 
 // Solid materials keep their piece together and move as one rigid block.

@@ -230,7 +230,7 @@ export const SCENES = {
       g.doused = 3 * PIECE + 10;
     },
     actions: ['slam'], wait: 1.5, watch: (g) => questCount(g),
-    check: (g) => g.questDone && g.meter >= 0.35,
+    check: (g) => g.questDone && g.meter >= 0.3,
   },
   meter: {
     title: 'Full meter: swipe up to fire the power', kind: 'goal',
@@ -245,7 +245,7 @@ export const SCENES = {
       const g = stage(s, { level: 2, board: [{ m: 'fire', x: 0, y: 17, w: 12, h: 3 }], piece: { mats: mats('water'), x: 4, shape: 0 }, next: ['water'] });
       g.left = 0;
     },
-    actions: ['slam'], wait: 4, watch: (g) => (g.settling !== null ? 1 : 0) + (g.state === 'lose' ? 2 : 0),
+    actions: ['slam'], wait: 4, shot: 3.7, watch: (g) => (g.settling !== null ? 1 : 0) + (g.state === 'lose' ? 2 : 0),
     check: (g, s) => g.state === 'lose' && g.loseReason === 'pieces' && s.phase === 'lost',
   },
 

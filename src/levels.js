@@ -78,8 +78,8 @@ const HAND = [
     intro: 'Drop WATER on the FIRE to put it out!', quest: { type: 'douse', n: 4 }, speed: 0.42,
   },
   { // 2. Same two materials, nothing pre-placed: now the player sets up their own reactions.
-    name: 'Fire and water', power: 'rain', bag: B({ fire: 3, water: 3 }), goal: 18,
-    start: [bed('fire', 1, 0, 3), bed('fire', 1, 8, 11)], first: ['fire'],
+    name: 'Fire and water', tag: 'No fire bed this time: set up your own reactions.', power: 'rain', bag: B({ fire: 3, water: 3 }), goal: 18,
+    start: [bed('fire', 1, 0, 3), bed('fire', 1, 8, 11)], first: ['water', 'fire'],
     quest: { type: 'chain', n: 2 }, speed: 0.48,
   },
   { // 3. Wood. A woodpile sits in the middle and the first piece is fire.
@@ -113,7 +113,7 @@ const HAND = [
     intro: 'New: TWO-MATERIAL pieces. Tap to turn them!', quest: { type: 'chain', n: 3 }, speed: 0.42,
   },
   { // 9. Everything so far, faster: the first real test.
-    name: 'Mixed bag', power: 'freeze', bag: B({ fire: 3, water: 3, wood: 1, sand: 2, ice: 2, glass: 1 }), goal: 27, mixed: 0.35,
+    name: 'Mixed bag', tag: 'Everything so far, a bit faster. Plan your pieces!', power: 'freeze', bag: B({ fire: 3, water: 3, wood: 1, sand: 2, ice: 2, glass: 1 }), goal: 27, mixed: 0.35,
     quest: { type: 'douse', n: 5 }, speed: 0.4,
   },
   { // 10. SHOWCASE: a wood wall and a part-charged Fire Mode.
@@ -136,7 +136,7 @@ const HAND = [
     intro: 'New: BRICK. WATER wears it down into sand.', quest: { type: 'chain', n: 3 }, speed: 0.4,
   },
   { // 14. Breather: wood theme, friendly bag.
-    name: 'Kindling', power: 'blaze', bag: B({ fire: 3, water: 3, wood: 3, sand: 1, ice: 1 }), goal: 26, mixed: 0.3,
+    name: 'Kindling', tag: 'A breather: lots of wood and fire.', power: 'blaze', bag: B({ fire: 3, water: 3, wood: 3, sand: 1, ice: 1 }), goal: 26, mixed: 0.3,
     quest: { type: 'burn', n: 6 }, speed: 0.4,
   },
   { // 15. SHOWCASE: a tall glass tower and stone to drop on it.
@@ -145,20 +145,20 @@ const HAND = [
     intro: 'Drop STONE on the tower and watch it fall!', quest: { type: 'smash', n: 8 }, speed: 0.4,
   },
   { // 16. Burn through the wall (prefill mode).
-    name: 'The wall', power: 'blaze', mode: 'prefill', bag: B({ fire: 3, water: 2, wood: 1, sand: 1, ice: 1, stone: 1 }), goal: 28, mixed: 0.35,
+    name: 'The wall', tag: 'Burn through a wooden wall.', power: 'blaze', mode: 'prefill', bag: B({ fire: 3, water: 2, wood: 1, sand: 1, ice: 1, stone: 1 }), goal: 28, mixed: 0.35,
     start: wall('wood', 2, 2), quest: { type: 'burn', n: 6 }, speed: 0.38,
   },
   { // 17. Breather.
-    name: 'Thaw', power: 'freeze', bag: B({ fire: 3, water: 3, wood: 1, sand: 1, ice: 2, glass: 1 }), goal: 27, mixed: 0.35,
+    name: 'Thaw', tag: 'A breather: melt the ice at the edges.', power: 'freeze', bag: B({ fire: 3, water: 3, wood: 1, sand: 1, ice: 2, glass: 1 }), goal: 27, mixed: 0.35,
     start: [{ m: 'ice', x: 0, y: 19, w: 4, h: 1 }, { m: 'ice', x: 8, y: 19, w: 4, h: 1 }],
     quest: { type: 'melt', n: 4 }, speed: 0.38,
   },
   { // 18. Flood with stone: harder.
-    name: 'High water', power: 'freeze', mode: 'flood', bag: B({ fire: 3, water: 1, wood: 2, sand: 2, ice: 1, stone: 1, glass: 1 }), goal: 28, mixed: 0.4,
+    name: 'High water', tag: 'Flood again, now with stone in the mix.', power: 'freeze', mode: 'flood', bag: B({ fire: 3, water: 1, wood: 2, sand: 2, ice: 1, stone: 1, glass: 1 }), goal: 28, mixed: 0.4,
     quest: { type: 'douse', n: 5 }, speed: 0.37,
   },
   { // 19. Breather before the showcase.
-    name: 'Sandbox', power: 'sweep', bag: B({ fire: 2, water: 4, wood: 1, sand: 3, ice: 1 }), goal: 27, mixed: 0.4,
+    name: 'Sandbox', tag: 'A breather: sand dunes and plenty of water.', power: 'sweep', bag: B({ fire: 2, water: 4, wood: 1, sand: 3, ice: 1 }), goal: 27, mixed: 0.4,
     start: [{ m: 'sand', x: 0, y: 17, w: 3, h: 3, loose: true }, { m: 'sand', x: 9, y: 17, w: 3, h: 3, loose: true }],
     quest: { type: 'chain', n: 3 }, speed: 0.37,
   },
@@ -272,6 +272,7 @@ function mainOf(l) {
 export function levelPreview(level) {
   const c = levelConfig(level);
   if (c.intro) return c.intro;
+  if (c.tag) return c.tag;
   if (c.mode === 'flood') return 'Flood: the water keeps rising.';
   if (c.mode === 'prefill') return 'Burn through a wooden wall.';
   if (c.showcase) return 'Showcase level: big set piece, power half charged.';

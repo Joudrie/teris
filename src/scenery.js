@@ -39,7 +39,7 @@ export function drawScenery(ctx, alt, w, h) {
   if (alt >= 55) {
     const r = rng(11);
     const cy = h * (1.05 - ((100 - alt) / 45) * 1.3);
-    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.fillStyle = 'rgba(255,255,255,0.16)'; // faint: it sits behind the materials and must never look like one
     for (let i = 0; i < 14; i++) {
       ctx.beginPath();
       ctx.ellipse(r() * w, cy + (r() - 0.5) * 70, 40 + r() * 40, 14 + r() * 12, 0, 0, 7);

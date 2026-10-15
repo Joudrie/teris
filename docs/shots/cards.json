@@ -1,0 +1,282 @@
+{
+ "douse": {
+  "ok": true,
+  "shotAt": 0.38,
+  "first": 0.03333333333333333,
+  "last": 0.49999999999999994,
+  "errors": []
+ },
+ "burn": {
+  "ok": true,
+  "shotAt": 1.12,
+  "first": 0.7666666666666666,
+  "last": 3.3333333333333313,
+  "errors": []
+ },
+ "soak": {
+  "ok": true,
+  "shotAt": 0.38,
+  "first": 0.03333333333333333,
+  "last": 1.3666666666666676,
+  "errors": []
+ },
+ "wetwood": {
+  "ok": true,
+  "shotAt": 1.88,
+  "first": 1.5333333333333348,
+  "last": 4.099999999999995,
+  "errors": []
+ },
+ "melt": {
+  "ok": true,
+  "shotAt": 0.75,
+  "first": 0.39999999999999997,
+  "last": 1.5666666666666682,
+  "errors": []
+ },
+ "freeze": {
+  "ok": true,
+  "shotAt": 1.12,
+  "first": 0.7666666666666666,
+  "last": 2.0000000000000027,
+  "errors": []
+ },
+ "mud": {
+  "ok": true,
+  "shotAt": 0.38,
+  "first": 0.03333333333333333,
+  "last": 3.7999999999999963,
+  "errors": []
+ },
+ "glassmelt": {
+  "ok": true,
+  "shotAt": 0.62,
+  "first": 0.26666666666666666,
+  "last": 1.5000000000000013,
+  "errors": []
+ },
+ "slam": {
+  "ok": true,
+  "shotAt": 0.35,
+  "first": 0,
+  "last": 0,
+  "errors": []
+ },
+ "gentle": {
+  "ok": true,
+  "shotAt": 0.35,
+  "first": null,
+  "last": null,
+  "errors": []
+ },
+ "stone": {
+  "ok": true,
+  "shotAt": 0.48,
+  "first": 0.13333333333333333,
+  "last": 0.13333333333333333,
+  "errors": []
+ },
+ "fall": {
+  "ok": true,
+  "shotAt": 1.58,
+  "first": 1.2333333333333338,
+  "last": 1.2333333333333338,
+  "errors": []
+ },
+ "erode": {
+  "ok": true,
+  "shotAt": 1.55,
+  "first": 1.2000000000000004,
+  "last": 1.9000000000000026,
+  "errors": []
+ },
+ "brick": {
+  "ok": true,
+  "shotAt": 0.95,
+  "first": 0.6,
+  "last": 0.8999999999999999,
+  "errors": []
+ },
+ "firestays": {
+  "ok": true,
+  "shotAt": 0.35,
+  "first": null,
+  "last": null,
+  "errors": []
+ },
+ "rain": {
+  "ok": true,
+  "shotAt": 0.35,
+  "first": 0,
+  "last": 0,
+  "errors": []
+ },
+ "blaze": {
+  "ok": true,
+  "shotAt": 0.35,
+  "first": 0,
+  "last": 0,
+  "errors": []
+ },
+ "deepfreeze": {
+  "ok": true,
+  "shotAt": 0.35,
+  "first": 0,
+  "last": 0,
+  "errors": []
+ },
+ "sweep": {
+  "ok": true,
+  "shotAt": 0.35,
+  "first": 0,
+  "last": 0,
+  "errors": []
+ },
+ "hammer": {
+  "ok": true,
+  "shotAt": 0.35,
+  "first": 0,
+  "last": 0,
+  "errors": []
+ },
+ "flood": {
+  "ok": true,
+  "shotAt": 0.62,
+  "first": 0.26666666666666666,
+  "last": 5.866666666666656,
+  "errors": []
+ },
+ "wall": {
+  "ok": true,
+  "shotAt": 1.12,
+  "first": 0.7666666666666666,
+  "last": 3.73333333333333,
+  "errors": []
+ },
+ "showcase": {
+  "ok": true,
+  "shotAt": 0.35,
+  "first": 0,
+  "last": 0,
+  "errors": []
+ },
+ "rotate": {
+  "ok": true,
+  "shotAt": 0.3,
+  "first": 0,
+  "last": 0,
+  "errors": []
+ },
+ "mixed": {
+  "ok": true,
+  "shotAt": 0.38,
+  "first": 0.03333333333333333,
+  "last": 2.9333333333333327,
+  "errors": []
+ },
+ "ghost": {
+  "ok": true,
+  "shotAt": 0.2,
+  "first": null,
+  "last": null,
+  "errors": []
+ },
+ "bar": {
+  "ok": true,
+  "shotAt": 0.45,
+  "first": 0.1,
+  "last": 0.2333333333333333,
+  "errors": []
+ },
+ "combo": {
+  "ok": true,
+  "shotAt": 0.45,
+  "first": 0.1,
+  "last": 0.6666666666666666,
+  "errors": []
+ },
+ "quest": {
+  "ok": true,
+  "shotAt": 0.58,
+  "first": 0.2333333333333333,
+  "last": 0.2333333333333333,
+  "errors": []
+ },
+ "meter": {
+  "ok": true,
+  "shotAt": 0.3,
+  "first": null,
+  "last": null,
+  "errors": []
+ },
+ "budget": {
+  "ok": true,
+  "shotAt": 0.35,
+  "first": 0,
+  "last": 2.7,
+  "errors": []
+ },
+ "callout": {
+  "ok": true,
+  "shotAt": 0.35,
+  "first": null,
+  "last": null,
+  "errors": []
+ },
+ "win": {
+  "ok": true,
+  "shotAt": 2.65,
+  "first": 2.3000000000000016,
+  "last": 2.3000000000000016,
+  "errors": []
+ },
+ "lose": {
+  "ok": true,
+  "shotAt": 0.35,
+  "first": 0,
+  "last": 0,
+  "errors": []
+ },
+ "revive": {
+  "ok": true,
+  "shotAt": 0.35,
+  "first": null,
+  "last": null,
+  "errors": []
+ },
+ "interstitial": {
+  "ok": true,
+  "shotAt": 0.35,
+  "first": null,
+  "last": null,
+  "errors": []
+ },
+ "meterad": {
+  "ok": true,
+  "shotAt": 0.3,
+  "first": null,
+  "last": null,
+  "errors": []
+ },
+ "home": {
+  "ok": true,
+  "shotAt": 0.2,
+  "first": null,
+  "last": null,
+  "errors": []
+ },
+ "daily": {
+  "ok": true,
+  "shotAt": 0.35,
+  "first": null,
+  "last": null,
+  "errors": []
+ },
+ "help": {
+  "ok": true,
+  "shotAt": 0.35,
+  "first": null,
+  "last": null,
+  "errors": []
+ }
+}

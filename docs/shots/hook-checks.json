@@ -1,0 +1,72 @@
+[
+ {
+  "name": "a piece is already falling the moment the game opens (no menu first)",
+  "ok": true,
+  "info": ""
+ },
+ {
+  "name": "the first-time callout explains the one thing to do",
+  "ok": true,
+  "info": "Drop WATER on the FIRE to put it out!"
+ },
+ {
+  "name": "first reaction happens in the first 10 s with no input",
+  "ok": true,
+  "info": "7.2 s"
+ },
+ {
+  "name": "first 60 s: a drain, a combo popup and the bar moving",
+  "ok": true,
+  "info": "drain 7.2 s, combo 7.4 s"
+ },
+ {
+  "name": "always a visible next goal: drain bar, power meter, side quest, pieces left",
+  "ok": true,
+  "info": "{\"bar\":true,\"meter\":true,\"quest\":true,\"left\":true}"
+ },
+ {
+  "name": "first level clears in 1-2 minutes, as a new player plays it",
+  "ok": true,
+  "info": "celebrate at 77 s"
+ },
+ {
+  "name": "win screen: big celebration, then what is new next level",
+  "ok": true,
+  "info": "Level cleared! | Next: level 2. Power: Rainstorm. Quest: hit a ×2 combo."
+ },
+ {
+  "name": "win screen offers the daily challenge",
+  "ok": true,
+  "info": ""
+ },
+ {
+  "name": "feedback events fired (land/slam, combo, drain popups, quest or power)",
+  "ok": true,
+  "info": "start,land,combo,quest,win"
+ },
+ {
+  "name": "session loop: one tap from the win screen and level 2 is falling",
+  "ok": true,
+  "info": "{\"phase\":\"play\",\"level\":2,\"piece\":true,\"ad\":false}"
+ },
+ {
+  "name": "sound layer can be muted, and the choice is remembered",
+  "ok": true,
+  "info": ""
+ },
+ {
+  "name": "home screen: daily challenge ready",
+  "ok": true,
+  "info": "new today"
+ },
+ {
+  "name": "no console errors or invariant breaks in the whole session",
+  "ok": true,
+  "info": ""
+ },
+ {
+  "name": "every loss shows real progress and the one revive",
+  "ok": true,
+  "info": "So close! 88% | Watch ad: clear the top 4 rows"
+ }
+]

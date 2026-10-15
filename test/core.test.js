@@ -462,7 +462,7 @@ test('side quest gives meter charge once', () => {
   block(g, 16, GH - 8, 4, 8, 'glass');
   run(g, 10);
   assert.ok(g.questDone);
-  assert.ok(g.meter >= 0.35);
+  assert.ok(g.meter >= 0.3);
 });
 
 test('filling the drain bar wins', () => {

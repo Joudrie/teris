@@ -420,7 +420,7 @@ function draw(ts) {
   drawParticles(ts);
   if (sess.phase === 'play') drawPiece(ts);
   drawFx();
-  if (sess.phase === 'celebrate' || sess.phase === 'won') {
+  if (sess.phase === 'celebrate') { // the win screen takes over after this
     const total = piecesDrained(g);
     const shown = sess.phase === 'won' ? total : Math.floor(total * Math.min(1, sess.celebrateT / (CELEBRATE_TIME * 0.55)));
     const pop = sess.phase === 'won' ? 1 : Math.min(1, sess.celebrateT * 4);

@@ -10,11 +10,11 @@ import { Worker, isMainThread, parentPort, workerData } from 'node:worker_thread
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import {
-  createGame, update, progress, revive, piecesDrained, PIECE, TOTAL_LEVELS,
+  createGame, update, progress, revive, piecesDrained, PIECE, TOTAL_LEVELS, SETTLE_TIME,
 } from '../src/core.js';
 import { levelConfig } from '../src/levels.js';
 import { validate, createValidator } from '../src/validate.js';
-import { createBot, botStep, mulberry32 } from './bots.js';
+import { createBot, botStep, mulberry32, cloneGame } from './bots.js';
 
 const DT = 1 / 30;
 const MAX_TIME = 420; // seconds of play before a game counts as stuck
@@ -107,24 +107,43 @@ export function playCampaign({ bot, seed, to, from = 1 }) {
   return out;
 }
 
-// Pieces a player needs to clear a level, with no budget: how many had landed when the bar
-// filled. Infinity if they topped out first. tools/calibrate.js turns these into budgets.
+// Fewest pieces a player needs to clear a level. The bot plays with no budget; each time a
+// new piece appears, a copy of the game is run on as if the budget had just ended there
+// (no more pieces, let the reactions settle). The first copy that wins gives the need.
+// Infinity if the board topped out first. tools/calibrate.js turns these into budgets.
 export function measureNeed({ level, bot: kind, seed }) {
   const rand = mulberry32(seed);
   const cfg = levelConfig(level);
   cfg.pieces = Infinity;
   const g = createGame({ level, rand, config: cfg });
   const bot = createBot(kind, mulberry32(seed ^ 0x9e3779b9));
-  let lands = 0;
+  let spawned = 1;
+  let piece = g.piece;
   let t = 0;
+  let need = Infinity;
   while (t < 900 && g.state === 'play') {
     botStep(bot, g, DT);
     update(g, DT);
     t += DT;
-    for (const e of g.events) if (e.type === 'land') lands++;
     g.events.length = 0;
+    if (g.piece && g.piece !== piece) {
+      piece = g.piece;
+      // spawned pieces have been placed; would the level be won with exactly that many?
+      if (progress(g) >= 0.6 && runsOut(g, seed + spawned)) { need = spawned; break; }
+      spawned++;
+    }
   }
-  return { level, seed, need: g.state === 'win' ? lands : Infinity, time: t, powers: bot.powers };
+  if (need === Infinity && g.state === 'win') need = spawned;
+  return { level, seed, need, time: t, powers: bot.powers };
+}
+
+function runsOut(g, seed) {
+  const c = cloneGame(g, seed);
+  c.piece = null;
+  c.left = 0;
+  c.settling = SETTLE_TIME;
+  for (let i = 0; i < 30 * 60 && c.state === 'play'; i++) update(c, DT);
+  return c.state === 'win';
 }
 
 // ---------- parallel runner ----------

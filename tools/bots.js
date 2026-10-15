@@ -224,6 +224,9 @@ const PROFILES = {
   // Looks at the few columns near the piece plus a couple of others, judges them roughly
   // (noise is half the spread between good and bad options), blunders now and then, and
   // drags down about half the time instead of flicking.
+  // Someone on their first session: reads slowly, swipes slowly, mostly lets pieces fall
+  // on their own, rarely flicks, and is slow to notice the power.
+  newbie: { delay: [1.0, 2.0], rate: 0.25, noise: 0.8, blunder: 0.15, slam: 0.15, drag: 0.35, slamGlass: 0.6, powerDelay: [1.5, 4], noticePower: 0.7, look: 2, extra: 1 },
   human: { delay: [0.35, 0.9], rate: 0.12, noise: 0.5, blunder: 0.08, slam: 0.55, powerDelay: [0.4, 2.5], noticePower: 0.9, slamGlass: 0.75, look: 3, extra: 2 },
 };
 
@@ -267,7 +270,10 @@ function dropKind(bot, g, target) {
   if (prof.slam >= 1) return 'slam';
   // A human who sees glass under the piece flicks to smash it more often than not.
   if (prof.slamGlass && target && glassBelow(g, target) && rand() < prof.slamGlass) return 'slam';
-  return rand() < prof.slam ? 'slam' : 'drag';
+  const r = rand();
+  if (r < prof.slam) return 'slam';
+  if (prof.drag !== undefined && r >= prof.slam + prof.drag) return 'wait';
+  return 'drag';
 }
 
 function glassBelow(g, t) {
@@ -329,6 +335,7 @@ export function botStep(bot, g, dt) {
       continue;
     }
     if (inp === 'slam') { hardDrop(g); bot.inputs.shift(); return; }
+    if (inp === 'wait') return; // let gravity bring it down
     if (inp === 'drag') {
       // Drag down: soft drops until it lands (the piece locks by gravity).
       softDrop(g);
