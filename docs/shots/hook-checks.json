@@ -27,7 +27,7 @@
  {
   "name": "first level clears in 1-2 minutes, as a new player plays it",
   "ok": true,
-  "info": "celebrate at 79 s"
+  "info": "celebrate at 82 s"
  },
  {
   "name": "win screen: big celebration, then what is new next level",
@@ -67,6 +67,6 @@
  {
   "name": "every loss shows real progress and the one revive",
   "ok": true,
-  "info": "So close! 88% | Watch ad: clear the top 4 rows"
+  "info": "So close! 90% | Watch ad: clear the top 4 rows"
  }
 ]

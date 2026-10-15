@@ -351,6 +351,22 @@ function drawParticles(ts) {
       d[i] = r; d[i + 1] = gg; d[i + 2] = b; d[i + 3] = a;
     }
   }
+  // The falling piece goes into the same image: one upload instead of 256 rectangles.
+  const p = sess.phase === 'play' ? g.piece : null;
+  if (p) {
+    const mats = pieceMats(p);
+    p.cells.forEach(([a, b], k) => {
+      const x0 = (p.x + a) * S;
+      const y0 = p.y + b * S;
+      for (let y = Math.max(0, y0); y < y0 + S && y < GH; y++) {
+        for (let x = x0; x < x0 + S; x++) {
+          const [r, gg, bl, al] = pixelColor(mats[k], x, y, hash(x, y - p.y), ts);
+          const i = (y * GW + x) * 4;
+          d[i] = r; d[i + 1] = gg; d[i + 2] = bl; d[i + 3] = al;
+        }
+      }
+    });
+  }
   lctx.putImageData(img, 0, 0);
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(layer, 0, 0, cv.width, cv.height);
@@ -372,18 +388,11 @@ function drawPiece(ts) {
     ctx.strokeRect((p.x + a) * cell + 2, (gy + b * S) * PX + 2, cell - 4, cell - 4);
     ctx.globalAlpha = 1;
   });
+  // Its pixels are drawn with the board (drawParticles); here just each block's outline.
   p.cells.forEach(([a, b], i) => {
     const m = mats[i];
     const x0 = (p.x + a) * S;
     const y0 = p.y + b * S;
-    for (let y = y0; y < y0 + S; y++) {
-      if (y < 0) continue;
-      for (let x = x0; x < x0 + S; x++) {
-        const [r, gg, bl, al] = pixelColor(m, x, y, hash(x, y - p.y), ts);
-        ctx.fillStyle = `rgba(${r | 0},${gg | 0},${bl | 0},${al / 255})`;
-        ctx.fillRect(x * PX, y * PX, PX, PX);
-      }
-    }
     ctx.strokeStyle = lighten(BASE[m], 0.45);
     ctx.strokeRect(x0 * PX + 1, y0 * PX + 1, cell - 2, cell - 2);
   });
@@ -433,6 +442,25 @@ function bigText(lines) {
   }
 }
 
+// The scenery only changes with altitude (between levels and during the celebration's
+// camera drop), so it is drawn once per altitude and reused: the city alone is
+// thousands of rectangles.
+const bg = document.createElement('canvas');
+const bgCtx = bg.getContext('2d');
+let bgKey = null;
+function sceneryAt(alt) {
+  const key = `${Math.round(alt * 50)}:${cv.width}x${cv.height}`;
+  if (key !== bgKey) {
+    bgKey = key;
+    bg.width = cv.width;
+    bg.height = cv.height;
+    drawScenery(bgCtx, alt, cv.width, cv.height);
+    bgCtx.fillStyle = 'rgba(20,22,30,.35)';
+    bgCtx.fillRect(0, 0, cv.width, cv.height);
+  }
+  return bg;
+}
+
 function draw(ts) {
   const g = game();
   const level = sess.daily ? g.level : sess.level;
@@ -443,9 +471,7 @@ function draw(ts) {
 
   ctx.save();
   if (fx.shake > 0) ctx.translate((Math.random() - 0.5) * fx.shake, (Math.random() - 0.5) * fx.shake);
-  drawScenery(ctx, Math.max(1, alt), cv.width, cv.height);
-  ctx.fillStyle = 'rgba(20,22,30,.35)';
-  ctx.fillRect(0, 0, cv.width, cv.height);
+  ctx.drawImage(sceneryAt(Math.max(1, alt)), 0, 0);
   drawParticles(ts);
   if (sess.phase === 'play') drawPiece(ts);
   drawFx();
@@ -677,6 +703,7 @@ const debugErrors = [];
 let frames = 0;
 let physMs = 0;
 let workMs = 0;
+let valMs = 0; // the debug validator's own time, left out of the frame cost
 let worstMs = 0;
 if (DEBUG) {
   window.mb = {
@@ -686,8 +713,8 @@ if (DEBUG) {
     errors: debugErrors,
     events: eventLog,
     gestures,
-    stats: () => ({ frames, avgPhysMs: physMs / Math.max(1, frames), avgFrameWorkMs: workMs / Math.max(1, frames), worstFrameWorkMs: worstMs }),
-    resetStats: () => { frames = 0; physMs = 0; workMs = 0; worstMs = 0; },
+    stats: () => ({ frames, avgPhysMs: physMs / Math.max(1, frames), avgFrameWorkMs: workMs / Math.max(1, frames), worstFrameWorkMs: worstMs, avgValidatorMs: valMs / Math.max(1, frames) }),
+    resetStats: () => { frames = 0; physMs = 0; workMs = 0; worstMs = 0; valMs = 0; },
   };
   if (params.has('scene')) {
     import('./scenes.js').then(({ SCENES }) => {
@@ -706,11 +733,14 @@ function frame(ts) {
   const dt = Math.min(0.1, Math.max(0, (ts - last) / 1000));
   last = ts;
   const t0 = performance.now();
+  const valBefore = valMs;
   step(sess, dt);
   if (DEBUG) {
     frames++;
     physMs += performance.now() - t0;
+    const tv = performance.now();
     const errs = validate(sess.game, checker);
+    valMs += performance.now() - tv;
     if (errs.length && debugErrors.length < 50) {
       debugErrors.push(...errs);
       console.error('invariant', errs);
@@ -723,7 +753,7 @@ function frame(ts) {
   overlays();
   calloutView();
   if (DEBUG) {
-    const w = performance.now() - t0;
+    const w = performance.now() - t0 - (valMs - valBefore);
     workMs += w;
     worstMs = Math.max(worstMs, w);
   }

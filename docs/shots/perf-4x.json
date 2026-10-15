@@ -1,7 +1,8 @@
 {
- "frames": 445,
- "avgPhysMs": 2.1074157303282886,
- "avgFrameWorkMs": 5.384494382017449,
- "worstFrameWorkMs": 226.6000000005588,
- "fps": 54.6801212904458
+ "frames": 390,
+ "avgPhysMs": 3.027692307706158,
+ "avgFrameWorkMs": 6.760256410287455,
+ "worstFrameWorkMs": 339.59999999962747,
+ "avgValidatorMs": 0.2861538461242349,
+ "fps": 58.12220566318927
 }

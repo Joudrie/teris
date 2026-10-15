@@ -1,0 +1,6 @@
+fuzz: 500 runs in 151 s
+band a (levels 1-10): 1375 games, 612963 frames, 700 wins, 500 losses, 0 failures
+band b (levels 11-20): 1375 games, 773187 frames, 521 wins, 654 losses, 0 failures
+band c (levels 21-60): 1375 games, 716005 frames, 441 wins, 819 losses, 0 failures
+band d (levels 61-100): 1375 games, 620597 frames, 234 wins, 1072 losses, 0 failures
+TOTAL 5500 games, 0 failures

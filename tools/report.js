@@ -46,6 +46,14 @@ sections.winrates = (() => {
   return out.join('\n');
 })();
 
+sections.newbie = (() => {
+  const nb = read('rig-newbie.json')?.newbie;
+  if (!nb) return '_not run yet_';
+  const out = ['| Level | First-timer wins (no revive) | With the revive | Time to clear | First drain | Close losses |', '|---|---|---|---|---|---|'];
+  for (const r of nb) out.push(`| ${r.level} | ${pct(r.win)} | ${pct(r.winRevive)} | ${Number.isNaN(r.winTime) ? '–' : `${r.winTime.toFixed(0)} s`} | ${r.firstDrain.toFixed(1)} s | ${pct(r.close)} |`);
+  return out.join('\n');
+})();
+
 sections.retention = (() => {
   const h = rig.human || [];
   const early = inBand(h, 4, 20);

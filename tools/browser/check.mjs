@@ -268,7 +268,7 @@ for (const rate of [1, 4]) {
   }
   const fps = await page.evaluate(() => new Promise((res) => { let n = 0; const t0 = performance.now(); const f = () => { n++; if (performance.now() - t0 < 2000) requestAnimationFrame(f); else res(n / ((performance.now() - t0) / 1000)); }; requestAnimationFrame(f); }));
   const st = await page.evaluate(() => mb.stats());
-  check(`performance at ${rate}x CPU throttle: physics tick under 4 ms`, st.avgPhysMs < 4, `physics ${st.avgPhysMs.toFixed(2)} ms, whole frame ${st.avgFrameWorkMs.toFixed(2)} ms avg / ${st.worstFrameWorkMs.toFixed(1)} worst, ${fps.toFixed(0)} fps`);
+  check(`performance at ${rate}x CPU throttle: physics tick under 4 ms`, st.avgPhysMs < 4, `physics ${st.avgPhysMs.toFixed(2)} ms, game JS per frame ${st.avgFrameWorkMs.toFixed(2)} ms avg / ${st.worstFrameWorkMs.toFixed(1)} worst (debug validator ${st.avgValidatorMs.toFixed(2)} ms extra), ${fps.toFixed(0)} fps in software-rendered headless Chromium`);
   fs.writeFileSync(path.join(SHOTS, `perf-${rate}x.json`), JSON.stringify({ ...st, fps }, null, 1));
   await ctx.close();
 }

@@ -37,7 +37,7 @@
  {
   "name": "390x844 flick up fires the power at full meter",
   "ok": true,
-  "info": "{\"dt\":134,\"tx\":0,\"ty\":-140,\"moved\":false,\"what\":\"power\"}"
+  "info": "{\"dt\":135,\"tx\":0,\"ty\":-140,\"moved\":false,\"what\":\"power\"}"
  },
  {
   "name": "390x844 flick up at 0% meter does nothing",
@@ -172,11 +172,11 @@
  {
   "name": "performance at 1x CPU throttle: physics tick under 4 ms",
   "ok": true,
-  "info": "physics 0.28 ms, whole frame 0.99 ms avg / 4.6 worst, 60 fps"
+  "info": "physics 0.40 ms, game JS per frame 1.30 ms avg / 9.3 worst (debug validator 0.10 ms extra), 60 fps in software-rendered headless Chromium"
  },
  {
   "name": "performance at 4x CPU throttle: physics tick under 4 ms",
   "ok": true,
-  "info": "physics 2.11 ms, whole frame 5.38 ms avg / 226.6 worst, 55 fps"
+  "info": "physics 3.03 ms, game JS per frame 6.76 ms avg / 339.6 worst (debug validator 0.29 ms extra), 58 fps in software-rendered headless Chromium"
  }
 ]
