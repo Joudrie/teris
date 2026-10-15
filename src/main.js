@@ -14,7 +14,7 @@ import { initSound, setMuted, isMuted, unlock, play } from './sound.js';
 import { validate, createValidator } from './validate.js';
 
 const BASE = {
-  water: '#3f8ee3', wood: '#c0813f', wetwood: '#5f4a33', ice: '#b5ecfa', sand: '#dcb66b',
+  water: '#3f8ee3', wood: '#c0813f', wetwood: '#5f4a33', ice: '#8fcdf0', sand: '#dcb66b',
   stone: '#8d93a1', mud: '#6e4c30', glass: '#cdeee6', brick: '#a8453a', fire: '#ff6a1f',
 };
 const NAME = {
@@ -79,12 +79,12 @@ function pixelColor(m, x, y, shade, ts) {
     const f = 0.75 + 0.35 * Math.sin(ts / 70 + x * 1.3 + y * 2.1);
     r = Math.min(255, r * f + 40); g = Math.min(255, g * f + 30 * f); b *= f;
   } else if (m === 'glass') {
-    // Clear with diagonal glints.
-    a = 150;
-    if ((x + y) % 6 === 0) { r = 255; g = 255; b = 255; a = 230; }
+    // See-through and faintly green, with long diagonal glints: the sky shows through.
+    r = 175; g = 235; b = 215; a = 70;
+    if ((x + y) % 8 === 0) { r = 255; g = 255; b = 255; a = 235; }
   } else if (m === 'ice') {
-    // Solid and frosty: pale with a crackle pattern.
-    if ((x * 3 + y * 2) % 7 === 0) { r = 240; g = 252; b = 255; }
+    // Solid, bluer and opaque, with darker crackle lines and white frost specks.
+    if ((x * 3 + y * 2) % 7 === 0) { r = 70; g = 150; b = 205; } else if (shade > 0.88) { r = 245; g = 252; b = 255; }
   } else if (m === 'water') {
     const w = 0.92 + 0.1 * Math.sin(ts / 300 + x * 0.7 + y * 0.4);
     r *= w; g *= w; b = Math.min(255, b * w + 10);

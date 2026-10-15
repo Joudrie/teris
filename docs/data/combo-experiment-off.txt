@@ -1,0 +1,8 @@
+5 | random 0.61 | human 1.05 | smart 1.09
+9 | random 0.87 | human 0.94 | smart 0.96
+15 | random 0.90 | human 1.04 | smart 1.06
+25 | random 0.91 | human 1.18 | smart 1.23
+45 | random 1.03 | human 1.14 | smart 1.22
+70 | random 0.92 | human 1.17 | smart 1.13
+95 | random 0.76 | human 1.12 | smart 1.21
+AVG {} random 0.86 human 1.09 smart 1.13  human/random 1.275 smart/human 1.035
