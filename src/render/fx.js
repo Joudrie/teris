@@ -60,6 +60,7 @@ export function createFx(cv) {
   const glow = puffSprite('rgba(255,190,90,A)');
   let coin = coinSprite(14);
   let motion = 1; // 0 when the player asked for reduced motion
+  let clip = null; // the board's screen rect: debris and flashes stay inside it
 
   function resize(cap = 1.5) {
     dpr = Math.min(cap, window.devicePixelRatio || 1);
@@ -115,10 +116,10 @@ export function createFx(cv) {
   }
 
   // An orb that arcs from (x0, y0) into (x1, y1); onArrive runs when it lands.
-  function flight(x0, y0, x1, y1, { color = '#8ff0ff', delay = 0, dur = 0.55, size = 9, kind = 'orb', onArrive } = {}) {
+  function flight(x0, y0, x1, y1, { color = '#8ff0ff', edge = null, delay = 0, dur = 0.55, size = 9, kind = 'orb', onArrive } = {}) {
     const mx = (x0 + x1) / 2 + rand(-80, 80);
     const my = Math.min(y0, y1) - rand(40, 120);
-    flights.push({ x0, y0, x1, y1, mx, my, t: -delay, dur, color, size, kind, onArrive });
+    flights.push({ x0, y0, x1, y1, mx, my, t: -delay, dur, color, edge, size, kind, onArrive });
   }
 
   // Big outlined game text. style: 'gold' | 'white' | 'aqua' | 'pink' | 'green'
@@ -239,7 +240,10 @@ export function createFx(cv) {
     dirty = true;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, W, H);
+    ctx.save();
+    if (clip) { ctx.beginPath(); ctx.rect(clip.x - 6, clip.y - 6, clip.w + 12, clip.h + 12); ctx.clip(); }
     for (const p of parts) {
+      if (p.kind === 'confetti') continue;
       const a = Math.max(0, Math.min(1, p.life / Math.min(0.35, p.max)));
       if (p.kind === 'cube') {
         ctx.save();
@@ -267,9 +271,13 @@ export function createFx(cv) {
         ctx.lineTo(s * 0.55, s * 0.6);
         ctx.lineTo(-s * 0.45, s * 0.35);
         ctx.closePath();
-        ctx.fillStyle = 'rgba(210,248,255,.75)';
+        const sg = ctx.createLinearGradient(-s, -s, s, s);
+        sg.addColorStop(0, 'rgba(255,255,255,.95)');
+        sg.addColorStop(0.5, 'rgba(170,236,255,.8)');
+        sg.addColorStop(1, 'rgba(90,190,240,.7)');
+        ctx.fillStyle = sg;
         ctx.fill();
-        ctx.strokeStyle = '#ffffff';
+        ctx.strokeStyle = '#0d1640';
         ctx.lineWidth = 1.5;
         ctx.stroke();
         ctx.restore();
@@ -284,7 +292,18 @@ export function createFx(cv) {
         ctx.fillStyle = '#fff3c0';
         ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
         ctx.globalCompositeOperation = 'source-over';
-      } else if (p.kind === 'confetti') {
+      }
+    }
+    if (flash) {
+      ctx.globalAlpha = Math.min(flash.alpha, (flash.life / flash.max) * flash.alpha);
+      ctx.fillStyle = flash.color;
+      ctx.fillRect(0, 0, W, H);
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+    for (const p of parts) {
+      if (p.kind !== 'confetti') continue;
+      {
         ctx.save();
         ctx.translate(p.x, p.y);
         ctx.rotate(p.rot);
@@ -293,7 +312,10 @@ export function createFx(cv) {
         ctx.fillStyle = p.color;
         ctx.fillRect(-p.size / 2, -p.size * 0.3, p.size, p.size * 0.6);
         ctx.restore();
-      } else if (p.kind === 'ring') {
+      }
+    }
+    for (const p of parts) {
+      if (p.kind === 'ring') {
         const k = 1 - p.life / p.max;
         ctx.globalAlpha = (1 - k) * 0.9;
         ctx.strokeStyle = p.color;
@@ -316,6 +338,15 @@ export function createFx(cv) {
         continue;
       }
       const s = f.size * (1 - 0.35 * k);
+      for (let tr = 1; tr <= 3; tr++) {
+        const kt = Math.max(0, f.t - tr * 0.035) / f.dur;
+        const et = ease.inQuad(Math.min(1, kt));
+        const tx = (1 - et) * (1 - et) * f.x0 + 2 * (1 - et) * et * f.mx + et * et * f.x1;
+        const ty = (1 - et) * (1 - et) * f.y0 + 2 * (1 - et) * et * f.my + et * et * f.y1;
+        ctx.globalAlpha = 0.35 / tr;
+        ctx.fillStyle = f.color;
+        ctx.beginPath(); ctx.arc(tx, ty, s * (1 - tr * 0.2), 0, TAU); ctx.fill();
+      }
       ctx.globalCompositeOperation = 'lighter';
       ctx.globalAlpha = 0.7;
       ctx.drawImage(glow, x - s * 2.6, y - s * 2.6, s * 5.2, s * 5.2);
@@ -323,18 +354,14 @@ export function createFx(cv) {
       ctx.globalAlpha = 1;
       ctx.fillStyle = '#0d1640';
       ctx.beginPath(); ctx.arc(x, y, s + 2, 0, TAU); ctx.fill();
-      ctx.fillStyle = f.color;
+      const og = ctx.createRadialGradient(x - s * 0.3, y - s * 0.35, s * 0.1, x, y, s);
+      og.addColorStop(0, '#ffffff');
+      og.addColorStop(0.45, f.color);
+      og.addColorStop(1, f.edge || f.color);
+      ctx.fillStyle = og;
       ctx.beginPath(); ctx.arc(x, y, s, 0, TAU); ctx.fill();
-      ctx.fillStyle = 'rgba(255,255,255,.75)';
-      ctx.beginPath(); ctx.arc(x - s * 0.3, y - s * 0.35, s * 0.35, 0, TAU); ctx.fill();
     }
     for (const t of texts) drawText(t);
-    if (flash) {
-      ctx.globalAlpha = Math.min(flash.alpha, (flash.life / flash.max) * flash.alpha);
-      ctx.fillStyle = flash.color;
-      ctx.fillRect(0, 0, W, H);
-      ctx.globalAlpha = 1;
-    }
   }
 
   return {
@@ -343,5 +370,6 @@ export function createFx(cv) {
     gold: GOLD,
     set motion(v) { motion = v ? 1 : 0; },
     get busy() { return parts.length + flights.length + texts.length; },
+    setClip(r) { clip = r; },
   };
 }

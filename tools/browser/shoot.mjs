@@ -93,7 +93,7 @@ const STATES = [
     .map((id) => ({ id: `scene-${id}`, scene: id, all: id === 'home' || id === 'lose' })),
   { id: 'win-celebrate-0.4s', scene: 'win', at: 0.4 },
   { id: 'win-celebrate-1.2s', scene: 'win', at: 1.2 },
-  { id: 'win-screen', scene: 'win', at: 3.2, all: true },
+  { id: 'win-screen', scene: 'win', at: 4.6, all: true },
   {
     id: 'home-scrolled', scene: 'home',
     run: async (page) => { await page.evaluate(() => { const h = document.getElementById('home'); if (h) h.scrollTop = h.scrollHeight * 0.45; }); await page.waitForTimeout(250); },

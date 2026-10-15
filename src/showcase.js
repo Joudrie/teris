@@ -8,6 +8,7 @@ import { start } from './session.js';
 
 function board(s, level, blocks) {
   s.store.set('mb_seen', Array.from({ length: 100 }, (_, i) => i + 1));
+  s.store.set('mb_seen_power', true); // a staged full meter shouldn't pop the first-time tip
   start(s, level);
   const g = s.game;
   g.grid = emptyGrid();

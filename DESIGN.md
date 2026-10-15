@@ -1,4 +1,23 @@
-# Material Blocks: design, test cards and bug log
+# Material Blocks (Tumbledown): design, test cards and bug log
+
+## REDESIGN (Toybox)
+
+The whole presentation layer was rebuilt to studio quality on top of the unchanged rules: `src/core.js`, `src/session.js`, `src/levels.js`, `src/scenes.js`, `src/validate.js` and every test are byte-for-byte the same.
+
+- **What's new:**
+  - a voxel block renderer (`src/render/`)
+  - screen effects and the drain flights into the goal
+  - a new HUD
+  - the tower map, win and lose screens, sheets (pause, settings, shop, daily gifts, codex) and a level intro card
+  - stars, coins, boosters, gifts and skins (`src/meta.js`)
+  - a procedural audio engine with generative music
+  - the Tumbledown brand
+- **Docs:** [docs/redesign/](docs/redesign/) (audit, references, three rendered directions, design system, game feel, decisions, similarity audit, before/after composites, readability renders, store screenshots).
+- **Checks:**
+  - `npm test` 123/123, hook checks 14/14, card scenes 40/40.
+  - Mobile browser checks: 35/36. The one failure is the 4× CPU-throttle frame-rate row in software-rendered headless Chromium; see [docs/redesign/REPORT.md](docs/redesign/REPORT.md).
+- **Changed checks:** three browser checks were updated for the new pause sheet (the home button now opens Pause; the map and the sound toggle are one tap further) and one was made robust to a piece locking mid-check. Each change is listed in the report.
+
 
 ## SUMMARY
 

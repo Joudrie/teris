@@ -11,16 +11,27 @@ import { hex, css, mix, rng } from './color.js';
 const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
 const band = (alt, hi, lo, fade = 8) => clamp((hi - alt) / fade) * clamp((alt - lo) / fade + 1);
 
-// Blocky cumulus: a stack of rounded rectangles with a flat light top and a cool shadow base.
+// Puffy cumulus: overlapping round puffs on a flat base, a cool shadow underneath and a
+// bright rim on top. Round, to match the glossy UI rather than the pixel blocks.
 function cloud(ctx, x, y, s, r, top = '#ffffff', shade = '#cfe7ff', alpha = 1) {
-  const parts = [];
-  const n = 3 + Math.floor(r() * 3);
-  for (let k = 0; k < n; k++) parts.push([x + (k - n / 2) * s * 0.55 + r() * s * 0.2, y - r() * s * 0.45, s * (0.7 + r() * 0.5), s * (0.42 + r() * 0.3)]);
+  const n = 4 + Math.floor(r() * 3);
+  const puffs = [];
+  for (let k = 0; k < n; k++) {
+    const t = n === 1 ? 0.5 : k / (n - 1);
+    const rad = s * (0.28 + Math.sin(t * Math.PI) * 0.22 + r() * 0.08);
+    puffs.push([x + (t - 0.5) * s * 1.5, y - rad * 0.55, rad]);
+  }
   ctx.globalAlpha = alpha;
   ctx.fillStyle = shade;
-  for (const [px, py, w, h] of parts) rr(ctx, px - w / 2, py - h / 2 + s * 0.1, w, h, s * 0.12);
+  ctx.beginPath();
+  for (const [px, py, rad] of puffs) { ctx.moveTo(px + rad, py + s * 0.12); ctx.arc(px, py + s * 0.12, rad, 0, Math.PI * 2); }
+  ctx.rect(x - s * 0.75, y - s * 0.1, s * 1.5, s * 0.22);
+  ctx.fill();
   ctx.fillStyle = top;
-  for (const [px, py, w, h] of parts) rr(ctx, px - w / 2, py - h / 2, w, h * 0.82, s * 0.12);
+  ctx.beginPath();
+  for (const [px, py, rad] of puffs) { ctx.moveTo(px + rad, py); ctx.arc(px, py, rad, 0, Math.PI * 2); }
+  ctx.rect(x - s * 0.75, y - s * 0.16, s * 1.5, s * 0.16);
+  ctx.fill();
   ctx.globalAlpha = 1;
 }
 
@@ -45,31 +56,40 @@ function toybox(ctx, W, H, alt) {
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, W, H);
 
-  // Sun with soft blocky rays, high up the tower.
+  // Sun with soft rays, high up the tower.
   const sunA = clamp((alt - 30) / 40);
   if (sunA > 0) {
     const sx = W * 0.82;
     const sy = H * 0.1;
-    const s = Math.min(W, H) * 0.09;
+    const s = Math.min(W, H) * 0.085;
     ctx.save();
-    ctx.globalAlpha = sunA * 0.22;
+    ctx.globalAlpha = sunA * 0.18;
     ctx.translate(sx, sy);
     ctx.fillStyle = '#fff6c8';
     for (let k = 0; k < 12; k++) {
       ctx.rotate(Math.PI / 6);
-      ctx.fillRect(-s * 0.18, s * 1.4, s * 0.36, Math.max(W, H));
+      ctx.beginPath();
+      ctx.moveTo(-s * 0.25, s * 1.3);
+      ctx.lineTo(s * 0.25, s * 1.3);
+      ctx.lineTo(s * 0.9, Math.max(W, H));
+      ctx.lineTo(-s * 0.9, Math.max(W, H));
+      ctx.fill();
     }
     ctx.restore();
     ctx.globalAlpha = sunA;
-    const g = ctx.createRadialGradient(sx, sy, s * 0.4, sx, sy, s * 2.6);
-    g.addColorStop(0, 'rgba(255,248,200,0.9)');
+    const g = ctx.createRadialGradient(sx, sy, s * 0.6, sx, sy, s * 3);
+    g.addColorStop(0, 'rgba(255,248,200,0.85)');
     g.addColorStop(1, 'rgba(255,248,200,0)');
     ctx.fillStyle = g;
     ctx.fillRect(sx - s * 3, sy - s * 3, s * 6, s * 6);
-    ctx.fillStyle = '#ffe680';
-    rr(ctx, sx - s, sy - s, s * 2, s * 2, s * 0.35);
-    ctx.fillStyle = '#fff4b8';
-    rr(ctx, sx - s * 0.8, sy - s * 0.8, s * 1.6, s * 0.9, s * 0.3);
+    const core = ctx.createRadialGradient(sx - s * 0.3, sy - s * 0.3, s * 0.1, sx, sy, s);
+    core.addColorStop(0, '#fffbe0');
+    core.addColorStop(0.6, '#ffe36a');
+    core.addColorStop(1, '#ffc93a');
+    ctx.fillStyle = core;
+    ctx.beginPath();
+    ctx.arc(sx, sy, s, 0, Math.PI * 2);
+    ctx.fill();
     ctx.globalAlpha = 1;
   }
 
@@ -81,8 +101,13 @@ function toybox(ctx, W, H, alt) {
       for (let k = 0; k < 9; k++) cloud(ctx, (k / 8) * W * 1.2 - W * 0.1 + r() * 30, y0 + row * H * 0.07 + r() * 20, W * (0.16 + row * 0.03), r, '#ffffff', row ? '#d8eeff' : '#c7e4ff', sea * (0.75 + row * 0.08));
     }
     ctx.globalAlpha = sea;
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, y0 + H * 0.2, W, H);
+    const deck = ctx.createLinearGradient(0, y0 + H * 0.18, 0, H);
+    deck.addColorStop(0, '#ffffff');
+    deck.addColorStop(0.35, '#e6f4ff');
+    deck.addColorStop(1, '#a9d8ff');
+    ctx.fillStyle = deck;
+    ctx.fillRect(0, y0 + H * 0.18, W, H);
+    for (let k = 0; k < 7; k++) cloud(ctx, r() * W, y0 + H * (0.3 + r() * 0.5), W * (0.12 + r() * 0.08), r, '#f4faff', '#c9e4ff', sea * 0.8);
     ctx.globalAlpha = 1;
   }
 

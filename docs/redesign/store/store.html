@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Store screenshots</title>
+<style>
+@font-face { font-family: 'Lilita One'; src: url(../../../assets/fonts/LilitaOne.woff2) format('woff2'); }
+@font-face { font-family: 'Nunito'; src: url(../../../assets/fonts/Nunito.woff2) format('woff2'); font-weight: 500 900; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+.shot { width: 1290px; height: 2796px; position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: center; background: linear-gradient(180deg, #1f6fd8, #58b9ff 45%, #bfe9ff); font-family: 'Lilita One', sans-serif; }
+.shot.warm { background: linear-gradient(180deg, #ff7a3a, #ffb35c 45%, #ffe2a3); }
+.shot.night { background: linear-gradient(180deg, #23377f, #3f6fd8 50%, #8fd0ff); }
+.shot::before { content: ''; position: absolute; inset: 0; background: repeating-conic-gradient(from 0deg at 50% 18%, rgba(255,255,255,.08) 0 8deg, transparent 8deg 16deg); }
+.cap { position: relative; margin-top: 150px; text-align: center; color: #fff; font-size: 150px; line-height: 1.02; letter-spacing: 2px; padding: 0 60px;
+  text-shadow: 0 8px 0 #0d1640, 6px 0 0 #0d1640, -6px 0 0 #0d1640, 0 -6px 0 #0d1640, 5px 5px 0 #0d1640, -5px 5px 0 #0d1640, 5px -5px 0 #0d1640, -5px -5px 0 #0d1640, 0 16px 0 rgba(13,22,64,.35); }
+.cap em { font-style: normal; color: #ffd84a; }
+.sub { position: relative; margin-top: 34px; color: #fff; font-family: Nunito, sans-serif; font-weight: 900; font-size: 58px; text-shadow: 0 4px 0 rgba(13,22,64,.45); }
+.phone { position: relative; margin-top: 90px; width: 1010px; border: 14px solid #0d1640; border-radius: 90px; overflow: hidden; box-shadow: 0 30px 0 rgba(13,22,64,.35), 0 60px 120px rgba(13,22,64,.35); background: #0d1640; }
+.phone img { display: block; width: 100%; }
+.logo { position: relative; margin-top: 170px; width: 1100px; transform: rotate(-3deg); filter: drop-shadow(0 16px 0 rgba(13,22,64,.3)); }
+.zoom { overflow: hidden; }
+.zoom img { transform: scale(1.3); transform-origin: 50% 62%; }
+.cube { position: absolute; z-index: 5; filter: drop-shadow(0 18px 0 rgba(13,22,64,.35)) drop-shadow(0 30px 40px rgba(13,22,64,.35)); }
+.burst { position: absolute; z-index: 4; width: 520px; height: 520px; border-radius: 50%; background: radial-gradient(circle, rgba(255,240,170,.85), rgba(255,200,80,0) 65%); }
+.hero .phone { margin-top: 70px; width: 1060px; transform: rotate(2deg); }
+</style>
+</head>
+<body>
+<div class="shot hero" id="s1"><img class="logo" src="../../../assets/wordmark.png"><div class="sub">Fire, water, ice and stone. Set them off!</div><div class="phone zoom"><img src="../after/busy@430x932.jpg"></div></div>
+<div class="shot" id="s6"><div class="cap">Drop <em>living</em><br>blocks</div><div class="sub">Fire, water, ice, glass, stone and more</div><div class="phone zoom"><img src="../after/lineup@390x844.jpg"></div></div>
+<div class="shot warm" id="s2"><div class="cap">Set off <em>chain</em><br>reactions</div><div class="sub">Douse, burn, melt and smash</div><div class="phone zoom"><img src="../after/moment-combo@430x932.jpg"></div></div>
+<div class="shot warm" id="s3"><div class="cap">Unleash <em>epic</em><br>powers</div><div class="sub">Fire Mode, Deep Freeze, Hammer…</div><div class="phone zoom"><img src="../after/moment-power@430x932.jpg"></div></div>
+<div class="shot" id="s4"><div class="cap">Tumble down<br>the <em>sky tower</em></div><div class="sub">100 floors from the clouds to the ground</div><div class="phone"><img src="../after/scene-home@430x932.jpg"></div></div>
+<div class="shot night" id="s5"><div class="cap">Win <em>stars</em>,<br>earn rewards</div><div class="sub">Daily gifts, boosters and block skins</div><div class="phone"><img src="../after/win-screen@430x932.jpg"></div></div>
+<script type="module">
+import { previewTile } from '../../../src/render/tiles.js';
+import { TOYBOX } from '../../../src/render/skins.js';
+// Hero blocks tumbling out of the frames.
+const CUBES = {
+  s1: [['fire', 40, 2050, 250, -14], ['water', 1000, 1880, 230, 16], ['wood', 960, 2480, 200, -8], ['ice', 70, 2560, 180, 12]],
+  s6: [['glass', 1010, 2300, 210, 14], ['stone', 30, 2420, 200, -12]],
+  s2: [['fire', 980, 2200, 230, 18], ['water', 40, 2350, 220, -16]],
+  s3: [['wood', 1000, 2350, 220, 20], ['fire', 30, 2150, 200, -10]],
+  s5: [['ice', 1000, 2300, 200, 12], ['brick', 40, 2420, 190, -14]],
+};
+for (const [id, list] of Object.entries(CUBES)) {
+  const shot = document.getElementById(id);
+  for (const [m, x, y, size, rot] of list) {
+    if (m === 'fire') { const b = document.createElement('div'); b.className = 'burst'; b.style.left = `${x + size / 2 - 260}px`; b.style.top = `${y + size / 2 - 260}px`; shot.appendChild(b); }
+    const c = previewTile(TOYBOX, m, size);
+    c.className = 'cube';
+    c.style.left = `${x}px`;
+    c.style.top = `${y}px`;
+    c.style.transform = `rotate(${rot}deg)`;
+    shot.appendChild(c);
+  }
+}
+await document.fonts.ready;
+window.ready = true;
+</script>
+</body>
+</html>

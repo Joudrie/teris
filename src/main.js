@@ -66,12 +66,15 @@ const POWER_STYLE = {
 };
 const QUEST_SHORT = {
   chain: (n) => `Hit a ×${n} combo`,
-  douse: (n) => `Put out ${n} fire`,
-  smash: (n) => `Smash ${n} glass`,
-  burn: (n) => `Burn ${n} wood`,
-  melt: (n) => `Melt ${n} ice`,
+  douse: (n) => `Put out ${n} fires`,
+  smash: (n) => `Smash ${n} panes`,
+  burn: (n) => `Burn ${n} wood blocks`,
+  melt: (n) => `Melt ${n} ice blocks`,
 };
-const PRAISE = { 2: ['Nice!', 'green'], 3: ['Great!', 'gold'], 4: ['Amazing!', 'pink'] };
+const PRAISE = { 2: ['Nice!', 'gold'], 3: ['Great!', 'gold'], 4: ['Amazing!', 'gold'] };
+const GOAL_COLOR = '#5fe0ff';
+// Drained material flies to the goal as a glowing orb in a bright version of its own color.
+const orbOf = (m) => { const c = skin.mats[m] || skin.mats.water; return { color: css(c.light ? c.light : c.base), edge: css(c.base) }; };
 // The first-time callouts, rewritten as one short line with a gesture to copy.
 const CALLOUTS = {
   1: ['Drop <em>water</em> on the <em>fire</em>', ['water', 'fire'], 'slam'],
@@ -139,6 +142,8 @@ function fit() {
   nx.width = Math.round(72 * d);
   nx.height = Math.round(48 * d);
   lastNext = '';
+  const wr = $('well').getBoundingClientRect();
+  document.documentElement.style.setProperty('--well-top', `${Math.max(12, Math.round(wr.top))}px`);
   // Resizing clears the canvas: draw straight away so no blank frame is ever shown.
   if (typeof drawBoard === 'function' && sess.game) drawBoard(performance.now(), 0);
 }
@@ -176,12 +181,13 @@ const goalPoint = () => {
   return goalCache;
 };
 const matColor = (m) => css(skin.mats[m]?.base || [255, 255, 255]);
+const b2 = () => boardBox();
 
 // ---------- feedback ----------
 
 function remember(px, py, m) {
   const [x, y] = toScreen(px, py);
-  view.recent.push([x, y, matColor(m), performance.now()]);
+  view.recent.push([x, y, m, performance.now()]);
   if (view.recent.length > 16) view.recent.shift();
 }
 
@@ -198,10 +204,10 @@ function handleEvents() {
     if (e.type === 'combo') {
       const [txt, style] = PRAISE[Math.min(4, e.mult)] || PRAISE[4];
       const b = boardBox();
-      const bonus = game().cfg.comboBar ? `Goal ×${1 + (e.mult - 1) * game().cfg.comboBar}` : '';
-      fx.word(txt, b.x + b.w / 2, b.y + b.h * 0.3, { size: 46 + e.mult * 6, style, sub: bonus, slot: 'praise' });
+      const bonus = `×${e.mult} combo!`;
+      fx.word(txt, b.x + b.w / 2, b.y + b.h * 0.44, { size: 46 + e.mult * 6, style, sub: bonus, slot: 'praise' });
       shakeWell(3 + e.mult * 2);
-      if (e.mult >= 3) { fx.flash('#fff3b0', 0.22, 0.28); warm(0.6); }
+      if (e.mult >= 3) fx.flash('#fff3b0', 0.22, 0.28);
       play('combo', e);
       buzz(15 * e.mult);
     } else if (e.type === 'shatter') {
@@ -213,7 +219,7 @@ function handleEvents() {
       fx.shards(x, y, 34, Math.min(60, Math.sqrt(n) * 3));
       fx.ring(x, y, '#e8fdff', 80);
       fx.flash('#e8fdff', 0.16, 0.35);
-      fx.word('SMASH!', x, y - 30, { size: 40, style: 'aqua', life: 0.9 });
+      fx.word('SMASH!', b2().x + b2().w / 2, b2().y + b2().h * 0.44, { size: 52, style: 'gold', life: 0.9, slot: 'praise' });
       remember(sx / n, sy / n, 'glass');
       shakeWell(12);
       view.hitstop = Math.max(view.hitstop, 0.08);
@@ -225,13 +231,13 @@ function handleEvents() {
         const [x, y] = toScreen(e.x + 0.5, e.y);
         fx.puff(x, y, false, 14);
       }
-      remember(e.x, e.y, 'water');
+      remember(e.x, e.y, 'fire');
       play('steam');
     } else if (e.type === 'burn') {
       const [x, y] = toScreen(e.x + 0.5, e.y);
       if (now - puffT > 45) { puffT = now; fx.puff(x, y, true, 13); }
       fx.sparks(x, y, 2);
-      remember(e.x, e.y, 'fire');
+      remember(e.x, e.y, 'wood');
       play('burn');
     } else if (e.type === 'land') {
       landed(e);
@@ -294,27 +300,20 @@ function firePower(e) {
   const st = POWER_STYLE[e.power] || POWER_STYLE.rain;
   const b = boardBox();
   fx.flash(st.pc, 0.55, 0.5);
-  fx.word(`${POWERS[e.power].label}!`, b.x + b.w / 2, b.y + b.h * 0.36, { size: 54, style: st.word, life: 1.4, sub: `+${Math.floor(e.points / 64)}`, slot: 'praise' });
+  fx.word(`${POWERS[e.power].label}!`, b.x + b.w / 2, b.y + b.h * 0.44, { size: 54, style: 'gold', life: 1.4, sub: `+${Math.floor(e.points / 64)} blocks`, slot: 'praise' });
   dismissCallout(sess);
-  const step = Math.max(1, Math.floor(e.cells.length / 70));
+  const step = Math.max(1, Math.floor(e.cells.length / 36));
   const [gx, gy] = goalPoint();
   for (let i = 0, k = 0; i < e.cells.length; i += step, k++) {
     const [px, py, m] = e.cells[i];
     const [x, y] = toScreen(px + 0.5, py + 0.5, b);
     fx.cubes(x, y, [matColor(m)], 1, 220, 7);
-    if (k % 3 === 0) fx.flight(x, y, gx, gy, { color: matColor(m), delay: 0.25 + k * 0.012, dur: 0.6 });
+    if (k % 3 === 0) { const orb = orbOf(m); fx.flight(x, y, gx, gy, { color: orb.color, edge: orb.edge, delay: 0.25 + k * 0.02, dur: 0.6 }); }
   }
   shakeWell(16);
   view.hitstop = Math.max(view.hitstop, 0.12);
   play('power', e);
   buzz([40, 30, 80]);
-}
-
-function warm(t) {
-  const v = $('vignette');
-  v.classList.add('warm');
-  clearTimeout(warm.t);
-  warm.t = setTimeout(() => v.classList.remove('warm'), t * 1000);
 }
 
 // Everything left on the board bursts into voxel debris, then the stars are worked out.
@@ -365,7 +364,7 @@ function onStart() {
   lastHud = '';
   lastNext = '';
   $('well').classList.remove('lost');
-  $('vignette').classList.remove('on', 'warm');
+  $('vignette').classList.remove('on');
   paintWorldNow();
   call('setMusicMood', sess.home ? 'map' : 'play');
   call('setIntensity', 0.2);
@@ -387,7 +386,7 @@ function showIntro(boosts) {
   const g = game();
   const cfg = g.cfg;
   const chips = [
-    `<span class="chip">${icon('flask')}Drain ${cfg.goal.pieces}</span>`,
+    `<span class="chip">${icon('flask')}Goal ${cfg.goal.pieces}</span>`,
     `<span class="chip">${icon('pieces')}${piecesLeft(g)} pieces</span>`,
     `<span class="chip">${icon(POWER_ICON[cfg.power])}${POWERS[cfg.power].label}</span>`,
   ];
@@ -415,7 +414,7 @@ function overlays() {
   if (sess.ad) {
     adEl.hidden = false;
     const k = sess.ad.kind;
-    adEl.querySelector('.ad-label').innerHTML = k === 'interstitial' ? 'Quick break' : k === 'revive' ? 'Your reward is coming' : 'Charging your power';
+    adEl.querySelector('.ad-label').innerHTML = k === 'interstitial' ? 'Ad break' : k === 'revive' ? 'Your reward is coming' : 'Charging your power';
     adEl.querySelector('.ad-count').textContent = String(Math.max(1, Math.ceil(sess.ad.left)));
     $('adRing').style.strokeDashoffset = String(314.16 * Math.max(0, sess.ad.left / AD_TIME));
   } else {
@@ -437,6 +436,8 @@ function overlays() {
   }
 
   const over = $('over');
+  document.body.classList.toggle('ov-win', sess.phase === 'won');
+  document.body.classList.toggle('ov-lose', sess.phase === 'lost');
   if (sess.phase === 'won') {
     const w = winScreen(sess);
     over.className = `over win${sess.daily ? ' daily' : ''}`;
@@ -453,12 +454,12 @@ function overlays() {
       <div class="row reward">${icon('coin')}<span>Reward</span><b>+${view.coins}</b></div>`;
     const nextLevel = sess.daily ? null : sess.level >= TOTAL_LEVELS ? 1 : sess.level + 1;
     const newMat = nextLevel ? introducedMat(nextLevel) : null;
-    $('ovN').innerHTML = sess.daily ? `<div><b>${w.next}</b></div>` : `${newMat ? '<canvas id="ovNc" width="60" height="60"></canvas>' : ''}<div><b>Next up: level ${nextLevel}</b>${shortPreview(nextLevel)}</div>`;
+    $('ovN').innerHTML = sess.daily ? `<div><b>${w.next}</b></div>` : `${newMat ? '<span class="nu-tile"><canvas id="ovNc" width="60" height="60"></canvas><i>New</i></span>' : ''}<div><b>Next up: level ${nextLevel}</b>${shortPreview(nextLevel)}</div>`;
     if (newMat) $('ovNc').getContext('2d').drawImage(previewTile(skin, newMat, 60), 0, 0);
     setBtn('ovA', `<span class="t">${sess.daily ? 'Continue' : sess.level >= TOTAL_LEVELS ? 'Play again' : 'Continue'}</span>`, () => next(sess), 'btn btn-green big');
     setBtn('ovB', icon('retry'), () => replay(sess), 'btn btn-blue sq');
     $('ovB').setAttribute('aria-label', 'Replay level');
-    setBtn('ovC', w.dailyReady && !sess.daily ? `${icon('calendar')}<span>Daily challenge ready</span>` : '', () => startDaily(sess), 'btn btn-gold wide');
+    setBtn('ovC', w.dailyReady && !sess.daily ? `${icon('calendar')}<span>Daily challenge ready</span>` : '', () => startDaily(sess), 'btn btn-navy wide');
     over.hidden = false;
     // Coins fly from the reward row to the top of the screen.
     setTimeout(() => {
@@ -474,10 +475,11 @@ function overlays() {
     $('ovSub').textContent = '';
     $('ovStars').innerHTML = '';
     $('ovRing').hidden = false;
-    $('ovPct').textContent = `${l.pct}%`;
+    const toGo = Math.max(1, game().cfg.goal.pieces - piecesDrained(game()));
+    $('ovPct').innerHTML = `${toGo}<small>to go</small>`;
     $('ovRingFg').style.strokeDashoffset = '314.16';
     requestAnimationFrame(() => requestAnimationFrame(() => { $('ovRingFg').style.strokeDashoffset = String(314.16 * (1 - l.pct / 100)); }));
-    $('ovS').innerHTML = `<p class="lead">${l.sub}</p>`;
+    $('ovS').innerHTML = `<p class="lead">${l.canRevive ? `${l.outOfPieces ? 'Out of pieces' : 'The board filled up'}. Take ${l.outOfPieces ? '5 more pieces' : 'a cleared top'} and finish it!` : l.sub}</p>`;
     $('ovN').innerHTML = l.help ? `${icon('gift')}<div><b>Helping hand</b>Next try: extra fire and water in every bag.</div>` : '';
     if (l.canRevive) {
       setBtn('ovA', `<span class="t">${l.outOfPieces ? '+5 Pieces' : 'Clear top rows'}</span><small class="adtag">${icon('ad')} Watch an ad</small>`, () => watchRevive(sess), 'btn btn-green big');
@@ -487,7 +489,7 @@ function overlays() {
       setBtn('ovB', '<span class="t">Try again</span>', () => replay(sess), 'btn btn-green big');
     }
     $('ovB').setAttribute('aria-label', 'Try again');
-    setBtn('ovC', '', null);
+    setBtn('ovC', `${icon('home')}<span>Give up</span>`, () => { replay(sess); openHome(sess); }, 'btn btn-navy wide');
     over.hidden = false;
   } else {
     over.hidden = true;
@@ -558,10 +560,11 @@ function spawnFlights(n) {
   const now = performance.now();
   const pts = view.recent.filter((p) => now - p[3] < 1500);
   for (let i = 0; i < n; i++) {
-    const p = pts.length ? pts[(pts.length - 1 - (i % pts.length))] : [b.x + b.w / 2, b.y + b.h * 0.8, '#8ff0ff'];
+    const p = pts.length ? pts[(pts.length - 1 - (i % pts.length))] : [b.x + b.w / 2, b.y + b.h * 0.8, 'water'];
+    const orb = orbOf(p[2]);
     for (let k = 0; k < 2; k++) {
       fx.flight(p[0] + (Math.random() - 0.5) * 20, p[1] + (Math.random() - 0.5) * 20, gx, gy, {
-        color: p[2], delay: i * 0.07 + k * 0.05, dur: 0.5 + Math.random() * 0.12,
+        color: orb.color, edge: orb.edge, delay: i * 0.07 + k * 0.05, dur: 0.5 + Math.random() * 0.12,
         onArrive: k ? null : () => {
           view.shown = Math.min(piecesDrained(g), view.shown + 1);
           lastHud = '';
@@ -633,7 +636,7 @@ function hud() {
 
   const notes = [];
   if (cfg.help) notes.push([icon('gift'), 'Helping hand']);
-  if (cfg.mode === 'flood') notes.push([icon('drop'), 'Flood']);
+  if (cfg.mode === 'flood') notes.push([icon('drop'), 'Flood: water keeps rising']);
   if (cfg.mode === 'prefill') notes.push([icon('flame'), 'Burn the wall']);
   if (sess.daily) notes.push([icon('calendar'), 'Same board for everyone today']);
   $('banner').innerHTML = notes.map(([i, t]) => `${i}<span>${t}</span>`).join(' · ');
@@ -857,6 +860,7 @@ if (DEBUG) {
     sess,
     meta,
     board,
+    fx,
     freeze: false,
     get game() { return sess.game; },
     get phase() { return sess.phase; },
@@ -895,6 +899,7 @@ function frame(ts) {
   last = ts;
   boxCache = null;
   goalCache = null;
+  if (sess.game) fx.setClip(boardBox());
   const t0 = performance.now();
   const valBefore = valMs;
   if (view.intro > 0) {

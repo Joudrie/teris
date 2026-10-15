@@ -13,11 +13,11 @@ export const TOYBOX = {
   name: 'Toybox',
   mode: 'pixel',
   texels: 8, // pixel-art texels across one cell face
-  radius: 0.1, // corner radius, share of a cell
-  gloss: 0.26,
+  radius: 0.12, // corner radius, share of a cell
+  gloss: 0.34,
   bevel: 1, // texels of highlight / shadow band
   shadow: 0.42, // drop shadow strength behind blocks
-  wall: { top: hex('#24305e'), bottom: hex('#141a38'), grid: 'rgba(140,170,255,0.07)', rim: 'rgba(120,160,255,0.35)' },
+  wall: { top: hex('#2c3c7c'), bottom: hex('#18204a'), grid: 'rgba(150,180,255,0.08)', rim: 'rgba(120,160,255,0.35)' },
   mats: pal({
     fire: { base: '#ff7b1c', light: '#ffd65a', dark: '#c2360c', edge: '#6e1a05', glow: '#ff9a2e' },
     water: { base: '#2f8cff', light: '#bfe8ff', dark: '#1550c8', edge: '#0b2f80' },

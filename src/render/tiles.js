@@ -14,11 +14,13 @@ function grid(n, c) {
   return Array.from({ length: n }, () => Array.from({ length: n }, () => [...c, 255]));
 }
 
-const jitter = (c, r, amt) => mix(c, r() < 0.5 ? [0, 0, 0] : [255, 255, 255], r() * amt);
+const jitter = (c, r, amt) => mix(c, r() < 0.5 ? [0, 0, 0] : [255, 255, 255], r() * amt * 0.6);
 
 // Hand-drawn layouts for cobbles and bricks: letters are separate stones, dots are mortar.
 const STONE_A = ['aaa.bbbb', 'aaa.bbbb', 'aaa.bbbb', '....bbbb', 'cccc....', 'cccc.ddd', 'cccc.ddd', 'cccc.ddd'];
 const STONE_B = ['aaaa.bbb', 'aaaa.bbb', 'aaaa.bbb', 'aaaa....', '....cccc', 'dd.ccccc', 'dd.ccccc', 'dd.ccccc'];
+const MAGMA_A = ['ddoocodd', 'doocccod', 'oocodoco', 'occoddoc', 'ocoddocc', 'oocdocod', 'dooccood', 'ddoocodd'];
+const MAGMA_B = ['dooodcod', 'oocccood', 'occodooc', 'ocoddocc', 'ooccooco', 'doocoocd', 'docccodd', 'dooocood'];
 const BRICK_A = ['aaaaa.bb', 'aaaaa.bb', 'aaaaa.bb', '........', 'cc.ddddd', 'cc.ddddd', 'cc.ddddd', '........'];
 const BRICK_B = ['aa.bbbbb', 'aa.bbbbb', 'aa.bbbbb', '........', 'ccccc.dd', 'ccccc.dd', 'ccccc.dd', '........'];
 
@@ -54,7 +56,7 @@ const FACES = {
       for (let x = 0; x < n; x++) {
         let c = mix(p.base, tone > 0 ? p.light : p.dark, Math.abs(tone) * 2);
         // grain: short horizontal streaks
-        if (r() < 0.22) c = mix(c, p.dark, 0.35);
+        if (r() < 0.16) c = mix(c, p.dark, 0.25);
         if (y % half === half - 1) c = mix(p.dark, p.edge, 0.25); // plank seam
         if (x === seams[plank] && y % half !== half - 1) c = mix(c, p.dark, 0.6); // plank end
         g[y][x] = [...c, 255];
@@ -121,13 +123,17 @@ const FACES = {
     return g;
   },
   fire(p, r, n, frame = 0) {
+    // A magma block: dark crust, molten body and bright cracks that pulse with the frame.
+    const rows = r() < 0.5 ? MAGMA_A : MAGMA_B;
     const g = grid(n, p.base);
-    const rr = rng(1234 + frame * 97);
     for (let y = 0; y < n; y++) {
       for (let x = 0; x < n; x++) {
-        const v = (Math.sin((x * 1.7 + y * 2.3) + frame * 1.6) + Math.sin(x * 0.9 - y * 1.3 - frame * 1.1)) * 0.25 + 0.5;
-        let c = mix(p.dark, p.light, v * 0.9 + rr() * 0.15);
-        if (v > 0.78) c = lighten(p.light, 0.35); // white-hot seams
+        const k = rows[y][x];
+        const pulse = 0.5 + 0.5 * Math.sin(frame * 1.57 + (x + y) * 0.9);
+        let c;
+        if (k === 'c') c = mix(p.light, [255, 255, 235], 0.25 + 0.45 * pulse);
+        else if (k === 'd') c = mix(p.dark, p.edge, 0.25);
+        else c = mix(p.base, p.light, 0.12 + 0.18 * pulse * (r() < 0.5 ? 1 : 0.4));
         g[y][x] = [...c, 255];
       }
     }
@@ -215,6 +221,13 @@ function paintPixel(ctx, T, skin, m, p, variant, frame) {
     ctx.fillRect(o, T - o - b, span, b);
     ctx.fillStyle = css(darken(p.dark, 0.1), 0.3);
     ctx.fillRect(T - o - b, o, b, span - b);
+    // Volume: light from above across the whole face, so the cube reads round, not flat.
+    const vol = ctx.createLinearGradient(0, o, 0, T - o);
+    vol.addColorStop(0, 'rgba(255,255,255,0.2)');
+    vol.addColorStop(0.5, 'rgba(255,255,255,0)');
+    vol.addColorStop(1, 'rgba(0,0,0,0.2)');
+    ctx.fillStyle = vol;
+    ctx.fillRect(o, o, span, span);
     // Candy gloss in the top-left.
     const gl = ctx.createRadialGradient(T * 0.3, T * 0.22, 0, T * 0.3, T * 0.22, T * 0.62);
     gl.addColorStop(0, `rgba(255,255,255,${skin.gloss})`);
@@ -409,6 +422,23 @@ export function bakeWall(skin, W, H, cols, rows) {
   g.addColorStop(0, css(skin.wall.top));
   g.addColorStop(1, css(skin.wall.bottom));
   ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+  // Faint masonry: you are inside the tower. Two staggered bricks per cell, barely there.
+  const cw = W / cols;
+  const ch = H / rows;
+  ctx.fillStyle = 'rgba(255,255,255,0.028)';
+  for (let y = 0; y < rows * 2; y++) {
+    const off = (y % 2) * cw * 0.5;
+    for (let x = -1; x < cols; x++) {
+      if ((x * 7 + y * 3) % 5 === 0) continue;
+      ctx.fillRect(Math.round(off + x * cw + 2), Math.round(y * ch * 0.5 + 2), Math.round(cw - 4), Math.round(ch * 0.5 - 4));
+    }
+  }
+  // Light falling in from the top of the shaft.
+  const pool = ctx.createRadialGradient(W / 2, -H * 0.1, 0, W / 2, -H * 0.1, H * 0.75);
+  pool.addColorStop(0, 'rgba(170,200,255,0.16)');
+  pool.addColorStop(1, 'rgba(170,200,255,0)');
+  ctx.fillStyle = pool;
   ctx.fillRect(0, 0, W, H);
   ctx.strokeStyle = skin.wall.grid;
   ctx.lineWidth = Math.max(1, W / 400);
