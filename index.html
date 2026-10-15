@@ -10,7 +10,45 @@
   <link rel="apple-touch-icon" href="assets/icon-192.png">
   <link rel="preload" href="assets/fonts/LilitaOne.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="assets/fonts/Nunito.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="style.css">
+  <!-- stamp:start (written by tools/stamp.mjs, do not edit by hand) -->
+  <script>(function () {
+    var B = 'f72bce867c';
+    window.BUILD = B;
+    if (!window.fetch) return;
+    fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (v) {
+      if (!v || !v.build || v.build === B) return;
+      var u = new URL(location.href);
+      if (u.searchParams.get('v') === v.build) return; // asked for that build once already
+      u.searchParams.set('v', v.build);
+      location.replace(u.toString());
+    }).catch(function () {});
+  })();</script>
+  <script type="importmap">{
+    "imports": {
+      "./src/ads.js": "./src/ads.js?v=da689e2335",
+      "./src/budgets.js": "./src/budgets.js?v=459751d3a7",
+      "./src/core.js": "./src/core.js?v=f6ac796183",
+      "./src/levels.js": "./src/levels.js?v=519ea7cbed",
+      "./src/main.js": "./src/main.js?v=b970d3e70f",
+      "./src/meta.js": "./src/meta.js?v=bae22e5742",
+      "./src/render/board.js": "./src/render/board.js?v=34bbf241cc",
+      "./src/render/color.js": "./src/render/color.js?v=bea27bd861",
+      "./src/render/fx.js": "./src/render/fx.js?v=f3b19b0867",
+      "./src/render/skins.js": "./src/render/skins.js?v=9c87e992fc",
+      "./src/render/tiles.js": "./src/render/tiles.js?v=0cd35d53a1",
+      "./src/render/world.js": "./src/render/world.js?v=258b4edeb0",
+      "./src/scenery.js": "./src/scenery.js?v=d1411242fa",
+      "./src/scenes.js": "./src/scenes.js?v=ea1e97026d",
+      "./src/session.js": "./src/session.js?v=788370cb8b",
+      "./src/showcase.js": "./src/showcase.js?v=e182e36139",
+      "./src/sound.js": "./src/sound.js?v=eeebebc4d9",
+      "./src/ui/icons.js": "./src/ui/icons.js?v=c04144a605",
+      "./src/ui/screens.js": "./src/ui/screens.js?v=90c7599644",
+      "./src/validate.js": "./src/validate.js?v=e55b524ae2"
+    }
+  }</script>
+  <!-- stamp:end -->
+  <link rel="stylesheet" href="style.css?v=1900273809">
 </head>
 <body>
   <canvas id="world" aria-hidden="true"></canvas>
@@ -111,6 +149,6 @@
   <div class="intro" id="intro" hidden></div>
   <div class="toast" id="toast" aria-live="polite"></div>
 
-  <script type="module" src="src/main.js"></script>
+  <script type="module" src="src/main.js?v=b970d3e70f"></script>
 </body>
 </html>

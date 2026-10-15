@@ -6,6 +6,7 @@
   "description": "Falling-block puzzle where every piece is a material with its own physics.",
   "scripts": {
     "test": "node --test test/*.test.js",
-    "start": "python3 -m http.server 8000"
+    "start": "python3 -m http.server 8000",
+    "stamp": "node tools/stamp.mjs"
   }
 }
