@@ -40,3 +40,15 @@ Interface sounds match the materials (`src/sound.js`): `tap` is a stone block cl
 - **Everything is named.** The next tray names the next piece's material; a "Now" tag on top of it names the falling piece (for example "Ice + Glass").
 - **The descent.** The backdrop changes with every floor: stars at the top of the tower, the sun over a sea of clouds, inside the clouds, skyscraper rooftops, the skyline, trees up close, then the ground (`quarry` in `world.js`). The tower map paints the same journey down its whole height (`paintTower`).
 - **A living sky.** Clouds drift, stars twinkle, the sun breathes and a bird flaps past every 20–40 seconds (`src/render/sky.js`). It's off at the lowest quality step and while menus are open.
+
+## Sand mode
+
+A second way to play, from the **Sand** button on the map (src/modes/sandcore.js for the rules, src/modes/sand.js for the screen).
+
+- Each piece is one color of terracotta-style clay sand: blue, green, yellow and red to start, with orange joining at level 4 and purple at level 7.
+- A piece falls as a solid block. When it lands it breaks into grains (6×6 per cell) that pour and slide.
+- Any connected patch of one color that reaches from the left wall to the right wall flashes and clears. Clears made within 2.5 seconds of each other chain for bonus points.
+- Every 1,200 points is a new level, and pieces fall faster. The game ends when the sand reaches the top. Your best score is saved on this device.
+- Controls are the same as the campaign: swipe to move, tap to rotate, flick down to drop, hold a drag down to pour faster. On a keyboard use the arrows, space and Escape.
+- The room is fired clay with a brick-framed well. The side walls are striped in the sand colors to show where a color has to reach.
+- `node tools/browser/sand.mjs [outDir]` plays it in a phone browser (12 checks), and test/sand.test.js covers the rules.

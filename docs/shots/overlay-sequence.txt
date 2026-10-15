@@ -7,6 +7,7 @@ click:ovB
 scene:interstitial
 scene:revive
 click:ovC
+click:ovB
 scene:meterad
 scene:help
 scene:interstitial

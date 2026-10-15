@@ -18,6 +18,7 @@ import { SKINS } from './render/skins.js';
 import { previewTile } from './render/tiles.js';
 import { paintWorld } from './render/world.js';
 import { createSky } from './render/sky.js';
+import { createSandMode } from './modes/sand.js';
 import { createFx } from './render/fx.js';
 import { css } from './render/color.js';
 import { icon, POWER_ICON, QUEST_ICON } from './ui/icons.js';
@@ -785,6 +786,15 @@ $('settingsBtn').onclick = () => { unlock(); play('tap'); openSettings(app); };
 $('rewardsBtn').onclick = () => { unlock(); play('tap'); openRewards(app); };
 $('shopBtn').onclick = () => { unlock(); play('tap'); openShop(app); };
 $('codexBtn').onclick = () => { unlock(); play('tap'); openCodex(app); };
+// Sand mode is its own little game laid over the map; the campaign holds still underneath.
+const sandMode = createSandMode({
+  play,
+  buzz: (p) => call('buzz', p),
+  onOpen: () => { view.paused = true; call('setMusicMood', 'play'); },
+  onExit: () => { view.paused = false; call('setMusicMood', 'map'); },
+});
+$('sandIc').innerHTML = icon('hourglass');
+$('sandBtn').onclick = () => { unlock(); play('tap'); sandMode.show(); };
 $('meterAd').onclick = () => { unlock(); play('tap'); watchMeterAd(sess); };
 $('callout').onclick = () => dismissCallout(sess);
 $('powerBtn').onclick = () => { unlock(); if (viewLive()) act('power'); };
@@ -920,6 +930,7 @@ const KEYS = {
 };
 window.addEventListener('keydown', (e) => {
   unlock();
+  if (sandMode.open) return; // sand mode reads its own keys
   if (e.key === 'Escape') {
     if (!$('sheet').hidden) closeSheet(app);
     else if (sess.home) app.playFromMap();
@@ -963,6 +974,7 @@ if (DEBUG) {
     meta,
     board,
     fx,
+    sand: sandMode,
     freeze: false,
     get game() { return sess.game; },
     get phase() { return sess.phase; },

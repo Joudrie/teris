@@ -550,6 +550,13 @@ const SOUNDS = {
     const o = out({ wet: 0.1 });
     for (let i = 0; i < 5; i++) noise(o, t + 0.02 + Math.random() * 0.1, rand(0.004, 0.01), { f: rand(700, 1800), q: 1.2, a: 0.0005, vol: vv(rand(0.03, 0.06)) });
   },
+  // A piece breaking into sand: a soft thud under a hiss that pours down and fades.
+  sand(t) {
+    const o = out({ wet: 0.1, pan: rand(-0.2, 0.2) });
+    noise(o, t, 0.06, { type: 'lowpass', f: 420, a: 0.002, vol: vv(0.16) });
+    noise(o, t + 0.01, 0.45, { f: vp(3200), to: 900, q: 0.7, a: 0.03, vol: vv(0.07) });
+    for (let i = 0; i < 6; i++) noise(o, t + 0.04 + Math.random() * 0.3, rand(0.003, 0.008), { f: rand(2500, 5000), q: 1.5, a: 0.0005, vol: vv(rand(0.015, 0.03)) });
+  },
   // Stone breaking up: a crack, then chunks rattling down and settling.
   crumble(t) {
     const o = out({ wet: 0.14 });
@@ -640,7 +647,7 @@ const SOUNDS = {
 const GAP = {
   move: 30, rotate: 30, tap: 35, pop: 40, drain: 45, coin: 45, land: 50, burn: 55, steam: 60,
   slam: 70, shatter: 70, star: 90, combo: 110, quest: 200, power: 250, heartbeat: 300,
-  ready: 300, unlock: 300, lose: 700, win: 900, slab: 200, crumble: 150, ember: 200, crate: 200,
+  ready: 300, unlock: 300, lose: 700, win: 900, slab: 200, crumble: 150, ember: 200, crate: 200, sand: 80,
 };
 
 export function play(name, e) {

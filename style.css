@@ -565,3 +565,46 @@ body.calm *, body.calm *::before, body.calm *::after { animation-duration: 1ms !
 .power.ready .tag { background: #b93c0a; }
 .sidebtn em { background: #3f8a1c; color: #fff; }
 .sidebtn em { background: #2f6e12; }
+
+/* =====================================================================================
+   Sand mode: a fired-clay room laid over the map. Same slabs and buttons as the campaign,
+   warmer: terracotta walls, a dark kiln well, and color-tagged side walls to bridge.
+   ===================================================================================== */
+.sandmode { position: fixed; inset: 0; z-index: 15; display: flex; flex-direction: column; align-items: center; padding: max(10px, env(safe-area-inset-top)) 14px max(12px, env(safe-area-inset-bottom)); background: repeating-linear-gradient(0deg, rgba(0, 0, 0, .1) 0 2px, transparent 2px 22px), repeating-linear-gradient(90deg, rgba(0, 0, 0, .06) 0 2px, transparent 2px 44px), linear-gradient(#9a5a3c, #6e3a25 70%, #4e2818); touch-action: none; user-select: none; -webkit-user-select: none; animation: fadein var(--t-med) ease-out; }
+.sandmode[hidden] { display: none; }
+.sd-top, .sd-bottom { width: min(100%, 520px); display: flex; align-items: center; gap: 10px; }
+.sd-top .panel, .sd-bottom .panel { height: 58px; display: flex; flex-direction: column; justify-content: center; padding: 0 12px; color: var(--cream); }
+.sandmode small { font-family: var(--lab); font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: #e9e2cf; }
+.sd-score { flex: 1; }
+.sd-score b, .sd-level b { font-family: var(--px); font-weight: 400; font-size: 34px; line-height: .8; }
+.sd-level { width: 104px; position: relative; }
+.sd-bar { position: absolute; left: 6px; right: 6px; bottom: 5px; height: 4px; background: #10131b; }
+.sd-bar i { display: block; height: 100%; width: 0; background: #d79a2c; transition: width var(--t-slow) var(--out-expo); }
+.sd-wellwrap { flex: 1; display: grid; place-items: center; width: 100%; min-height: 0; }
+.sd-well { position: relative; border: 8px solid transparent; background: linear-gradient(#211812, #211812) padding-box, var(--frame-brick) border-box; box-shadow: inset 2px 2px 0 rgba(255, 255, 255, .08), 0 10px 26px rgba(30, 10, 0, .45); line-height: 0; }
+.sd-well canvas { display: block; image-rendering: pixelated; }
+/* The two walls glow: that's where a color has to reach. */
+.sd-wall { position: absolute; top: -8px; bottom: -8px; width: 8px; background: repeating-linear-gradient(#4e6d9c 0 12px, #6f8a34 12px 24px, #d79a2c 24px 36px, #b4472f 36px 48px); opacity: .9; }
+.sd-wall.l { left: -8px; } .sd-wall.r { right: -8px; }
+.sd-pops { position: absolute; inset: 0; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; line-height: 1; }
+.sd-pop { font-family: var(--px); font-size: 44px; color: #fff3d6; text-shadow: 0 3px 0 #3b1a08, 0 0 14px rgba(0, 0, 0, .5); animation: sdpop 1300ms var(--out-expo) both; }
+.sd-pop.chain { font-size: 34px; color: #ffd36a; }
+.sd-pop.lvl { font-family: var(--lab); font-size: 18px; padding: 6px 12px 4px; background: #211812; box-shadow: var(--bevel-sm); }
+@keyframes sdpop { 0% { transform: translateY(16px) scale(.6); opacity: 0; } 15% { transform: none; opacity: 1; } 70% { opacity: 1; } 100% { transform: translateY(-40px); opacity: 0; } }
+.sd-now { flex: none; width: 124px; }
+.sd-now b, .sd-next b { font-family: var(--lab); font-weight: 700; font-size: 13px; text-transform: uppercase; color: var(--cream); }
+.sd-nowrow { display: flex; align-items: center; gap: 7px; margin-top: 3px; }
+.sd-sw { flex: none; width: 16px; height: 16px; box-shadow: inset 2px 2px 0 rgba(255, 240, 215, .4), inset -2px -2px 0 rgba(30, 14, 6, .45); }
+.sd-hint { flex: 1; text-align: center; font-family: var(--lab); font-size: 9px; line-height: 1.5; text-transform: uppercase; color: #fff3d6; text-shadow: 0 2px 0 rgba(40, 15, 4, .7); }
+.sd-next { flex: none; width: 124px; align-items: center; height: 72px !important; gap: 2px; }
+.sd-next canvas { width: 64px; height: 34px; image-rendering: pixelated; }
+.sd-over { position: absolute; inset: 0; z-index: 3; display: grid; place-items: center; padding: 22px; background: rgba(30, 12, 4, .55); -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px); animation: fadein var(--t-med) ease-out; }
+.sd-over[hidden] { display: none; }
+.sd-card { width: min(100%, 340px); display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 0 16px 16px; color: var(--cream); }
+.sd-card .ribbon { font-size: 44px; margin-top: -24px; }
+.sd-ovstats { width: 100%; text-align: center; font-size: 16px; }
+.sd-ovstats p { margin: 4px 0; display: flex; justify-content: space-between; align-items: baseline; padding: 6px 10px; background: #1a1b21; }
+.sd-ovstats b { font-family: var(--px); font-weight: 400; font-size: 32px; line-height: .8; }
+.sd-ovstats em { width: 100%; font-style: normal; font-family: var(--lab); color: #ffd36a; text-transform: uppercase; }
+.sd-ovbtns { display: flex; gap: 10px; width: 100%; }
+.sd-ovbtns .btn { flex: 1; height: 60px; font-size: 30px; }

@@ -12,7 +12,7 @@
   <link rel="preload" href="assets/fonts/Nunito.woff2" as="font" type="font/woff2" crossorigin>
   <!-- stamp:start (written by tools/stamp.mjs, do not edit by hand) -->
   <script>(function () {
-    var B = '0a4612d9a3';
+    var B = 'ca4de74387';
     window.BUILD = B;
     if (!window.fetch) return;
     var last = 0;
@@ -36,8 +36,10 @@
       "./src/budgets.js": "./src/budgets.js?v=459751d3a7",
       "./src/core.js": "./src/core.js?v=f6ac796183",
       "./src/levels.js": "./src/levels.js?v=519ea7cbed",
-      "./src/main.js": "./src/main.js?v=81dec1fb3b",
+      "./src/main.js": "./src/main.js?v=9ef63aef94",
       "./src/meta.js": "./src/meta.js?v=bae22e5742",
+      "./src/modes/sand.js": "./src/modes/sand.js?v=2f5f9c779b",
+      "./src/modes/sandcore.js": "./src/modes/sandcore.js?v=eaea1614ad",
       "./src/render/board.js": "./src/render/board.js?v=bd68a2160f",
       "./src/render/color.js": "./src/render/color.js?v=bea27bd861",
       "./src/render/fx.js": "./src/render/fx.js?v=8ae6ff2d16",
@@ -49,14 +51,14 @@
       "./src/scenes.js": "./src/scenes.js?v=ea1e97026d",
       "./src/session.js": "./src/session.js?v=788370cb8b",
       "./src/showcase.js": "./src/showcase.js?v=e182e36139",
-      "./src/sound.js": "./src/sound.js?v=bf04e4b62f",
-      "./src/ui/icons.js": "./src/ui/icons.js?v=c04144a605",
+      "./src/sound.js": "./src/sound.js?v=5c2f0d276f",
+      "./src/ui/icons.js": "./src/ui/icons.js?v=25de84e512",
       "./src/ui/screens.js": "./src/ui/screens.js?v=6318a51c46",
       "./src/validate.js": "./src/validate.js?v=e55b524ae2"
     }
   }</script>
   <!-- stamp:end -->
-  <link rel="stylesheet" href="style.css?v=e0723ed5cd">
+  <link rel="stylesheet" href="style.css?v=60c1467a0f">
 </head>
 <body>
   <canvas id="world" aria-hidden="true"></canvas>
@@ -113,6 +115,7 @@
       <button class="sidebtn" id="dailyBtn"><span class="sb-ic" id="dailyIc"></span><small class="t">Daily</small><em id="dailyInfo"></em></button>
       <button class="sidebtn" id="rewardsBtn"><span class="sb-ic" id="rewardsIc"></span><small class="t">Gifts</small><span class="badge" id="rewardsBadge" hidden>1</span></button>
       <button class="sidebtn" id="shopBtn"><span class="sb-ic" id="shopIc"></span><small class="t">Shop</small></button>
+      <button class="sidebtn" id="sandBtn"><span class="sb-ic" id="sandIc"></span><small class="t">Sand</small><em>New</em></button>
       <button class="sidebtn" id="codexBtn"><span class="sb-ic" id="codexIc"></span><small class="t">Blocks</small></button>
     </div>
     <div class="map-dock">
@@ -158,6 +161,6 @@
   <div class="intro" id="intro" hidden></div>
   <div class="toast" id="toast" aria-live="polite"></div>
 
-  <script type="module" src="src/main.js?v=81dec1fb3b"></script>
+  <script type="module" src="src/main.js?v=9ef63aef94"></script>
 </body>
 </html>
