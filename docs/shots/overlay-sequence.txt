@@ -1,0 +1,16 @@
+click:muteBtn
+scene:help
+scene:lose
+click:ovB
+scene:interstitial
+click:muteBtn
+click:homeBtn
+click:playBtn
+scene:revive
+click:muteBtn
+click:ovB
+scene:meterad
+scene:help
+scene:interstitial
+click:ovC
+scene:revive

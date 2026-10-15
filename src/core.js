@@ -89,7 +89,8 @@ export function createGame({ level = 1, rand = Math.random, config = levelConfig
     settling: null, // seconds left to let reactions finish once the budget is spent
     loseReason: null, // 'top' (board filled) or 'pieces' (budget spent short of the goal)
     panes: new Map(), // fire block id -> id of the glass pane that fire is melting
-    mask: new Set(), // particles covered by the falling piece
+    mask: new Uint8Array(GW * GH), // 1 where the falling piece covers a particle
+    moved: new Uint8Array(GW * GH), // loose particles already moved this tick
     events: [], // drained by the renderer for effects
   };
   for (const b of config.start || []) placeBlock(g, b);
@@ -193,8 +194,22 @@ function lose(g, reason) {
 
 const inb = (x, y) => x >= 0 && x < GW && y >= 0 && y < GH;
 const at = (g, x, y) => (inb(x, y) ? g.grid[y][x] : undefined);
-const free = (g, x, y) => inb(x, y) && g.grid[y][x] === null && !g.mask.has(y * GW + x);
-const nextTo = (g, x, y, m) => N4.some(([u, v]) => at(g, x + u, y + v)?.m === m);
+const free = (g, x, y) => inb(x, y) && g.grid[y][x] === null && !g.mask[y * GW + x];
+
+// Which of the four neighbours (index into N4) first has material m, or -1. A plain loop:
+// this runs for most particles every tick.
+function nb(g, x, y, m) {
+  for (let k = 0; k < 4; k++) {
+    const nx = x + N4[k][0];
+    const ny = y + N4[k][1];
+    if (nx >= 0 && nx < GW && ny >= 0 && ny < GH) {
+      const c = g.grid[ny][nx];
+      if (c !== null && c.m === m) return k;
+    }
+  }
+  return -1;
+}
+const nextTo = (g, x, y, m) => nb(g, x, y, m) >= 0;
 
 export function collide(g, cells, x, y) {
   for (const [a, b] of cells) {
@@ -387,7 +402,7 @@ export function tick(g, dt) {
     g.combo = 0;
     g.mult = 1;
   }
-  g.mask = pieceMask(g);
+  pieceMask(g);
   if (g.cfg.mode === 'flood') flood(g, dt);
   react(g, dt);
   rigid(g);
@@ -400,16 +415,16 @@ export function tick(g, dt) {
 }
 
 function pieceMask(g) {
-  const mask = new Set();
+  const mask = g.mask;
+  mask.fill(0);
   const p = g.piece;
-  if (!p) return mask;
+  if (!p) return;
   for (const [a, b] of p.cells) {
     for (let fy = p.y + b * S; fy < p.y + b * S + S; fy++) {
-      if (fy < 0) continue;
-      for (let fx = (p.x + a) * S; fx < (p.x + a) * S + S; fx++) mask.add(fy * GW + fx);
+      if (fy < 0 || fy >= GH) continue;
+      for (let fx = (p.x + a) * S; fx < (p.x + a) * S + S; fx++) if (fx >= 0 && fx < GW) mask[fy * GW + fx] = 1;
     }
   }
-  return mask;
 }
 
 // Flood mode: water keeps rising in from the bottom.
@@ -472,18 +487,20 @@ function joinGlass(g, x, y, id) {
 const SAME_BURN = { wood: 'wood', wetwood: 'wood', ice: 'ice' };
 function burningNeighbor(g, x, y, c) {
   const fam = SAME_BURN[c.m];
-  return N4.some(([u, v]) => {
-    const n = at(g, x + u, y + v);
-    return n && n.id === c.id && SAME_BURN[n.m] === fam && n.heat >= BURN[n.m] * 0.5;
-  });
+  for (let k = 0; k < 4; k++) {
+    const n = at(g, x + N4[k][0], y + N4[k][1]);
+    if (n && n.id === c.id && SAME_BURN[n.m] === fam && n.heat >= BURN[n.m] * 0.5) return true;
+  }
+  return false;
 }
 
 // A brick or stone particle next to one of its own piece that is well on the way to sand.
 function crumbling(g, x, y, c, limit) {
-  return N4.some(([u, v]) => {
-    const n = at(g, x + u, y + v);
-    return n && n.id === c.id && n.m === c.m && n.heat >= limit * 0.2;
-  });
+  for (let k = 0; k < 4; k++) {
+    const n = at(g, x + N4[k][0], y + N4[k][1]);
+    if (n && n.id === c.id && n.m === c.m && n.heat >= limit * 0.2) return true;
+  }
+  return false;
 }
 
 function mud(g, wet) {
@@ -498,8 +515,9 @@ function react(g, dt) {
       if (!c) continue;
 
       if (c.m === 'fire') {
-        const w = N4.find(([u, v]) => at(g, x + u, y + v)?.m === 'water');
-        if (w) {
+        const k = nb(g, x, y, 'water');
+        if (k >= 0) {
+          const w = N4[k];
           // Fire and water cancel out: both drain away.
           g.grid[y + w[1]][x + w[0]] = null;
           g.grid[y][x] = null;
@@ -528,8 +546,11 @@ function react(g, dt) {
       if (c.m === 'mud') {
         // Fresh mud soaks into the sand it touches, so a splash turns a chunk to mud.
         if (c.wet > 0) {
-          for (const [u, v] of N4) {
-            if (at(g, x + u, y + v)?.m === 'sand') g.grid[y + v][x + u] = mud(g, c.wet - 1);
+          for (let k = 0; k < 4; k++) {
+            const u = N4[k][0];
+            const v = N4[k][1];
+            const n = at(g, x + u, y + v);
+            if (n && n.m === 'sand') g.grid[y + v][x + u] = mud(g, c.wet - 1);
           }
           c.wet = 0;
         }
@@ -544,8 +565,9 @@ function react(g, dt) {
 
       // Water washes mud away: both drain.
       if (c.m === 'mud') {
-        const w = N4.find(([u, v]) => at(g, x + u, y + v)?.m === 'water');
-        if (w) {
+        const k = nb(g, x, y, 'water');
+        if (k >= 0) {
+          const w = N4[k];
           c.frz += dt;
           if (c.frz >= WASH_TIME) {
             g.grid[y + w[1]][x + w[0]] = null;
@@ -627,32 +649,47 @@ function react(g, dt) {
 }
 
 // Connected particles of the same piece and a solid material form one rigid block.
+// Flat typed arrays instead of [x, y] pairs: this runs every tick over the whole board.
+const SEEN = new Int32Array(GW * GH); // stamp of the pass that reached each particle
+const OWN = new Int32Array(GW * GH); // stamp of the block that owns each particle
+const CELLS = new Int32Array(GW * GH); // every block's particle indices, back to back
+const STACK = new Int32Array(GW * GH);
+const LIFT = new Array(GW * GH).fill(null);
+let stamp = 0;
+
 function rigidBlocks(g) {
-  const seen = new Uint8Array(GW * GH);
+  const pass = ++stamp;
   const blocks = [];
+  let used = 0;
   for (let y = GH - 1; y >= 0; y--) {
     for (let x = 0; x < GW; x++) {
+      const i0 = y * GW + x;
       const c = g.grid[y][x];
-      if (!c || seen[y * GW + x] || !RIGID.has(c.m)) continue;
-      const cells = [];
-      const stack = [[x, y]];
-      seen[y * GW + x] = 1;
+      if (c === null || SEEN[i0] === pass || !RIGID.has(c.m)) continue;
+      const start = used;
+      let sp = 0;
+      STACK[sp++] = i0;
+      SEEN[i0] = pass;
       let bottom = y;
-      while (stack.length) {
-        const [cx, cy] = stack.pop();
-        cells.push([cx, cy]);
+      while (sp > 0) {
+        const i = STACK[--sp];
+        CELLS[used++] = i;
+        const cx = i % GW;
+        const cy = (i - cx) / GW;
         if (cy > bottom) bottom = cy;
-        for (const [u, v] of N4) {
-          const nx = cx + u;
-          const ny = cy + v;
-          const n = at(g, nx, ny);
-          if (n && !seen[ny * GW + nx] && RIGID.has(n.m) && n.id === c.id) {
-            seen[ny * GW + nx] = 1;
-            stack.push([nx, ny]);
+        for (let k = 0; k < 4; k++) {
+          const nx = cx + N4[k][0];
+          const ny = cy + N4[k][1];
+          if (nx < 0 || nx >= GW || ny < 0 || ny >= GH) continue;
+          const ni = ny * GW + nx;
+          const n = g.grid[ny][nx];
+          if (n !== null && SEEN[ni] !== pass && RIGID.has(n.m) && n.id === c.id) {
+            SEEN[ni] = pass;
+            STACK[sp++] = ni;
           }
         }
       }
-      blocks.push({ id: c.id, cells, bottom });
+      blocks.push({ id: c.id, start, len: used - start, bottom });
     }
   }
   blocks.sort((a, b) => b.bottom - a.bottom); // lowest first so stacks settle in one pass
@@ -660,58 +697,73 @@ function rigidBlocks(g) {
 }
 
 function rigid(g) {
+  const grid = g.grid;
   for (const block of rigidBlocks(g)) {
     const { id } = block;
     // A block processed earlier this tick may have smashed part of this one; skip what's gone.
-    const cells = block.cells.filter(([x, y]) => g.grid[y][x]?.id === id && RIGID.has(g.grid[y][x].m));
-    if (!cells.length) continue;
-    const own = new Set(cells.map(([x, y]) => y * GW + x));
-    const mine = (x, y) => own.has(y * GW + x);
+    const own = ++stamp;
+    let n = 0;
+    for (let k = block.start; k < block.start + block.len; k++) {
+      const i = CELLS[k];
+      const c = grid[(i / GW) | 0][i % GW];
+      if (c !== null && c.id === id && RIGID.has(c.m)) {
+        CELLS[block.start + n++] = i;
+        OWN[i] = own;
+      }
+    }
+    if (!n) continue;
+    const s0 = block.start;
+    const s1 = s0 + n;
 
-    if (cells.every(([x, y]) => mine(x, y + 1) || free(g, x, y + 1))) {
-      shift(g, cells, 1, mine);
-      // Each particle remembers how far it has fallen, so a piece that split in two
-      // tracks each half on its own, and nothing is left behind when a block is destroyed.
-      for (const [x, y] of cells) {
-        const c = g.grid[y + 1][x];
+    let falls = true;
+    for (let k = s0; k < s1 && falls; k++) {
+      const below = CELLS[k] + GW;
+      if (below >= GW * GH) falls = false;
+      else if (OWN[below] !== own && (grid[(below / GW) | 0][below % GW] !== null || g.mask[below])) falls = false;
+    }
+    if (falls) {
+      // Lift the whole block, then set it down one row lower. Each particle remembers how
+      // far it has fallen, so a piece that split in two tracks each half on its own, and
+      // nothing is left behind when a block is destroyed.
+      for (let k = s0; k < s1; k++) {
+        const i = CELLS[k];
+        const y = (i / GW) | 0;
+        LIFT[k] = grid[y][i % GW];
+        grid[y][i % GW] = null;
+      }
+      for (let k = s0; k < s1; k++) {
+        const i = CELLS[k];
+        const c = LIFT[k];
+        LIFT[k] = null;
         c.fall = (c.fall || 0) + 1;
+        grid[((i / GW) | 0) + 1][i % GW] = c;
       }
       continue;
     }
 
     // Just landed: a long fall smashes glass, and stone always does.
     let dropped = 0;
-    for (const [x, y] of cells) dropped = Math.max(dropped, g.grid[y][x].fall || 0);
+    let stone = false;
+    for (let k = s0; k < s1; k++) {
+      const i = CELLS[k];
+      const c = grid[(i / GW) | 0][i % GW];
+      if ((c.fall || 0) > dropped) dropped = c.fall;
+      if (c.m === 'stone') stone = true;
+    }
     if (dropped > 0) {
-      for (const [x, y] of cells) g.grid[y][x].fall = 0;
-      const stone = cells.some(([x, y]) => g.grid[y][x].m === 'stone');
+      for (let k = s0; k < s1; k++) {
+        const i = CELLS[k];
+        grid[(i / GW) | 0][i % GW].fall = 0;
+      }
       if (dropped >= SLAM_DROP || stone) {
-        for (const [x, y] of cells) {
+        for (let k = s0; k < s1; k++) {
+          const i = CELLS[k];
+          const x = i % GW;
+          const y = (i - x) / GW;
           const b = at(g, x, y + 1);
-          if (b && b.m === 'glass' && !mine(x, y + 1)) shatter(g, x, y + 1);
+          if (b && b.m === 'glass' && OWN[i + GW] !== own) shatter(g, x, y + 1);
         }
       }
-    }
-  }
-}
-
-// Moves a block one row. Whatever it displaces (water, when floating) drops into
-// the cells it leaves behind, column by column.
-function shift(g, cells, dy, mine) {
-  const lifted = cells.map(([x, y]) => [x, y, g.grid[y][x]]);
-  const displaced = new Map();
-  for (const [x, y] of cells) {
-    if (!mine(x, y + dy)) {
-      if (!displaced.has(x)) displaced.set(x, []);
-      displaced.get(x).push(g.grid[y + dy][x]);
-    }
-  }
-  for (const [x, y] of cells) g.grid[y][x] = null;
-  for (const [x, y, c] of lifted) g.grid[y + dy][x] = c;
-  for (const [x, y] of cells) {
-    if (!mine(x, y - dy)) {
-      const list = displaced.get(x);
-      if (list && list.length) g.grid[y][x] = list.shift();
     }
   }
 }
@@ -724,7 +776,8 @@ function mv(g, moved, x, y, nx, ny) {
 
 // Water and sand, particle by particle, bottom-up.
 function loose(g) {
-  const moved = new Uint8Array(GW * GH);
+  const moved = g.moved;
+  moved.fill(0);
   const dir = g.rand() < 0.5 ? 1 : -1;
   for (let y = GH - 1; y >= 0; y--) {
     for (let k = 0; k < GW; k++) {
@@ -755,10 +808,11 @@ function sand(g, moved, x, y) {
 
 function water(g, moved, x, y) {
   // Water soaks into wood; soaking wet wood again dissolves it.
-  const n = N4.map(([u, v]) => [x + u, y + v]).find(([nx, ny]) => {
-    const c = at(g, nx, ny);
-    return c && (c.m === 'wood' || c.m === 'wetwood');
-  });
+  let n = null;
+  for (let k = 0; k < 4 && !n; k++) {
+    const c = at(g, x + N4[k][0], y + N4[k][1]);
+    if (c && (c.m === 'wood' || c.m === 'wetwood')) n = [x + N4[k][0], y + N4[k][1]];
+  }
   if (n) {
     const wood = g.grid[n[1]][n[0]];
     g.grid[y][x] = null;
@@ -772,7 +826,8 @@ function water(g, moved, x, y) {
     return;
   }
   // Water touching sand from any side turns it to mud and is used up.
-  const sandAt = N4.map(([u, v]) => [x + u, y + v]).find(([nx, ny]) => at(g, nx, ny)?.m === 'sand');
+  const ks = nb(g, x, y, 'sand');
+  const sandAt = ks >= 0 ? [x + N4[ks][0], y + N4[ks][1]] : null;
   if (sandAt) {
     g.grid[sandAt[1]][sandAt[0]] = mud(g, MUD_WET);
     g.grid[y][x] = null;
@@ -808,7 +863,6 @@ export function activatePower(g) {
   return true;
 }
 
-// One revive per level: clears the top four rows and play continues.
 // One revive per level. Topped out: the top four rows are cleared. Out of pieces: five more.
 export function revive(g) {
   if (g.state !== 'lose' || g.revived) return false;

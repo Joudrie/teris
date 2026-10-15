@@ -75,7 +75,7 @@ const HAND = [
     // so the first reaction happens wherever the piece lands.
     name: 'Put it out', power: 'rain', bag: B({ fire: 2, water: 2 }), goal: 15,
     start: [bed('fire', 1)], first: ['water', 'water'],
-    intro: 'Drop WATER on the FIRE to put it out!', quest: { type: 'douse', n: 4 }, speed: 0.5,
+    intro: 'Drop WATER on the FIRE to put it out!', quest: { type: 'douse', n: 4 }, speed: 0.42,
   },
   { // 2. Same two materials, nothing pre-placed: now the player sets up their own reactions.
     name: 'Fire and water', power: 'rain', bag: B({ fire: 3, water: 3 }), goal: 18,

@@ -1,0 +1,182 @@
+[
+ {
+  "name": "390x844 tap rotates",
+  "ok": true,
+  "info": ""
+ },
+ {
+  "name": "390x844 sloppy 6px tap still rotates, does not move",
+  "ok": true,
+  "info": ""
+ },
+ {
+  "name": "390x844 slow swipe right ~2.4 columns moves 3",
+  "ok": true,
+  "info": "moved 3"
+ },
+ {
+  "name": "390x844 swipe far into the wall stops at the wall",
+  "ok": true,
+  "info": "x=0"
+ },
+ {
+  "name": "390x844 slow drag down soft-drops without slamming",
+  "ok": true,
+  "info": "dy=16"
+ },
+ {
+  "name": "390x844 quick flick down slams",
+  "ok": true,
+  "info": "{\"dt\":133,\"tx\":8,\"ty\":120,\"moved\":true,\"what\":\"slam\"}"
+ },
+ {
+  "name": "390x844 diagonal swipe moves sideways, no slam",
+  "ok": true,
+  "info": ""
+ },
+ {
+  "name": "390x844 flick up fires the power at full meter",
+  "ok": true,
+  "info": "{\"dt\":137,\"tx\":0,\"ty\":-140,\"moved\":false,\"what\":\"power\"}"
+ },
+ {
+  "name": "390x844 flick up at 0% meter does nothing",
+  "ok": true,
+  "info": ""
+ },
+ {
+  "name": "390x844 the page never scrolls during play",
+  "ok": true,
+  "info": "{\"y\":0,\"top\":0,\"bodyH\":844,\"vh\":844}"
+ },
+ {
+  "name": "390x844 board and quest line fit on screen",
+  "ok": true,
+  "info": "{\"bottom\":684,\"right\":352,\"quest\":705,\"vw\":390,\"vh\":844}"
+ },
+ {
+  "name": "390x844 home screen scrolls",
+  "ok": true,
+  "info": "scrollTop 491"
+ },
+ {
+  "name": "390x844 game waits behind the home screen",
+  "ok": true,
+  "info": ""
+ },
+ {
+  "name": "390x844 no console errors",
+  "ok": true,
+  "info": ""
+ },
+ {
+  "name": "375x667 tap rotates",
+  "ok": true,
+  "info": ""
+ },
+ {
+  "name": "375x667 sloppy 6px tap still rotates, does not move",
+  "ok": true,
+  "info": ""
+ },
+ {
+  "name": "375x667 slow swipe right ~2.4 columns moves 3",
+  "ok": true,
+  "info": "moved 3"
+ },
+ {
+  "name": "375x667 swipe far into the wall stops at the wall",
+  "ok": true,
+  "info": "x=0"
+ },
+ {
+  "name": "375x667 slow drag down soft-drops without slamming",
+  "ok": true,
+  "info": "dy=17"
+ },
+ {
+  "name": "375x667 quick flick down slams",
+  "ok": true,
+  "info": "{\"dt\":183,\"tx\":8,\"ty\":120,\"moved\":true,\"what\":\"slam\"}"
+ },
+ {
+  "name": "375x667 diagonal swipe moves sideways, no slam",
+  "ok": true,
+  "info": ""
+ },
+ {
+  "name": "375x667 flick up fires the power at full meter",
+  "ok": true,
+  "info": "{\"dt\":137,\"tx\":0,\"ty\":-140,\"moved\":false,\"what\":\"power\"}"
+ },
+ {
+  "name": "375x667 flick up at 0% meter does nothing",
+  "ok": true,
+  "info": ""
+ },
+ {
+  "name": "375x667 the page never scrolls during play",
+  "ok": true,
+  "info": "{\"y\":0,\"top\":0,\"bodyH\":670,\"vh\":667}"
+ },
+ {
+  "name": "375x667 board and quest line fit on screen",
+  "ok": true,
+  "info": "{\"bottom\":639,\"right\":329.5,\"quest\":660,\"vw\":375,\"vh\":667}"
+ },
+ {
+  "name": "375x667 home screen scrolls",
+  "ok": true,
+  "info": "scrollTop 385"
+ },
+ {
+  "name": "375x667 game waits behind the home screen",
+  "ok": true,
+  "info": ""
+ },
+ {
+  "name": "375x667 no console errors",
+  "ok": true,
+  "info": ""
+ },
+ {
+  "name": "rotate and resize mid-game: board refits, no errors",
+  "ok": true,
+  "info": "{\"bottom\":751,\"right\":392,\"vw\":430,\"vh\":932,\"h\":635}"
+ },
+ {
+  "name": "landscape phone: board still visible (shrinks to fit)",
+  "ok": true,
+  "info": "{\"h\":246,\"bottom\":362,\"vh\":390}"
+ },
+ {
+  "name": "background tab for 4 s and back: no time jump",
+  "ok": true,
+  "info": "moved 0 rows while hidden, 1 on return"
+ },
+ {
+  "name": "overlays opened/closed in random order: input and frames still work",
+  "ok": true,
+  "info": "16 steps; "
+ },
+ {
+  "name": "localStorage blocked: game starts and runs with no errors",
+  "ok": true,
+  "info": ""
+ },
+ {
+  "name": "localStorage cleared mid-game: win still saved",
+  "ok": true,
+  "info": "mb_level=5"
+ },
+ {
+  "name": "performance at 1x CPU throttle: physics tick under 4 ms",
+  "ok": true,
+  "info": "physics 0.65 ms, whole frame 1.61 ms avg / 11.4 worst, 60 fps"
+ },
+ {
+  "name": "performance at 4x CPU throttle: physics tick under 4 ms",
+  "ok": false,
+  "info": "physics 5.69 ms, whole frame 9.27 ms avg / 344.3 worst, 57 fps"
+ }
+]

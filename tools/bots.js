@@ -172,7 +172,8 @@ export function cloneGame(g, seed = 1) {
     bag: [...g.bag],
     queue: [...g.queue],
     panes: new Map(g.panes),
-    mask: new Set(),
+    mask: new Uint8Array(GW * GH),
+    moved: new Uint8Array(GW * GH),
     events: [],
     rand: mulberry32(seed),
   };

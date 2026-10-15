@@ -206,8 +206,10 @@ function popup(x, y, text, color = '#fff', size = 18, kind = '') {
   fx.popups.push({ x, y, text, color, size, life: 1, kind });
 }
 
+const eventLog = []; // ?debug only: what happened and when, for the browser checks
 function handleEvents() {
   for (const e of sess.events) {
+    if (DEBUG && eventLog.length < 5000 && e.type !== 'steam' && e.type !== 'burn') eventLog.push({ t: performance.now(), type: e.type, mult: e.mult, slam: e.slam, power: e.power });
     if (e.type === 'combo') {
       popup(cv.width / 2, cv.height * 0.25, `COMBO ×${e.mult}`, '#ffd34d', 18 + e.mult * 4, 'combo');
       fx.shake = Math.max(fx.shake, 3 + e.mult * 2);
@@ -530,6 +532,7 @@ function act(a) {
 
 // Swipes count anywhere on the screen except on buttons.
 let sw = null;
+const gestures = []; // ?debug only
 window.addEventListener('pointerdown', (e) => {
   unlock();
   if (!live(sess) || e.target.closest('button')) return;
@@ -561,9 +564,12 @@ window.addEventListener('pointerup', (e) => {
   const moved = sw.moved;
   sw = null;
   if (!live(sess)) return;
-  if (dt < 300 && ty < -50 && -ty > Math.abs(tx) * 1.5) act('power');
-  else if (dt < 250 && ty > 50 && ty > Math.abs(tx) * 1.5) act('slam');
-  else if (!moved && Math.hypot(tx, ty) < 12 && dt < 400) act('rotate');
+  let what = 'none';
+  if (dt < 300 && ty < -50 && -ty > Math.abs(tx) * 1.5) what = 'power';
+  else if (dt < 250 && ty > 50 && ty > Math.abs(tx) * 1.5) what = 'slam';
+  else if (!moved && Math.hypot(tx, ty) < 12 && dt < 400) what = 'rotate';
+  if (what !== 'none') act(what);
+  if (DEBUG) gestures.push({ dt: Math.round(dt), tx: Math.round(tx), ty: Math.round(ty), moved, what });
 });
 window.addEventListener('pointercancel', () => { sw = null; });
 
@@ -641,13 +647,18 @@ const checker = createValidator();
 const debugErrors = [];
 let frames = 0;
 let physMs = 0;
+let workMs = 0;
+let worstMs = 0;
 if (DEBUG) {
   window.mb = {
     sess,
     get game() { return sess.game; },
     get phase() { return sess.phase; },
     errors: debugErrors,
-    stats: () => ({ frames, physMs, avgPhysMs: physMs / Math.max(1, frames) }),
+    events: eventLog,
+    gestures,
+    stats: () => ({ frames, avgPhysMs: physMs / Math.max(1, frames), avgFrameWorkMs: workMs / Math.max(1, frames), worstFrameWorkMs: worstMs }),
+    resetStats: () => { frames = 0; physMs = 0; workMs = 0; worstMs = 0; },
   };
   if (params.has('scene')) {
     import('./scenes.js').then(({ SCENES }) => {
@@ -682,6 +693,11 @@ function frame(ts) {
   hud();
   overlays();
   calloutView();
+  if (DEBUG) {
+    const w = performance.now() - t0;
+    workMs += w;
+    worstMs = Math.max(worstMs, w);
+  }
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
