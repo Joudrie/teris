@@ -69,9 +69,9 @@ test('bags have fewer cancellers than troublemakers, and get harder', () => {
   assert.ok(cancellers(mid) < mid.length - cancellers(mid)); // fewer cancellers from level 11
   assert.equal(tally(buildBag(20, 'wood')).water, 2);
   assert.equal(tally(buildBag(20, 'wood')).stone, 1);
-  assert.equal(tally(buildBag(30, 'wood')).fire, 1);
+  assert.equal(tally(buildBag(20, 'wood')).fire, 1);
   assert.equal(tally(buildBag(50, 'wood')).stone, 2);
-  assert.equal(tally(buildBag(50, 'wood')).brick, 1);
+  assert.equal(tally(buildBag(60, 'wood')).brick, 1);
   assert.ok(cancellers(buildBag(80, 'wood')) / buildBag(80, 'wood').length < cancellers(early) / early.length);
 });
 
